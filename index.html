@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#102f40" />
+    <meta
+      name="description"
+      content="A deterministic physics lab for a focused sailing simulator."
+    />
+    <title>Sailing Simulator — Physics Lab</title>
+  </head>
+  <body>
+    <main class="lab-shell">
+      <canvas id="lake" aria-label="Top-down sailing physics lab"></canvas>
+
+      <header class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <strong>Sailing Simulator</strong>
+          <span>Physics lab · Phase 0</span>
+        </div>
+      </header>
+
+      <section class="hud" aria-label="Sailing instruments">
+        <div class="instrument wind-instrument">
+          <span class="label">Apparent wind</span>
+          <strong id="point-of-sail">Beam reach</strong>
+          <span id="wind-readout">10.0 kn · 90°</span>
+        </div>
+
+        <div class="instrument speed-instrument">
+          <span class="label">Boat speed</span>
+          <strong><span id="speed">0.0</span> <small>kn</small></strong>
+          <span id="heel">Heel 0°</span>
+        </div>
+
+        <div class="instrument trim-instrument">
+          <div>
+            <span class="label">Sail trim</span>
+            <strong id="flow-state">Attached</strong>
+          </div>
+          <div class="trim-track" aria-hidden="true">
+            <span id="trim-target" class="trim-target"></span>
+            <span id="trim-marker" class="trim-marker"></span>
+          </div>
+          <span id="coach">Hold this trim</span>
+        </div>
+      </section>
+
+      <footer class="controls">
+        <span><kbd>A</kbd><kbd>D</kbd> Helm</span>
+        <span><kbd>W</kbd> Ease</span>
+        <span><kbd>S</kbd> Sheet in</span>
+        <span><kbd>R</kbd> Reset</span>
+      </footer>
+
+      <p id="status" class="sr-only" aria-live="polite"></p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
