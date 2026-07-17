@@ -45,6 +45,13 @@ test("cinematic title scene uses the supplied identity and remains animated", as
   );
   await expect(page.locator(".title-menu-item")).toHaveCount(4);
   await expect(page.locator("#set-sail")).toHaveClass(/is-selected/);
+  const selectedFontSize = await page.locator("#set-sail").evaluate(
+    (element) => Number.parseFloat(getComputedStyle(element).fontSize),
+  );
+  const idleFontSize = await page.locator("#new-journey").evaluate(
+    (element) => Number.parseFloat(getComputedStyle(element).fontSize),
+  );
+  expect(selectedFontSize).toBeGreaterThan(idleFontSize);
 
   const firstFrame = await page.locator("#lake").screenshot();
   await page.waitForTimeout(850);
@@ -63,6 +70,10 @@ test("cinematic title scene uses the supplied identity and remains animated", as
 
   await page.keyboard.press("ArrowDown");
   await expect(page.locator("#new-journey")).toHaveClass(/is-selected/);
+  await expect(page.locator("#new-journey")).toHaveCSS(
+    "outline-style",
+    "none",
+  );
   await page.keyboard.press("ArrowUp");
   await expect(page.locator("#set-sail")).toHaveClass(/is-selected/);
   expect(runtimeErrors).toEqual([]);

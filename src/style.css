@@ -1207,8 +1207,10 @@ input:disabled {
 .title-menu-item {
   display: grid;
   min-height: 50px;
-  grid-template-columns: 22px 1fr 22px;
+  grid-template-columns: 0.55rem max-content 0.55rem;
+  justify-content: center;
   align-items: center;
+  column-gap: clamp(12px, 1.25vw, 18px);
   padding: 0;
   border: 0;
   color: rgba(255, 255, 255, 0.7);
@@ -1221,6 +1223,7 @@ input:disabled {
   text-transform: uppercase;
   transition:
     color 180ms ease,
+    font-size 180ms ease,
     letter-spacing 180ms ease,
     opacity 180ms ease;
 }
@@ -1242,6 +1245,7 @@ input:disabled {
 .title-menu-item.is-selected {
   color: #fff;
   background: transparent;
+  font-size: clamp(1rem, 1.46vw, 1.32rem);
   letter-spacing: 0.2em;
 }
 
@@ -1256,8 +1260,7 @@ input:disabled {
 }
 
 .title-menu-item:focus-visible {
-  outline: 1px solid rgba(255, 255, 255, 0.34);
-  outline-offset: 3px;
+  outline: none;
 }
 
 .title-audio-note {
@@ -1299,6 +1302,10 @@ input:disabled {
   .title-menu-item {
     min-height: 46px;
     font-size: 0.84rem;
+  }
+
+  .title-menu-item.is-selected {
+    font-size: 0.94rem;
   }
 
   .title-audio-note {
