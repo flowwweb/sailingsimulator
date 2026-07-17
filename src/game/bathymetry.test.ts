@@ -13,14 +13,17 @@ describe("lake bathymetry", () => {
   });
 
   it("marks Pine islet and its surrounding shelf as shallow", () => {
-    expect(sampleLakeDepth(-520, 430)).toBe(0);
-    expect(sampleLakeDepth(-470, 430)).toBeLessThan(3);
-    expect(sampleLakeDepth(-390, 430)).toBeGreaterThan(10);
+    expect(sampleLakeDepth(-650, 400)).toBe(0);
+    expect(sampleLakeDepth(-590, 400)).toBeLessThan(3);
+    expect(sampleLakeDepth(-470, 400)).toBeGreaterThan(10);
   });
 
-  it("gives the cinematic North Light passage real land and shelves", () => {
-    expect(sampleLakeDepth(560, 585)).toBe(0);
-    expect(sampleLakeDepth(690, 620)).toBe(0);
-    expect(sampleLakeDepth(625, 480)).toBeGreaterThan(5);
+  it("keeps a generous deep channel between the North Light headlands", () => {
+    expect(sampleLakeDepth(-320, 1_050)).toBe(0);
+    expect(sampleLakeDepth(980, 720)).toBe(0);
+    for (const z of [400, 520, 640, 720, 850]) {
+      expect(sampleLakeDepth(600, z)).toBeGreaterThan(10);
+    }
+    expect(980 - -320 - 500 - 300).toBeGreaterThanOrEqual(500);
   });
 });

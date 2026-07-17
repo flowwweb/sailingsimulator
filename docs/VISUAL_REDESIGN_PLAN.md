@@ -237,7 +237,7 @@ Forces still determine actual motion.
 
 ### Initial definitions
 
-1. **Harbor 20 trainer** — 6 m ballasted keelboat, mainsail only, forgiving
+1. **Fair Winds Dinghy** — 4.65 m open centerboard dinghy, mainsail only, forgiving
    righting moment and shallow draft. This remains the first lesson boat.
 2. **Coastal 28 sloop** — larger monohull with mainsail and optional headsail,
    deeper draft, more momentum, and a cruiser-racer polar.

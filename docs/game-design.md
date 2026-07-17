@@ -44,7 +44,7 @@ Expected speed is 5–8 knots (2.6–4.1 m/s):
 5. Find attached flow and decide where to go next.
 
 There is no boost button. Gusts are weather and must be handled by steering,
-trim, and eventually reefing—not spent like a power-up.
+trim, or the single reef—not spent like a power-up.
 
 ## Lessons
 
@@ -84,6 +84,7 @@ replayable.
 - `A` / `D` or left / right: helm
 - `W`: ease the sheet
 - `S`: sheet in
+- `N`: open or close the nautical chart
 - `R`: reset current lesson or recover the boat
 - `Esc`: pause
 
@@ -130,7 +131,7 @@ The sail must react correctly to the sampled true wind in every condition.
 Short-sprint rain remains a sensory/visibility system. Waves drive
 boat-definition-sized buoyancy samples and underdamped heave, pitch, and roll
 that follow both surface displacement and vertical velocity. Full 6-DOF
-hydrodynamics, slamming loads, current, reefing, and structural failure remain
+hydrodynamics, slamming loads, current, multi-stage reef plans, and structural failure remain
 outside the current accuracy claim.
 
 ## Art and interface
@@ -150,7 +151,7 @@ player must stare at a percentage to trim, the sail feedback is not good enough.
 - multiplayer, AI competitors, regattas, leaderboards, or racing gates;
 - the redesigned first slice exposes only the training boat, but the simulation
   and renderer support optional headsails and larger monohull definitions;
-- spinnakers, reefing, detailed repair, crew simulation, and MOB remain later;
+- spinnakers, multiple reef points, detailed repair, crew simulation, and MOB remain later;
 - economy, cargo, survival, fishing, crafting, combat, or character progression;
 - full CFD, soft-body cloth simulation, six-degree-of-freedom rigid-body water
   physics, WebGPU-only rendering, or photoreal assets.

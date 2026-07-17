@@ -36,6 +36,11 @@ export class WeatherSystem {
         (this.config.mode === "evolving" ? time / 600 : 0),
     );
     const slow = time * 0.012;
+    const tidePeriod = clamp(this.config.tide.periodHours, 1, 48);
+    const tidePhase =
+      ((time / 600 + this.config.tide.phaseHours) / tidePeriod) * Math.PI * 2;
+    const tideAmplitude = clamp(this.config.tide.range, 0, 6) * 0.5;
+    const tideLevel = Math.sin(tidePhase) * tideAmplitude;
     const evolving = this.config.mode === "evolving" ? 1 : 0;
     const directionShift = this.noise(slow, 17.1) * 13 * evolving;
     const speedShift = this.noise(slow * 0.74, -8.4) * 0.22 * evolving;
@@ -84,6 +89,8 @@ export class WeatherSystem {
       rain: clamp(this.config.rain * showerPulse, 0, 1),
       cloud: clamp(this.config.cloud + speedShift * 0.18, 0, 1),
       visibility: clamp(this.config.visibility - this.config.rain * 0.16, 0.35, 1),
+      tideLevel,
+      tideTrend: Math.cos(tidePhase) >= 0 ? "rising" : "falling",
       waves: this.waves,
     };
   }

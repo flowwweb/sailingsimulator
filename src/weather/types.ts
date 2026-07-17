@@ -16,6 +16,13 @@ export interface WaveSettings {
   directionFromDegrees: number;
 }
 
+export interface TideSettings {
+  /** Peak-to-trough water-level change in metres. */
+  range: number;
+  periodHours: number;
+  phaseHours: number;
+}
+
 export type SeaStateId =
   | "calm"
   | "light"
@@ -40,6 +47,7 @@ export interface WeatherConfig {
   timeOfDay: number;
   wind: WindSettings;
   waves: WaveSettings;
+  tide: TideSettings;
   rain: number;
   cloud: number;
   visibility: number;
@@ -65,6 +73,8 @@ export interface WeatherSnapshot {
   rain: number;
   cloud: number;
   visibility: number;
+  tideLevel: number;
+  tideTrend: "rising" | "falling";
   waves: readonly WaveComponent[];
 }
 
@@ -85,6 +95,11 @@ export const DEFAULT_WEATHER: WeatherConfig = {
     length: 18,
     steepness: 0.34,
     directionFromDegrees: 90,
+  },
+  tide: {
+    range: 1.2,
+    periodHours: 12.42,
+    phaseHours: 2.4,
   },
   rain: 0,
   cloud: 0.22,
@@ -175,5 +190,6 @@ export function cloneWeatherConfig(config: WeatherConfig): WeatherConfig {
     ...config,
     wind: { ...config.wind },
     waves: { ...config.waves },
+    tide: { ...config.tide },
   };
 }

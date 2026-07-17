@@ -29,7 +29,11 @@ export function buildWaveComponents(
     ? windDirectionFromDegrees
     : settings.directionFromDegrees;
   const travelDirection = degrees(directionFrom + 180);
-  const weights = [0.34, 0.22, 0.16, 0.12, 0.09, 0.07] as const;
+  // A broad, non-harmonic spectrum prevents the lake reading as one repeated
+  // train of evenly spaced swells while retaining deterministic CPU/GPU waves.
+  const weights = [0.25, 0.18, 0.21, 0.12, 0.15, 0.09] as const;
+  const lengthBands = [1, 0.57, 0.78, 0.39, 0.66, 0.29] as const;
+  const directionOffsets = [0, -11, 8, 23, -27, 38] as const;
   const amplitudeScale =
     significantHeight /
     (4 *
@@ -44,10 +48,11 @@ export function buildWaveComponents(
     : settings.steepness;
 
   return weights.map((weight, index) => {
-    const spread = (random() - 0.5) * degrees(18 + index * 9);
-    const direction = travelDirection + spread;
+    const spread = (random() - 0.5) * degrees(10 + index * 3);
+    const direction =
+      travelDirection + degrees(directionOffsets[index]!) + spread;
     const wavelength =
-      baseLength * (0.52 + index * 0.23 + random() * 0.12);
+      baseLength * lengthBands[index]! * (0.91 + random() * 0.18);
     const waveNumber = (Math.PI * 2) / wavelength;
     return {
       amplitude: amplitudeScale * weight,

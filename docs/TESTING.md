@@ -1,6 +1,6 @@
 # Fair Winds testing round
 
-Live round: [https://floeb-sailingsimulator.web.app/](https://floeb-sailingsimulator.web.app/)
+Live round: [https://fairwinds.web.app/](https://fairwinds.web.app/)
 
 ## Start
 
@@ -60,7 +60,22 @@ travels across the centerline once, and the sail settles on the new leeward side
 Retrim after the turn and confirm speed recovers. Heel, wake, telltales, audio,
 and the HUD should agree with the same flow state.
 
-### 4. Change conditions
+### 4. Reef, lower sail, and gybe
+
+First verify sail handling and the second crossing maneuver:
+
+- Press `Q` / **Reef**. The sail should shorten smoothly, the label should say
+  **Reefed**, and effective aerodynamic area should settle at 64% rather than
+  applying a hidden speed penalty. Press again to shake the reef out.
+- Press `X` / **Lower**. The cloth should gather along the boom, telltales and
+  aerodynamic force should disappear, and the boat should coast under hull
+  drag. Press again to hoist to the currently selected reef setting.
+- Build speed on a broad reach, bear away until the wind crosses the stern, and
+  keep the turn controlled. The boom should cross once with an audible load
+  change; the status should identify a **Gybe**, not a tack. Steady the helm and
+  retrim on the new side.
+
+### 5. Change conditions
 
 Open **Conditions** or press `C`.
 
@@ -70,7 +85,7 @@ Open **Conditions** or press `C`.
 - Switch waves between **Linked to wind** and **Manual**.
 - Select each named sea state through **Storm** and confirm the water, crest
   treatment, and boat response change together.
-- Switch from the Harbor 20 to Coastal 28 and Lake 34. Confirm the optional
+- Switch from the Fair Winds Dinghy to Coastal 28 and Lake 34. Confirm the optional
   headsail appears, both sails react to linked trim, the camera reframes, and
   draft-sensitive grounding changes.
 - Increase rain and cloud, then confirm visibility, rain particles, and rain
@@ -78,7 +93,7 @@ Open **Conditions** or press `C`.
 - Reload the page and confirm the chosen configuration persists.
 - Use **Restart weather** and confirm the same seed replays the same evolution.
 
-### 5. Explore and reset
+### 6. Explore and reset
 
 Sail toward Juniper buoy, Pine islet, or North light. The water should continue
 without a visible tile edge and the distant lake boundary should not dominate
@@ -90,7 +105,14 @@ nearby** resumes in clear water and `R` / **Reset boat** clears the wake and
 returns to the opening lesson state. Confirm `M` / **Sound** mutes and restores
 all audio buses.
 
-### 6. Compact/touch layout
+Open the nautical chart with `N` or the map icon. Confirm the simulation pauses,
+the current boat and wind are shown, Lantern Channel has a continuous deep-water
+route between two separated shores, and depth contours agree with shallow-water
+warnings. Choose at least two of the seven course cards and confirm the selected
+destination and distance update in both the chart and live HUD. Close the chart
+with `N`, `Esc`, the backdrop, or the close control and confirm sailing resumes.
+
+### 7. Compact/touch layout
 
 At a phone-sized viewport, confirm the helm and sheet pairs are reachable with
 both thumbs, can be held simultaneously, and release on pointer cancellation.
@@ -115,7 +137,7 @@ overflow. Rotate once and confirm the HUD and controls remain usable.
 - Boat heave, pitch, and wave roll come from hull-sized five-point samples of
   the same six-component field used by the water shader. Boat-specific
   underdamped response follows displacement and vertical surface velocity.
-- Harbor 20 remains the default mainsail-only trainer. Coastal 28 and Lake 34
+- Fair Winds Dinghy remains the default mainsail-only trainer. Coastal 28 and Lake 34
   are selectable validation boats with linked optional headsails, distinct
   mass, draft, handling, camera scale, and reference polars. Reefing, vang,
   traveler, and twist are later product slices.

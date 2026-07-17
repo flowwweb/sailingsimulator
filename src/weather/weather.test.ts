@@ -32,6 +32,20 @@ describe("deterministic weather and analytic waves", () => {
     expect(snapshot.trueWind.y).toBeCloseTo(0, 6);
   });
 
+  it("produces a deterministic semidiurnal tide with rising and falling states", () => {
+    const config = cloneWeatherConfig(DEFAULT_WEATHER);
+    config.tide.range = 2;
+    config.tide.periodHours = 12;
+    config.tide.phaseHours = 0;
+    const system = new WeatherSystem(config);
+
+    expect(system.sample(0).tideLevel).toBeCloseTo(0);
+    expect(system.sample(0).tideTrend).toBe("rising");
+    expect(system.sample(1_800).tideLevel).toBeCloseTo(1);
+    expect(system.sample(3_600).tideLevel).toBeCloseTo(0);
+    expect(system.sample(3_600).tideTrend).toBe("falling");
+  });
+
   it("keeps world-space wave phase independent of render-grid recentering", () => {
     const waves = buildWaveComponents(DEFAULT_WEATHER.waves, 8, 90, 42);
     const first = sampleWaves(waves, 123.5, -88.25, 14);
@@ -50,6 +64,20 @@ describe("deterministic weather and analytic waves", () => {
     expect(calm).toHaveLength(6);
     expect(fresh).toHaveLength(6);
     expect(totalAmplitude(fresh)).toBeGreaterThan(totalAmplitude(calm));
+  });
+
+  it("builds an irregular directional spectrum instead of a uniform wave train", () => {
+    const waves = buildWaveComponents(DEFAULT_WEATHER.waves, 8, 90, 17);
+    const wavelengths = waves.map((wave) => wave.wavelength);
+    const directionAngles = waves.map((wave) =>
+      Math.atan2(wave.directionX, wave.directionZ),
+    );
+
+    expect(wavelengths.some((value, index) =>
+      index > 0 && value > wavelengths[index - 1]!,
+    )).toBe(true);
+    expect(Math.max(...directionAngles) - Math.min(...directionAngles))
+      .toBeGreaterThan(Math.PI / 4);
   });
 
   it("honors manual significant wave height across named sea states", () => {

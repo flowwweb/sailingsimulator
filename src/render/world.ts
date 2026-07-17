@@ -1,10 +1,12 @@
 import * as THREE from "three";
+import { incidentBoatPose } from "./incident-pose";
 import type { IncidentResult } from "../game/hazards";
 import {
   FAIR_WINDS_WORLD,
   navigationObjects,
   type WorldObject,
 } from "../game/world-definition";
+import { LAKE_SHOALS, lakeShoalFor } from "../game/bathymetry";
 import type { BoatState, SailDiagnostics } from "../sim/model";
 import {
   HARBOR_20,
@@ -17,6 +19,14 @@ import {
 } from "../weather/waves";
 import type { WeatherSnapshot } from "../weather/types";
 import { LakeScenery } from "./scenery";
+import { AmbientLife } from "./ambient-life";
+import {
+  HULL_WATER_MASK_HALF_BEAM,
+  HULL_WATER_MASK_HALF_LENGTH,
+  INTERIOR_FLOOR_BOW_Z,
+} from "./hull-water-mask";
+import { buoyVisualSpec } from "./buoy-visual";
+import { wakeSurfacePoints } from "./wake-surface";
 
 export interface Landmark {
   name: string;
@@ -45,6 +55,7 @@ interface SailMaterial extends THREE.ShaderMaterial {
     uLuff: { value: number };
     uStall: { value: number };
     uAttached: { value: number };
+    uClothColor: { value: THREE.Color };
   };
 }
 
@@ -53,6 +64,7 @@ export class SailingWorld {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(52, 1, 0.1, 3_500);
   private readonly scenery = new LakeScenery();
+  private readonly ambientLife = new AmbientLife();
   private readonly hemisphere = new THREE.HemisphereLight(
     0xd9edf0,
     0x5e715f,
@@ -93,10 +105,16 @@ export class SailingWorld {
   private readonly boomPivot = new THREE.Group();
   private readonly headsailPivot = new THREE.Group();
   private readonly rudderPivot = new THREE.Group();
+  private readonly starterDinghyDetails = new THREE.Group();
+  private readonly cruiserDetails = new THREE.Group();
   private readonly sailMaterial: SailMaterial;
+  private hullMaterial!: THREE.MeshStandardMaterial;
+  private mainsail!: THREE.Mesh;
+  private headsail!: THREE.Mesh;
   private headsailMaterial!: SailMaterial;
   private readonly telltales: THREE.Line[] = [];
   private readonly wakeLines: [THREE.Line, THREE.Line];
+  private readonly wakeFoam: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private readonly wakeTracks: [THREE.Vector3[], THREE.Vector3[]] = [[], []];
   private readonly windLines: THREE.LineSegments;
   private readonly windSeeds: Float32Array;
@@ -135,13 +153,15 @@ export class SailingWorld {
     this.scene.add(this.titleFill);
     this.titleFill.target = this.boatRoot;
     this.scene.add(this.scenery.root);
+    this.scene.add(this.ambientLife.root);
 
     this.water = this.createWater();
     this.scene.add(this.water);
     this.sailMaterial = this.createBoat();
     this.scene.add(this.boatRoot);
     this.wakeLines = [this.createWakeLine(), this.createWakeLine()];
-    this.scene.add(...this.wakeLines);
+    this.wakeFoam = this.createWakeFoam();
+    this.scene.add(...this.wakeLines, this.wakeFoam);
     [this.windLines, this.windSeeds] = this.createWindLines();
     this.scene.add(this.windLines);
     [this.rain, this.rainSeeds] = this.createRain();
@@ -204,12 +224,20 @@ export class SailingWorld {
     for (const line of this.wakeLines) {
       line.geometry.setDrawRange(0, 0);
     }
+    this.wakeFoam.visible = false;
   }
 
   setBoat(boat: BoatDefinition): void {
     this.activeBoat = boat;
+    this.hullMaterial.color.setHex(boat.visual.playerHullColor);
+    this.sailMaterial.uniforms.uClothColor.value.setHex(boat.visual.playerSailColor);
+    this.headsailMaterial.uniforms.uClothColor.value.setHex(boat.visual.playerSailColor);
     const scale = boat.hull.length / HARBOR_20.hull.length;
     this.boatRoot.scale.setScalar(scale);
+    const isStarterDinghy = boat.id === HARBOR_20.id;
+    this.rigPose.position.z = boat.visual.rigForwardOffset;
+    this.starterDinghyDetails.visible = isStarterDinghy;
+    this.cruiserDetails.visible = !isStarterDinghy;
     this.headsailPivot.visible = Boolean(
       getSailDefinition(boat, "headsail"),
     );
@@ -237,8 +265,13 @@ export class SailingWorld {
     const pitch = lerp(previous.wavePitch, current.wavePitch, alpha);
     const boomAngle = lerpAngle(previous.boomAngle, current.boomAngle, alpha);
     const rudderAngle = lerp(previous.rudderAngle, current.rudderAngle, alpha);
+    const sailDeployment = lerp(
+      previous.sailDeployment,
+      current.sailDeployment,
+      alpha,
+    );
 
-    this.boatRoot.position.set(x, heave, z);
+    this.boatRoot.position.set(x, heave + weather.tideLevel, z);
     this.boatRoot.rotation.y = heading;
     this.hullPose.rotation.x = pitch;
     const incidentProgress = incident
@@ -250,29 +283,31 @@ export class SailingWorld {
             (incident.result.point.z - z) * Math.sin(heading),
         ) || current.sailSide
       : current.sailSide;
-    const impactLean =
-      incident?.result.severity === "impact"
-        ? impactDirection * 0.24 * incidentProgress
-        : 0;
-    this.hullPose.rotation.z = -heel + impactLean;
-    this.rigPose.rotation.z =
-      incident?.result.severity === "impact"
-        ? impactDirection * 0.94 * incidentProgress
-        : incident?.result.severity === "stranded"
-          ? impactDirection * 0.08 * incidentProgress
-          : 0;
-    this.rigPose.rotation.x =
-      incident?.result.severity === "impact"
-        ? -0.12 * incidentProgress
-        : 0;
+    const incidentPose = incidentBoatPose(
+      incident?.result.severity ?? "none",
+      impactDirection,
+      incidentProgress,
+      heel,
+    );
+    this.hullPose.rotation.z = incidentPose.hullRoll;
+    this.rigPose.rotation.z = incidentPose.rigRoll;
+    this.rigPose.rotation.x = incidentPose.rigPitch;
     this.boomPivot.rotation.y = -boomAngle;
     this.rudderPivot.rotation.y = -rudderAngle;
     this.sailMaterial.uniforms.uTime.value = weather.time;
     this.sailMaterial.uniforms.uLuff.value = sail.luff;
     this.sailMaterial.uniforms.uStall.value = sail.stall;
     this.sailMaterial.uniforms.uAttached.value = sail.attached;
+    const sailHeightScale = sailDeployment <= 0.015
+      ? 0.025
+      : 0.025 + Math.sqrt(sailDeployment) * 0.975;
+    const sailChordScale = sailDeployment <= 0.015
+      ? 1
+      : THREE.MathUtils.clamp(sailDeployment / sailHeightScale, 0.65, 1);
+    this.mainsail.scale.set(1, sailHeightScale, sailChordScale);
+    this.headsail.scale.set(1, sailHeightScale, sailChordScale);
     this.headsailPivot.rotation.y = -current.headsailAngle;
-    this.headsailPivot.visible = Boolean(headsail);
+    this.headsailPivot.visible = Boolean(headsail) && sailDeployment > 0.025;
     if (headsail) {
       this.headsailMaterial.uniforms.uTime.value = weather.time;
       this.headsailMaterial.uniforms.uLuff.value = headsail.luff;
@@ -280,9 +315,16 @@ export class SailingWorld {
       this.headsailMaterial.uniforms.uAttached.value =
         headsail.attached;
     }
-    this.updateTelltales(sail, weather.time);
-    this.updateWater(weather, x, z);
-    this.updateWake(current);
+    this.updateTelltales(
+      sail,
+      weather.time,
+      sailDeployment,
+      sailHeightScale,
+      sailChordScale,
+    );
+    this.updateWater(weather, x, z, heading);
+    this.updateWake(current, weather);
+    this.ambientLife.update(weather.time, current, weather.trueWind);
     this.updateWind(weather, current, x, z);
     this.updateRain(weather, x, z);
     this.updateCamera(
@@ -295,8 +337,13 @@ export class SailingWorld {
       titleScreen,
       presentationTime,
     );
-    this.titleFill.visible = titleScreen;
-    this.titleFill.intensity = titleScreen ? 0.95 : 0;
+    const sunHeight = Math.sin(((weather.timeOfDay - 6) / 12) * Math.PI);
+    const nightFill = 1 - THREE.MathUtils.smoothstep(sunHeight, -0.08, 0.2);
+    this.titleFill.visible = titleScreen || nightFill > 0.02;
+    this.titleFill.color.set(titleScreen ? 0xffcfad : 0xb9d7ee);
+    this.titleFill.intensity = titleScreen
+      ? 1.2
+      : nightFill * (0.68 - weather.cloud * 0.14);
     this.titleFill.position.set(
       this.camera.position.x,
       this.camera.position.y + 38,
@@ -323,6 +370,8 @@ export class SailingWorld {
       1.55,
     );
     const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: true,
       uniforms: {
         uTime: { value: 0 },
         uWaveDirection: { value: new Float32Array(12) },
@@ -332,6 +381,21 @@ export class SailingWorld {
         uWavePhase: { value: new Float32Array(6) },
         uWaveSteepness: { value: new Float32Array(6) },
         uSignificantWaveHeight: { value: 0.5 },
+        uShoalCenter: {
+          value: new Float32Array(
+            LAKE_SHOALS.flatMap((shoal) => [shoal.x, shoal.z]),
+          ),
+        },
+        uShoalIslandRadius: {
+          value: new Float32Array(
+            LAKE_SHOALS.map((shoal) => shoal.islandRadius),
+          ),
+        },
+        uShoalShelfRadius: {
+          value: new Float32Array(
+            LAKE_SHOALS.map((shoal) => shoal.shelfRadius),
+          ),
+        },
         uSunDirection: { value: new THREE.Vector3(-0.45, 0.72, -0.3).normalize() },
         uSunColor: { value: new THREE.Color(0xffe7bd) },
         uSkyColor: { value: new THREE.Color(0x9bc4cb) },
@@ -350,6 +414,7 @@ export class SailingWorld {
         uFogNear: { value: 180 },
         uFogFar: { value: 1_900 },
         uCloud: { value: 0.2 },
+        uBoatMask: { value: new THREE.Vector4(0, 0, 0, 1) },
       },
       vertexShader: `
         precision highp float;
@@ -416,6 +481,10 @@ export class SailingWorld {
         uniform float uFogFar;
         uniform float uCloud;
         uniform float uSignificantWaveHeight;
+        uniform vec2 uShoalCenter[${LAKE_SHOALS.length}];
+        uniform float uShoalIslandRadius[${LAKE_SHOALS.length}];
+        uniform float uShoalShelfRadius[${LAKE_SHOALS.length}];
+        uniform vec4 uBoatMask;
         varying vec3 vWorldPosition;
         varying vec4 vReflectionCoord;
         varying float vWaveHeight;
@@ -425,37 +494,78 @@ export class SailingWorld {
           float t = clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0);
           return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
         }
+        float hash21(vec2 point) {
+          vec2 p = fract(point * vec2(123.34, 456.21));
+          p += dot(p, p + 45.32);
+          return fract(p.x * p.y);
+        }
+        float valueNoise(vec2 point) {
+          vec2 cell = floor(point);
+          vec2 local = fract(point);
+          local = local * local * (3.0 - 2.0 * local);
+          return mix(
+            mix(hash21(cell), hash21(cell + vec2(1.0, 0.0)), local.x),
+            mix(
+              hash21(cell + vec2(0.0, 1.0)),
+              hash21(cell + vec2(1.0, 1.0)),
+              local.x
+            ),
+            local.y
+          );
+        }
         float estimatedDepth(vec2 point) {
           float edgeProgress = 1.0 - length(point) / 1800.0;
           float depth = 36.0 * smootherstep(0.0, 0.72, edgeProgress);
-          float shoalDistance = length(point - vec2(-520.0, 430.0));
-          if (shoalDistance < 160.0) {
-            float shelfDepth = 12.0 * smootherstep(55.0, 160.0, shoalDistance);
-            depth = min(depth, shelfDepth);
-          }
-          float coveDistance = length(
-            point - vec2(915.0, -440.0)
-          );
-          if (coveDistance < 210.0) {
-            float coveDepth = 12.0 * smootherstep(
-              90.0,
-              210.0,
-              coveDistance
-            );
-            depth = min(depth, coveDepth);
+          for (int index = 0; index < ${LAKE_SHOALS.length}; index += 1) {
+            float shoalDistance = length(point - uShoalCenter[index]);
+            if (shoalDistance < uShoalShelfRadius[index]) {
+              float shelfDepth = 12.0 * smootherstep(
+                uShoalIslandRadius[index],
+                uShoalShelfRadius[index],
+                shoalDistance
+              );
+              depth = min(depth, shelfDepth);
+            }
           }
           return max(0.0, depth);
         }
         void main() {
+          vec2 boatDelta = vWorldPosition.xz - uBoatMask.xy;
+          float boatSine = sin(uBoatMask.z);
+          float boatCosine = cos(uBoatMask.z);
+          vec2 boatLocal = vec2(
+            boatDelta.x * boatCosine - boatDelta.y * boatSine,
+            boatDelta.x * boatSine + boatDelta.y * boatCosine
+          );
+          vec2 hullRadius = vec2(
+            ${HULL_WATER_MASK_HALF_BEAM.toFixed(2)},
+            ${HULL_WATER_MASK_HALF_LENGTH.toFixed(2)}
+          ) * uBoatMask.w;
+          if (dot(boatLocal / hullRadius, boatLocal / hullRadius) < 1.0) {
+            discard;
+          }
           vec3 dx = dFdx(vWorldPosition);
           vec3 dy = dFdy(vWorldPosition);
           vec3 faceNormal = normalize(cross(dx, dy));
           if (faceNormal.y < 0.0) faceNormal = -faceNormal;
+          float microScale =
+            0.008 + min(uSignificantWaveHeight, 1.5) * 0.007;
+          vec2 microSlope =
+            vec2(0.94, 0.31) *
+              cos(dot(vWorldPosition.xz, vec2(0.94, 0.31)) - uTime * 2.4) *
+              microScale +
+            vec2(-0.37, 1.17) *
+              cos(dot(vWorldPosition.xz, vec2(-0.37, 1.17)) + uTime * 1.7) *
+              microScale * 0.68 +
+            vec2(0.23, 2.05) *
+              cos(dot(vWorldPosition.xz, vec2(0.23, 2.05)) - uTime * 2.9) *
+              microScale * 0.34;
+          vec2 composedSlope = vWaveSlopeVector + microSlope;
           vec3 smoothNormal = normalize(
             vec3(
-              -vWaveSlopeVector.x,
+              -composedSlope.x,
               1.0,
-              -vWaveSlopeVector.y
+              -composedSlope.y
             )
           );
           vec3 normal = normalize(
@@ -468,7 +578,8 @@ export class SailingWorld {
           vec3 reflected = reflect(-uSunDirection, normal);
           float sparkle = pow(max(dot(reflected, viewDirection), 0.0), 118.0)
             * (1.0 - uCloud * 0.72);
-          float depthMix = smoothstep(2.0, 23.0, estimatedDepth(vWorldPosition.xz));
+          float waterDepth = estimatedDepth(vWorldPosition.xz);
+          float depthMix = smoothstep(2.0, 23.0, waterDepth);
           vec3 color = mix(uWaterShallow, uWaterDeep, depthMix);
           float faceVariation = dot(normal.xz, normalize(vec2(0.66, 0.34)));
           color *= 0.9 + diffuse * 0.2 + faceVariation * 0.018;
@@ -516,30 +627,54 @@ export class SailingWorld {
             sceneReflection,
             clamp(reflectionStrength, 0.0, 0.58)
           );
-          vec2 surfaceDirection = normalize(vWorldPosition.xz - cameraPosition.xz);
+          vec2 surfaceOffset = vWorldPosition.xz - cameraPosition.xz;
           vec2 sunAcrossWater = normalize(uSunDirection.xz);
-          float sunPath = pow(
-            max(dot(surfaceDirection, sunAcrossWater), 0.0),
-            108.0
+          vec2 sunTangent = vec2(-sunAcrossWater.y, sunAcrossWater.x);
+          float distanceAlongSun = dot(surfaceOffset, sunAcrossWater);
+          float distanceAcrossSun = abs(dot(surfaceOffset, sunTangent));
+          float bridgeWidth =
+            3.0 + 22.0 / (1.0 + max(distanceAlongSun, 0.0) * 0.025);
+          float sunPath =
+            (1.0 - smoothstep(0.0, bridgeWidth, distanceAcrossSun)) *
+            smoothstep(2.0, 18.0, distanceAlongSun);
+          float lowSun =
+            1.0 - smoothstep(0.22, 0.58, uSunDirection.y);
+          sunPath *= lowSun;
+          float bridgeWarp = valueNoise(
+            vec2(distanceAcrossSun * 0.16, distanceAlongSun * 0.07) +
+            vec2(uTime * 0.03, -uTime * 0.02)
           );
-          float shimmerA = 0.5 + 0.5 * sin(
-            vWorldPosition.x * 0.88 +
-            vWorldPosition.z * 0.19 -
-            uTime * 1.8
+          float rippleBand = 0.5 + 0.5 * sin(
+            distanceAlongSun * 1.12 +
+            bridgeWarp * 7.2 +
+            sin(
+              distanceAcrossSun * 0.68 -
+              distanceAlongSun * 0.17 +
+              uTime * 1.35
+            ) * 1.45 -
+            uTime * 2.1
           );
-          float shimmerB = 0.5 + 0.5 * sin(
-            vWorldPosition.x * -0.21 +
-            vWorldPosition.z * 1.05 +
-            uTime * 1.15
+          float crossBreak = valueNoise(
+            vec2(
+              distanceAcrossSun * 0.48 + uTime * 0.09,
+              distanceAlongSun * 0.21 - uTime * 0.13
+            )
           );
           float shimmer = smoothstep(
-            0.62,
+            0.58,
             0.88,
-            shimmerA * 0.52 + shimmerB * 0.48
+            rippleBand * 0.58 + crossBreak * 0.42
           );
-          sunPath *= shimmer * (0.28 + max(faceVariation, 0.0) * 0.26);
+          float slopeGlint = smoothstep(
+            0.006,
+            0.11,
+            vWaveSlope + length(microSlope) * 1.8
+          );
+          sunPath *=
+            (0.08 + shimmer * 0.92) *
+            (0.36 + slopeGlint * 0.64);
           color += uSunColor * sparkle * 1.35;
-          color += uSunColor * sunPath * (1.0 - uCloud * 0.72) * 0.52;
+          color += uSunColor * sunPath * (1.0 - uCloud * 0.72) * 0.72;
           float roughWater = smoothstep(
             0.75,
             2.2,
@@ -561,7 +696,11 @@ export class SailingWorld {
           );
           float distanceToCamera = length(cameraPosition - vWorldPosition);
           float fog = smoothstep(uFogNear, uFogFar, distanceToCamera);
-          gl_FragColor = vec4(mix(color, uFogColor, fog), 1.0);
+          float shallowClarity = 1.0 - smoothstep(1.5, 14.0, waterDepth);
+          float waterAlpha = mix(0.94, 0.76, shallowClarity);
+          waterAlpha = mix(waterAlpha, 0.98, fresnel);
+          waterAlpha = mix(waterAlpha, 1.0, fog);
+          gl_FragColor = vec4(mix(color, uFogColor, fog), waterAlpha);
         }
       `,
     });
@@ -573,38 +712,135 @@ export class SailingWorld {
   private createBoat(): SailMaterial {
     this.boatRoot.add(this.hullPose);
     const hullMaterial = new THREE.MeshStandardMaterial({
-      color: 0xe8e0c8,
-      roughness: 0.66,
+      color: 0xf0eee8,
+      roughness: 0.7,
       metalness: 0,
       flatShading: true,
     });
+    this.hullMaterial = hullMaterial;
     const hull = new THREE.Mesh(createHullGeometry(), hullMaterial);
     this.hullPose.add(hull);
+
+    const woodMaterial = new THREE.MeshStandardMaterial({
+      color: 0x9b5f32,
+      emissive: 0x241208,
+      emissiveIntensity: 0.08,
+      roughness: 0.72,
+      flatShading: true,
+    });
+    const darkWoodMaterial = new THREE.MeshStandardMaterial({
+      color: 0x704326,
+      emissive: 0x1a0d06,
+      emissiveIntensity: 0.08,
+      roughness: 0.8,
+      flatShading: true,
+    });
+    const lapMaterial = new THREE.MeshStandardMaterial({
+      color: 0xc7c5be,
+      roughness: 0.82,
+      flatShading: true,
+    });
+    for (const side of [-1, 1]) {
+      const gunwale = new THREE.Mesh(
+        new THREE.TubeGeometry(createHullRailCurve(side, 0), 38, 0.055, 6, false),
+        woodMaterial,
+      );
+      this.hullPose.add(gunwale);
+      for (const level of [0.3, 0.52, 0.73]) {
+        const strake = new THREE.Mesh(
+          new THREE.TubeGeometry(
+            createHullRailCurve(side, level),
+            34,
+            0.018,
+            5,
+            false,
+          ),
+          lapMaterial,
+        );
+        this.hullPose.add(strake);
+      }
+    }
+
+    this.hullPose.add(this.starterDinghyDetails, this.cruiserDetails);
+
+    const dinghyFloor = new THREE.Mesh(
+      createInteriorFloorGeometry(),
+      darkWoodMaterial,
+    );
+    dinghyFloor.position.y = 0.11;
+    this.starterDinghyDetails.add(dinghyFloor);
+    for (const x of [-0.38, 0, 0.38]) {
+      const floorboard = new THREE.Mesh(
+        new THREE.BoxGeometry(0.24, 0.055, 3.65),
+        woodMaterial,
+      );
+      floorboard.position.set(x, 0.18, -0.28);
+      this.starterDinghyDetails.add(floorboard);
+    }
+    const benchPlans = [
+      { z: 1.42, width: 1.48 },
+      { z: 0.18, width: 1.86 },
+      { z: -1.18, width: 1.72 },
+    ];
+    for (const benchPlan of benchPlans) {
+      const bench = new THREE.Mesh(
+        new THREE.BoxGeometry(benchPlan.width, 0.13, 0.42),
+        woodMaterial,
+      );
+      bench.position.set(0, 0.46, benchPlan.z);
+      this.starterDinghyDetails.add(bench);
+    }
+    const transomCap = new THREE.Mesh(
+      new THREE.BoxGeometry(1.28, 0.09, 0.12),
+      woodMaterial,
+    );
+    transomCap.position.set(0, 0.54, -2.57);
+    this.starterDinghyDetails.add(transomCap);
+    const centerboardCase = new THREE.Mesh(
+      new THREE.BoxGeometry(0.28, 0.3, 1.55),
+      darkWoodMaterial,
+    );
+    centerboardCase.position.set(0, 0.34, -0.35);
+    this.starterDinghyDetails.add(centerboardCase);
+    const centerboard = new THREE.Mesh(
+      new THREE.BoxGeometry(0.16, 1.12, 1.08),
+      darkWoodMaterial,
+    );
+    centerboard.position.set(0, -0.68, -0.28);
+    this.starterDinghyDetails.add(centerboard);
+    for (const side of [-1, 1]) {
+      const innerRail = new THREE.Mesh(
+        new THREE.TubeGeometry(
+          createHullRailCurve(side, 0.09, 0.86),
+          34,
+          0.035,
+          6,
+          false,
+        ),
+        darkWoodMaterial,
+      );
+      this.starterDinghyDetails.add(innerRail);
+    }
 
     const deck = new THREE.Mesh(
       createDeckGeometry(),
       new THREE.MeshStandardMaterial({ color: 0xf0ead8, roughness: 0.8, flatShading: true }),
     );
     deck.position.y = 0.02;
-    this.hullPose.add(deck);
+    this.cruiserDetails.add(deck);
     const cockpit = new THREE.Mesh(
       new THREE.BoxGeometry(1.12, 0.1, 1.62),
       new THREE.MeshStandardMaterial({ color: 0x292e2d, roughness: 0.88 }),
     );
     cockpit.position.set(0, 0.42, -1.08);
-    this.hullPose.add(cockpit);
-    const woodMaterial = new THREE.MeshStandardMaterial({
-      color: 0x9b603d,
-      roughness: 0.78,
-      flatShading: true,
-    });
+    this.cruiserDetails.add(cockpit);
     for (const x of [-0.63, 0.63]) {
       const bench = new THREE.Mesh(
         new THREE.BoxGeometry(0.18, 0.12, 1.9),
         woodMaterial,
       );
       bench.position.set(x, 0.52, -0.98);
-      this.hullPose.add(bench);
+      this.cruiserDetails.add(bench);
     }
     const cabinTop = new THREE.Mesh(
       new THREE.BoxGeometry(1.25, 0.3, 1.05),
@@ -615,34 +851,63 @@ export class SailingWorld {
       }),
     );
     cabinTop.position.set(0, 0.55, 0.54);
-    this.hullPose.add(cabinTop);
-    for (const x of [-0.96, 0.96]) {
-      const gunwale = new THREE.Mesh(
-        new THREE.BoxGeometry(0.09, 0.1, 4.25),
-        woodMaterial,
-      );
-      gunwale.position.set(x, 0.48, -0.28);
-      this.hullPose.add(gunwale);
-    }
+    this.cruiserDetails.add(cabinTop);
 
     const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x263d42, roughness: 0.72 });
     const keel = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.45, 1.95), darkMaterial);
     keel.position.set(0, -1.08, -0.15);
-    this.hullPose.add(keel);
+    this.cruiserDetails.add(keel);
     this.rudderPivot.position.set(0, -0.1, -2.55);
-    const rudder = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.15, 0.72), darkMaterial);
+    const rudderStock = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.065, 0.075, 1.08, 8),
+      darkMaterial,
+    );
+    rudderStock.position.set(0, 0.15, 0);
+    this.rudderPivot.add(rudderStock);
+    const rudder = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 1.18, 0.72),
+      darkWoodMaterial,
+    );
     rudder.position.set(0, -0.55, -0.26);
     this.rudderPivot.add(rudder);
+    const tiller = new THREE.Mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3([
+          new THREE.Vector3(0, 0.64, -0.02),
+          new THREE.Vector3(0, 0.76, 0.42),
+          new THREE.Vector3(0, 0.82, 1.2),
+          new THREE.Vector3(0, 0.78, 1.72),
+        ], false, "centripetal"),
+        18,
+        0.055,
+        7,
+        false,
+      ),
+      woodMaterial,
+    );
+    this.rudderPivot.add(tiller);
     this.hullPose.add(this.rudderPivot);
 
-    const mastMaterial = new THREE.MeshStandardMaterial({ color: 0xe6d2a9, roughness: 0.56 });
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 8.4, 8), mastMaterial);
-    mast.position.set(0, 4.45, 0.55);
+    const mastMaterial = new THREE.MeshStandardMaterial({
+      color: 0x965a2e,
+      emissive: 0x241207,
+      emissiveIntensity: 0.08,
+      roughness: 0.58,
+      flatShading: true,
+    });
+    const mast = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.082, 6.55, 8),
+      mastMaterial,
+    );
+    mast.position.set(0, 3.7, 0.72);
     this.rigPose.add(mast);
-    this.boomPivot.position.set(0, 1.14, 0.55);
-    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 4.7, 8), mastMaterial);
+    this.boomPivot.position.set(0, 1.03, 0.72);
+    const boom = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.055, 0.078, 3.55, 8),
+      mastMaterial,
+    );
     boom.rotation.x = Math.PI / 2;
-    boom.position.z = -2.3;
+    boom.position.z = -1.72;
     this.boomPivot.add(boom);
     this.rigPose.add(this.boomPivot);
 
@@ -652,6 +917,7 @@ export class SailingWorld {
         uLuff: { value: 0 },
         uStall: { value: 0 },
         uAttached: { value: 1 },
+        uClothColor: { value: new THREE.Color(0xf5f2e9) },
       },
       side: THREE.DoubleSide,
       transparent: true,
@@ -679,40 +945,41 @@ export class SailingWorld {
         precision highp float;
         uniform float uLuff;
         uniform float uStall;
-        uniform float uAttached;
+          uniform float uAttached;
+          uniform vec3 uClothColor;
         varying vec2 vUv;
         varying float vShade;
         void main() {
-          vec3 cloth = vec3(0.91, 0.87, 0.73);
-          cloth = mix(cloth, vec3(0.82, 0.56, 0.32), uStall * 0.3);
-          cloth += vShade * 0.42;
+          vec3 cloth = uClothColor;
+          cloth = mix(cloth, vec3(0.86, 0.63, 0.39), uStall * 0.22);
+          cloth += vShade * 0.34;
           float seam = smoothstep(0.965, 0.99, fract(vUv.y * 5.0));
           cloth -= seam * 0.035;
           gl_FragColor = vec4(cloth, 0.93 + uAttached * 0.05 - uLuff * 0.04);
         }
       `,
     }) as SailMaterial;
-    const sail = new THREE.Mesh(createSailGeometry(), sailMaterial);
-    sail.position.y = 0.06;
-    this.boomPivot.add(sail);
+    this.mainsail = new THREE.Mesh(createSailGeometry(), sailMaterial);
+    this.mainsail.position.y = 0.06;
+    this.boomPivot.add(this.mainsail);
     this.createTelltales();
 
     this.headsailMaterial = sailMaterial.clone() as SailMaterial;
     this.headsailPivot.position.set(0, 0.7, 0.55);
-    const headsail = new THREE.Mesh(
+    this.headsail = new THREE.Mesh(
       createHeadsailGeometry(),
       this.headsailMaterial,
     );
-    this.headsailPivot.add(headsail);
+    this.headsailPivot.add(this.headsail);
     this.headsailPivot.visible = false;
     this.rigPose.add(this.headsailPivot);
 
     const pennant = new THREE.Mesh(
-      new THREE.ConeGeometry(0.17, 0.7, 3),
-      new THREE.MeshBasicMaterial({ color: 0xd75f37 }),
+      new THREE.ConeGeometry(0.12, 0.52, 3),
+      new THREE.MeshBasicMaterial({ color: 0xd79a4a }),
     );
     pennant.rotation.z = -Math.PI / 2;
-    pennant.position.set(-0.34, 8.38, 0.55);
+    pennant.position.set(-0.25, 7.46, 0.72);
     this.rigPose.add(pennant);
     this.hullPose.add(this.rigPose);
     return sailMaterial;
@@ -728,8 +995,9 @@ export class SailingWorld {
     placements.forEach((placement, index) => {
       const geometry = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, placement.y, placement.z),
-        new THREE.Vector3(0.04, placement.y, placement.z - 0.42),
-        new THREE.Vector3(0.06, placement.y, placement.z - 0.76),
+        new THREE.Vector3(0.03, placement.y, placement.z - 0.2),
+        new THREE.Vector3(0.05, placement.y, placement.z - 0.42),
+        new THREE.Vector3(0.04, placement.y, placement.z - 0.64),
       ]);
       const material = new THREE.LineBasicMaterial({ color: colors[index], linewidth: 2 });
       const line = new THREE.Line(geometry, material);
@@ -739,60 +1007,148 @@ export class SailingWorld {
     });
   }
 
-  private updateTelltales(sail: SailDiagnostics, time: number): void {
+  private updateTelltales(
+    sail: SailDiagnostics,
+    time: number,
+    sailDeployment: number,
+    sailHeightScale: number,
+    sailChordScale: number,
+  ): void {
     this.telltales.forEach((line, index) => {
+      line.visible = sailDeployment > 0.2;
       const anchor = line.userData.anchor as { y: number; z: number };
+      const anchorY = anchor.y * sailHeightScale;
+      const anchorZ = anchor.z * sailChordScale;
       const positions = line.geometry.getAttribute("position") as THREE.BufferAttribute;
-      const luffWave = Math.sin(time * 19 + index * 2.3) * sail.luff;
       const stallDroop = sail.stall * 0.28;
-      positions.setXYZ(0, 0, anchor.y, anchor.z);
-      positions.setXYZ(1, luffWave * 0.18, anchor.y - stallDroop * 0.35, anchor.z - 0.4);
-      positions.setXYZ(2, luffWave * 0.32, anchor.y - stallDroop, anchor.z - 0.78 + sail.attached * -0.12);
+      const tailLength = (0.62 + sail.attached * 0.06) * sailChordScale;
+      const basePhase = time * (10 + sail.luff * 13) + index * 2.3;
+      positions.setXYZ(0, 0, anchorY, anchorZ);
+      for (let point = 1; point < positions.count; point += 1) {
+        const tailFraction = point / (positions.count - 1);
+        const phase = basePhase - tailFraction * 3.4;
+        const ripple =
+          Math.sin(phase) * (0.018 + sail.attached * 0.016) +
+          Math.sin(phase * 1.83 + index) * sail.luff * 0.085;
+        const flutter = ripple * tailFraction * (1 + sail.luff * 1.7);
+        const verticalFlutter =
+          Math.cos(phase * 1.27 + 0.8) * sail.luff * 0.045 * tailFraction;
+        positions.setXYZ(
+          point,
+          flutter,
+          anchorY - stallDroop * tailFraction ** 1.5 + verticalFlutter,
+          anchorZ - tailLength * tailFraction,
+        );
+      }
       positions.needsUpdate = true;
     });
   }
 
   private createWakeLine(): THREE.Line {
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(150 * 3), 3));
+    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(72 * 3), 3));
     geometry.setDrawRange(0, 0);
     return new THREE.Line(
       geometry,
       new THREE.LineBasicMaterial({
-        color: 0xe4f2ed,
+        color: 0xf1faf7,
         transparent: true,
-        opacity: 0.28,
+        opacity: 0.58,
+        depthWrite: false,
       }),
     );
   }
 
-  private updateWake(state: BoatState): void {
-    this.wakeCenter.set(state.position.x, 0.08, state.position.y);
+  private createWakeFoam(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
+    const canvas = document.createElement("canvas");
+    canvas.width = 96;
+    canvas.height = 256;
+    const context = canvas.getContext("2d");
+    if (context) {
+      const fade = context.createLinearGradient(0, 0, 0, canvas.height);
+      fade.addColorStop(0, "rgba(241,250,247,0.8)");
+      fade.addColorStop(0.38, "rgba(225,245,241,0.38)");
+      fade.addColorStop(1, "rgba(225,245,241,0)");
+      context.strokeStyle = fade;
+      context.lineCap = "round";
+      for (const side of [-1, 1]) {
+        context.beginPath();
+        context.moveTo(48 + side * 7, 4);
+        context.quadraticCurveTo(
+          48 + side * 24,
+          92,
+          48 + side * 42,
+          248,
+        );
+        context.lineWidth = 8;
+        context.stroke();
+      }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const wake = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.4, 10.5).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({
+        color: 0xf1faf7,
+        alphaMap: texture,
+        transparent: true,
+        opacity: 0.52,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    wake.visible = false;
+    wake.renderOrder = 2;
+    return wake;
+  }
+
+  private updateWake(state: BoatState, weather: WeatherSnapshot): void {
+    this.wakeCenter.set(
+      state.position.x,
+      weather.tideLevel,
+      state.position.y,
+    );
     const speed = Math.hypot(state.velocity.x, state.velocity.y);
+    const wakeLength = THREE.MathUtils.clamp(3.4 + speed * 1.65, 3.8, 10.5);
+    const sternOffset = this.activeBoat.hull.length * 0.5 + wakeLength * 0.42;
+    this.wakeFoam.visible = speed >= 0.28;
+    this.wakeFoam.position.set(
+      state.position.x - Math.sin(state.heading) * sternOffset,
+      weather.tideLevel + 0.035,
+      state.position.y - Math.cos(state.heading) * sternOffset,
+    );
+    this.wakeFoam.rotation.y = state.heading;
+    this.wakeFoam.scale.set(
+      THREE.MathUtils.clamp(this.activeBoat.hull.beam / 2.15, 0.72, 1.7),
+      wakeLength / 10.5,
+      1,
+    );
+    this.wakeFoam.material.opacity = THREE.MathUtils.clamp(
+      0.16 + speed * 0.075,
+      0.18,
+      0.52,
+    );
     if (speed < 0.18) return;
     if (
       this.hasLastWakeCenter &&
-      this.wakeCenter.distanceToSquared(this.lastWakeCenter) < 0.16
+      this.wakeCenter.distanceToSquared(this.lastWakeCenter) < 0.09
     ) return;
     this.lastWakeCenter.copy(this.wakeCenter);
     this.hasLastWakeCenter = true;
-    const starboardX = Math.cos(state.heading);
-    const starboardZ = -Math.sin(state.heading);
-    const sternX = this.wakeCenter.x - Math.sin(state.heading) * 2.45;
-    const sternZ = this.wakeCenter.z - Math.cos(state.heading) * 2.45;
-    this.wakeTracks[0].push(new THREE.Vector3(sternX - starboardX * 0.72, 0.08, sternZ - starboardZ * 0.72));
-    this.wakeTracks[1].push(new THREE.Vector3(sternX + starboardX * 0.72, 0.08, sternZ + starboardZ * 0.72));
+    const points = wakeSurfacePoints(state, this.activeBoat, weather);
+    this.wakeTracks[0].push(new THREE.Vector3(points[0].x, points[0].y, points[0].z));
+    this.wakeTracks[1].push(new THREE.Vector3(points[1].x, points[1].y, points[1].z));
     for (let index = 0; index < 2; index += 1) {
       const track = this.wakeTracks[index]!;
       const line = this.wakeLines[index]!;
-      if (track.length > 18) track.shift();
+      if (track.length > 72) track.shift();
       const positions = line.geometry.getAttribute("position") as THREE.BufferAttribute;
       track.forEach((point, pointIndex) => positions.setXYZ(pointIndex, point.x, point.y, point.z));
       positions.needsUpdate = true;
       line.geometry.setDrawRange(0, track.length);
       (line.material as THREE.LineBasicMaterial).opacity = Math.min(
-        0.09 + speed * 0.035,
-        0.24,
+        0.15 + speed * 0.055,
+        0.38,
       );
     }
   }
@@ -865,10 +1221,26 @@ export class SailingWorld {
     positions.needsUpdate = true;
   }
 
-  private updateWater(weather: WeatherSnapshot, x: number, z: number): void {
-    this.water.position.set(Math.round(x / 20) * 20, 0, Math.round(z / 20) * 20);
+  private updateWater(
+    weather: WeatherSnapshot,
+    x: number,
+    z: number,
+    heading: number,
+  ): void {
+    this.water.position.set(
+      Math.round(x / 20) * 20,
+      weather.tideLevel,
+      Math.round(z / 20) * 20,
+    );
     this.water.material.uniforms.uTime!.value = weather.time;
     this.water.material.uniforms.uCloud!.value = weather.cloud;
+    const boatScale = this.activeBoat.hull.length / HARBOR_20.hull.length;
+    this.water.material.uniforms.uBoatMask!.value.set(
+      x,
+      z,
+      heading,
+      boatScale,
+    );
     if (this.waveReference !== weather.waves) {
       this.waveReference = weather.waves;
       const arrays = waveShaderArrays(weather.waves);
@@ -929,15 +1301,35 @@ export class SailingWorld {
     pineMaterial: THREE.Material,
   ): void {
     if (object.kind === "buoy") {
-      const buoy = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.38, 0.58, 1.7, 8),
-        new THREE.MeshStandardMaterial({
-          color: 0xd65b38,
-          flatShading: true,
-        }),
+      const spec = buoyVisualSpec(object.buoyMark);
+      const markerMaterial = new THREE.MeshStandardMaterial({
+        color: spec.color,
+        emissive: spec.color,
+        emissiveIntensity: 0.08,
+        roughness: 0.72,
+        flatShading: true,
+      });
+      const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x263a3d, roughness: 0.82 });
+      const float = new THREE.Mesh(new THREE.SphereGeometry(0.56, 10, 7), markerMaterial);
+      float.scale.y = 0.72;
+      float.position.y = 0.18;
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.22, 10), darkMaterial);
+      collar.position.y = 0.55;
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 1.35, 8), darkMaterial);
+      mast.position.y = 1.28;
+      const topmark = new THREE.Mesh(
+        spec.topmark === "cone"
+          ? new THREE.ConeGeometry(0.28, 0.58, 8)
+          : spec.topmark === "can"
+            ? new THREE.CylinderGeometry(0.24, 0.24, 0.48, 8)
+            : new THREE.SphereGeometry(0.25, 8, 6),
+        markerMaterial,
       );
-      buoy.position.y = 0.7;
-      group.add(buoy);
+      topmark.position.y = 2.12;
+      const waterline = new THREE.Mesh(new THREE.TorusGeometry(0.53, 0.035, 5, 16), darkMaterial);
+      waterline.rotation.x = Math.PI / 2;
+      waterline.position.y = 0.06;
+      group.add(float, collar, mast, topmark, waterline);
       return;
     }
 
@@ -979,7 +1371,7 @@ export class SailingWorld {
 
     if (object.kind === "cabin") {
       const coveLand = new THREE.Mesh(
-        new THREE.CylinderGeometry(70, 90, 10, 13),
+        new THREE.CylinderGeometry(92, 105, 10, 15),
         new THREE.MeshStandardMaterial({
           color: 0x7f8f70,
           roughness: 0.96,
@@ -1033,18 +1425,19 @@ export class SailingWorld {
 
     const isBeaconHeadland = object.id === "beacon-west-headland";
     const islandRadius =
-      object.kind === "lighthouse" ? 62 : isBeaconHeadland ? 88 : 55;
+      lakeShoalFor(object.id)?.islandRadius ??
+      (object.kind === "lighthouse" ? 50 : isBeaconHeadland ? 62 : 55);
     const islandHeight =
-      isBeaconHeadland ? 18 : object.kind === "lighthouse" ? 13 : 7.5;
+      isBeaconHeadland ? 32 : object.kind === "lighthouse" ? 26 : 7.5;
     const cinematicLandmark = isBeaconHeadland || object.kind === "lighthouse";
     let summitY = islandHeight;
     if (cinematicLandmark) {
       const shoreShelf = new THREE.Mesh(
         new THREE.CylinderGeometry(
-          islandRadius * 0.94,
-          islandRadius * 1.08,
-          4.4,
-          13,
+          islandRadius * 0.88,
+          islandRadius * 1.03,
+          3.2,
+          15,
         ),
         rockMaterial,
       );
@@ -1053,25 +1446,28 @@ export class SailingWorld {
       group.add(shoreShelf);
 
       const cliff = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(islandRadius, 1),
+        new THREE.CylinderGeometry(
+          islandRadius * 0.62,
+          islandRadius * 0.94,
+          islandHeight,
+          21,
+          3,
+          false,
+        ),
         rockMaterial,
       );
-      cliff.scale.set(
-        0.94,
-        (islandHeight / islandRadius) * 0.56,
-        isBeaconHeadland ? 0.74 : 0.82,
-      );
-      cliff.position.y = islandHeight * 0.56;
-      cliff.rotation.set(0.03, isBeaconHeadland ? -0.22 : 0.12, -0.025);
+      cliff.scale.z = isBeaconHeadland ? 0.78 : 0.86;
+      cliff.position.y = islandHeight * 0.5;
+      cliff.rotation.y = isBeaconHeadland ? -0.22 : 0.12;
       group.add(cliff);
 
       const capHeight = isBeaconHeadland ? 3.6 : 3;
       const cap = new THREE.Mesh(
         new THREE.CylinderGeometry(
-          islandRadius * 0.64,
-          islandRadius * 0.73,
+          islandRadius * 0.52,
+          islandRadius * 0.61,
           capHeight,
-          13,
+          15,
         ),
         islandMaterial,
       );
@@ -1081,7 +1477,7 @@ export class SailingWorld {
       group.add(cap);
       this.addRockFringe(
         group,
-        isBeaconHeadland ? 24 : 17,
+        isBeaconHeadland ? 64 : 48,
         islandRadius,
         rockMaterial,
         isBeaconHeadland ? 3.4 : 5.7,
@@ -1109,16 +1505,16 @@ export class SailingWorld {
 
     this.addPineGrove(
       group,
-      isBeaconHeadland ? 38 : object.kind === "lighthouse" ? 23 : 18,
+      isBeaconHeadland ? 72 : object.kind === "lighthouse" ? 38 : 18,
       islandRadius * (cinematicLandmark ? 0.62 : 0.74),
       islandRadius * (isBeaconHeadland ? 0.48 : 0.62),
-      cinematicLandmark ? summitY : 7.5,
+      cinematicLandmark ? summitY : islandHeight * 0.5 + 0.2,
       pineMaterial,
       isBeaconHeadland ? 1.9 : object.kind === "lighthouse" ? 4.6 : 7.2,
     );
     if (object.kind === "lighthouse") {
-      const towerX = 12;
-      const towerZ = -4;
+      const towerX = object.landmarkOffset?.x ?? 12;
+      const towerZ = object.landmarkOffset?.z ?? -4;
       const towerHeight = 25;
       const beacon = new THREE.Mesh(
         new THREE.CylinderGeometry(1.55, 2.75, towerHeight, 10),
@@ -1217,8 +1613,12 @@ export class SailingWorld {
         ((index + 1) % 3) * 0.06,
       );
       rotation.setFromEuler(euler);
-      const size = 0.58 + (index % 6) * 0.14;
-      scale.set(size * 1.18, size * 0.62, size * 0.92);
+      const size = 0.48 + ((index * 7) % 9) * 0.1;
+      scale.set(
+        size * (0.82 + (index % 4) * 0.13),
+        size * (0.42 + ((index * 5) % 4) * 0.09),
+        size * (0.72 + ((index * 3) % 5) * 0.11),
+      );
       matrix.compose(position, rotation, scale);
       rocks.setMatrixAt(index, matrix);
     }
@@ -1242,15 +1642,26 @@ export class SailingWorld {
       roughness: 1,
       flatShading: true,
     });
-    const trunkGeometry = new THREE.CylinderGeometry(0.24, 0.38, 4.2, 6);
+    const trunkGeometry = new THREE.CylinderGeometry(0.22, 0.4, 5.2, 7);
     const crownGeometries = [
-      new THREE.ConeGeometry(3.5, 6.2, 6),
-      new THREE.ConeGeometry(2.9, 5.4, 6),
-      new THREE.ConeGeometry(2.3, 4.6, 6),
+      new THREE.ConeGeometry(3.8, 5.8, 7, 2),
+      new THREE.ConeGeometry(3.15, 5, 7, 2),
+      new THREE.ConeGeometry(2.55, 4.2, 7, 2),
+      new THREE.ConeGeometry(1.9, 3.3, 7, 2),
     ];
+    const crownMaterials = crownGeometries.map((_, layer) => {
+      if (layer < 2) return crownMaterial;
+      const material = crownMaterial.clone();
+      if (material instanceof THREE.MeshStandardMaterial) {
+        material.color.offsetHSL(0.005, -0.015, 0.035 + layer * 0.012);
+        material.emissive.copy(material.color).multiplyScalar(0.12);
+      }
+      return material;
+    });
     const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, count);
     const crowns = crownGeometries.map(
-      (geometry) => new THREE.InstancedMesh(geometry, crownMaterial, count),
+      (geometry, layer) =>
+        new THREE.InstancedMesh(geometry, crownMaterials[layer]!, count),
     );
     const matrix = new THREE.Matrix4();
     const position = new THREE.Vector3();
@@ -1267,15 +1678,24 @@ export class SailingWorld {
       euler.set(0, phase * 0.37, 0);
       rotation.setFromEuler(euler);
 
-      position.set(x, treeBase + 2.05 * height, z);
-      scale.set(height, height, height);
+      const widthVariation = 0.88 + (index % 5) * 0.045;
+      position.set(x, treeBase + 2.55 * height, z);
+      scale.set(
+        height * widthVariation,
+        height,
+        height * (1.04 - (index % 3) * 0.035),
+      );
       matrix.compose(position, rotation, scale);
       trunks.setMatrixAt(index, matrix);
 
       for (let layer = 0; layer < crowns.length; layer += 1) {
-        const layerScale = height * (1 - layer * 0.05);
-        position.set(x, treeBase + (4.7 + layer * 2.65) * height, z);
-        scale.set(layerScale, layerScale, layerScale);
+        const layerScale = height * (1 - layer * 0.035);
+        position.set(x, treeBase + (4.2 + layer * 2.05) * height, z);
+        scale.set(
+          layerScale * widthVariation,
+          layerScale,
+          layerScale * (1.04 - (index % 3) * 0.035),
+        );
         matrix.compose(position, rotation, scale);
         crowns[layer]!.setMatrixAt(index, matrix);
       }
@@ -1388,9 +1808,13 @@ export class SailingWorld {
     const previousTarget = this.renderer.getRenderTarget();
     const previousXr = this.renderer.xr.enabled;
     const previousClippingPlanes = this.renderer.clippingPlanes;
+    const boatWasVisible = this.boatRoot.visible;
+    const wakeFoamWasVisible = this.wakeFoam.visible;
     this.renderer.xr.enabled = false;
     this.renderer.clippingPlanes = this.reflectionClippingPlanes;
     this.water.visible = false;
+    this.boatRoot.visible = false;
+    this.wakeFoam.visible = false;
     const windWasVisible = this.windLines.visible;
     const rainWasVisible = this.rain.visible;
     const portWakeWasVisible = this.wakeLines[0].visible;
@@ -1405,6 +1829,8 @@ export class SailingWorld {
     this.renderer.render(this.scene, this.reflectionCamera);
     this.renderer.setRenderTarget(previousTarget);
     this.water.visible = true;
+    this.boatRoot.visible = boatWasVisible;
+    this.wakeFoam.visible = wakeFoamWasVisible;
     this.windLines.visible = windWasVisible;
     this.rain.visible = rainWasVisible;
     this.wakeLines[0].visible = portWakeWasVisible;
@@ -1444,16 +1870,18 @@ export class SailingWorld {
       : 0;
     const chaseDistance =
       THREE.MathUtils.lerp(
-        (titleScreen ? 30 : 22.5) * boatScale,
-        48 * boatScale,
+        titleScreen
+          ? 30 * boatScale
+          : this.activeBoat.camera.distance * boatScale,
+        32 * boatScale,
         incidentProgress,
       ) *
       portraitFraming;
     const compositionSide = titleScreen
       ? (portraitTitle ? 14 : 28) * boatScale + titleDrift
       : THREE.MathUtils.lerp(
-          7.2 * boatScale,
-          14 * boatScale,
+          this.activeBoat.camera.distance * boatScale * 0.36,
+          6 * boatScale,
           incidentProgress,
         ) * Math.min(portraitFraming, 1.25);
     const incidentReveal = incident
@@ -1468,8 +1896,10 @@ export class SailingWorld {
         Math.cos(heading) * sideReveal,
       heave +
         THREE.MathUtils.lerp(
-          (titleScreen ? 12.8 : 9.6) * boatScale,
-          24 * boatScale,
+          titleScreen
+            ? 12.8 * boatScale
+            : this.activeBoat.camera.height * boatScale,
+          16 * boatScale,
           incidentProgress,
         ) +
         (portraitFraming - 1) * 1.4 +
@@ -1478,6 +1908,31 @@ export class SailingWorld {
         forwardZ * chaseDistance -
         Math.sin(heading) * sideReveal,
     );
+    if (incident) {
+      let openWaterX = x - incident.result.point.x;
+      let openWaterZ = z - incident.result.point.z;
+      if (Math.hypot(openWaterX, openWaterZ) < 0.6) {
+        openWaterX = -x;
+        openWaterZ = -z;
+      }
+      const openWaterLength = Math.max(Math.hypot(openWaterX, openWaterZ), 1);
+      openWaterX /= openWaterLength;
+      openWaterZ /= openWaterLength;
+      const incidentCameraX =
+        x + openWaterX * 30 * boatScale + openWaterZ * 5 * boatScale;
+      const incidentCameraZ =
+        z + openWaterZ * 30 * boatScale - openWaterX * 5 * boatScale;
+      this.desiredCameraPosition.x = THREE.MathUtils.lerp(
+        this.desiredCameraPosition.x,
+        incidentCameraX,
+        incidentProgress,
+      );
+      this.desiredCameraPosition.z = THREE.MathUtils.lerp(
+        this.desiredCameraPosition.z,
+        incidentCameraZ,
+        incidentProgress,
+      );
+    }
     if (!this.cameraInitialized) {
       this.camera.position.copy(this.desiredCameraPosition);
       this.cameraInitialized = true;
@@ -1492,11 +1947,11 @@ export class SailingWorld {
       : 0;
     const normalLookX =
       x +
-      forwardX * 5.8 +
+      forwardX * this.activeBoat.camera.lookAhead * boatScale +
       Math.cos(heading) * titleLookSide;
     const normalLookZ =
       z +
-      forwardZ * 5.8 -
+      forwardZ * this.activeBoat.camera.lookAhead * boatScale -
       Math.sin(heading) * titleLookSide;
     this.cameraLookAt.set(
       THREE.MathUtils.lerp(
@@ -1581,14 +2036,59 @@ function createAdaptiveWaterGeometry(
   return geometry;
 }
 
-function createHullGeometry(): THREE.BufferGeometry {
-  const stations = [
-    { z: 3.25, width: 0.04, top: 0.18, bottom: -0.18 },
-    { z: 2.0, width: 0.88, top: 0.34, bottom: -0.48 },
-    { z: 0.2, width: 1.22, top: 0.36, bottom: -0.68 },
-    { z: -1.6, width: 1.08, top: 0.32, bottom: -0.55 },
-    { z: -2.75, width: 0.72, top: 0.18, bottom: -0.32 },
+const HULL_STATIONS = [
+  { z: 3.15, width: 0.035, top: 0.58, bottom: -0.04 },
+  { z: 2.12, width: 0.76, top: 0.44, bottom: -0.4 },
+  { z: 0.35, width: 1.08, top: 0.35, bottom: -0.64 },
+  { z: -1.45, width: 1, top: 0.4, bottom: -0.54 },
+  { z: -2.62, width: 0.67, top: 0.5, bottom: -0.28 },
+] as const;
+
+function createHullRailCurve(
+  side: number,
+  level: number,
+  widthScale = 1,
+): THREE.CatmullRomCurve3 {
+  const points = HULL_STATIONS.map((station) => {
+    const widthAtLevel = THREE.MathUtils.lerp(
+      station.width,
+      station.width * 0.42,
+      level,
+    );
+    return new THREE.Vector3(
+      side * widthAtLevel * widthScale,
+      THREE.MathUtils.lerp(station.top, station.bottom, level) + 0.025,
+      station.z,
+    );
+  });
+  return new THREE.CatmullRomCurve3(points, false, "centripetal");
+}
+
+function createInteriorFloorGeometry(): THREE.BufferGeometry {
+  const outline = [
+    { x: 0, z: INTERIOR_FLOOR_BOW_Z },
+    { x: 0.28, z: 2.55 },
+    { x: 0.55, z: 1.72 },
+    { x: 0.78, z: 0.25 },
+    { x: 0.7, z: -1.3 },
+    { x: 0.43, z: -2.18 },
+    { x: -0.43, z: -2.18 },
+    { x: -0.7, z: -1.3 },
+    { x: -0.78, z: 0.25 },
+    { x: -0.55, z: 1.72 },
+    { x: -0.28, z: 2.55 },
   ];
+  const shape = new THREE.Shape();
+  shape.moveTo(outline[0]!.x, -outline[0]!.z);
+  for (const point of outline.slice(1)) shape.lineTo(point.x, -point.z);
+  shape.closePath();
+  const geometry = new THREE.ShapeGeometry(shape);
+  geometry.rotateX(-Math.PI / 2);
+  return geometry;
+}
+
+function createHullGeometry(): THREE.BufferGeometry {
+  const stations = HULL_STATIONS;
   const vertices: number[] = [];
   const triangle = (a: number[], b: number[], c: number[]) => vertices.push(...a, ...b, ...c);
   for (let index = 0; index < stations.length - 1; index += 1) {
@@ -1629,15 +2129,15 @@ function createHullGeometry(): THREE.BufferGeometry {
 
 function createDeckGeometry(): THREE.BufferGeometry {
   const points = [
-    [0, 0.39, 3.22],
-    [-0.88, 0.39, 1.95],
-    [-1.21, 0.41, 0.15],
-    [-1.06, 0.37, -1.58],
-    [-0.7, 0.24, -2.72],
-    [0.7, 0.24, -2.72],
-    [1.06, 0.37, -1.58],
-    [1.21, 0.41, 0.15],
-    [0.88, 0.39, 1.95],
+    [0, 0.6, 3.12],
+    [-0.77, 0.46, 2.08],
+    [-1.07, 0.38, 0.32],
+    [-0.98, 0.42, -1.42],
+    [-0.65, 0.52, -2.6],
+    [0.65, 0.52, -2.6],
+    [0.98, 0.42, -1.42],
+    [1.07, 0.38, 0.32],
+    [0.77, 0.46, 2.08],
   ];
   const vertices: number[] = [];
   for (let index = 1; index < points.length - 1; index += 1) {
@@ -1659,8 +2159,8 @@ function createSailGeometry(): THREE.BufferGeometry {
     const v = row / rows;
     for (let column = 0; column <= columns; column += 1) {
       const u = column / columns;
-      const chord = (1 - v) * 4.55;
-      positions.push(0, v * 7.15, -u * chord);
+      const chord = (1 - v) * 3.42;
+      positions.push(0, v * 5.8, -u * chord);
       uvs.push(u, v);
     }
   }

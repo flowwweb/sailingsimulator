@@ -11,7 +11,7 @@ substitute for an observed human playtest.
 | Deterministic simulation | `npm test` | apparent wind, lift/drag states, rudder/keel/drag behavior, boat definitions and polars, weather, waves, bathymetry, hazards, audio mixing |
 | Production bundle | `npm run build` | strict TypeScript and deployable Vite bundle |
 | Chrome acceptance | `npm run test:browser` | production launch, keyboard sheet input, 390×844 touch hold, Settings, boat persistence, zero console/page errors, desktop/mobile captures |
-| Hosted acceptance | `$env:PLAYWRIGHT_BASE_URL='https://floeb-sailingsimulator.web.app'; npm run test:browser` | the same Chrome flow over the deployed HTTPS build |
+| Hosted acceptance | `$env:PLAYWRIGHT_BASE_URL='https://fairwinds.web.app'; npm run test:browser` | the same Chrome flow over the deployed HTTPS build |
 
 The browser run writes ignored evidence to `.artifacts/visual-qa/` so local QA
 captures do not inflate the public repository.

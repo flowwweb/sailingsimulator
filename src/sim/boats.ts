@@ -48,38 +48,46 @@ export interface BoatDefinition {
     height: number;
     lookAhead: number;
   };
+  visual: {
+    rigForwardOffset: number;
+    playerHullColor: number;
+    playerSailColor: number;
+    npcHullColor: number;
+    npcSailColor: number;
+    npcTrimColor: number;
+  };
 }
 
 export const HARBOR_20: BoatDefinition = {
   id: "harbor-20",
-  name: "Harbor 20",
-  description: "Forgiving ballasted training keelboat with one mainsail.",
+  name: "Fair Winds Dinghy",
+  description: "Stable open centerboard dinghy with one mainsail.",
   hull: {
-    length: 6.05,
-    beam: 2.18,
-    draft: 1.12,
-    displacement: 1_100,
-    yawInertia: 4_200,
-    rightingArm: 0.72,
-    longitudinalDragLinear: 95,
-    longitudinalDragQuadratic: 42,
-    lateralResistanceLinear: 880,
-    lateralResistanceQuadratic: 520,
+    length: 4.65,
+    beam: 1.72,
+    draft: 0.82,
+    displacement: 520,
+    yawInertia: 1_500,
+    rightingArm: 0.5,
+    longitudinalDragLinear: 55,
+    longitudinalDragQuadratic: 25,
+    lateralResistanceLinear: 520,
+    lateralResistanceQuadratic: 280,
   },
   rudder: {
-    maximumAngleDegrees: 28,
-    responseRate: 7,
-    forceFactor: 250,
-    lever: 2.4,
+    maximumAngleDegrees: 32,
+    responseRate: 8,
+    forceFactor: 180,
+    lever: 1.75,
   },
   sailPlan: [
     {
       id: "harbor-main",
       kind: "mainsail",
-      area: 18,
+      area: 10.8,
       designAngleDegrees: 14,
-      forceCenterForward: 0.25,
-      forceCenterHeight: 3.8,
+      forceCenterForward: 0.15,
+      forceCenterHeight: 2.5,
     },
   ],
   polar: [
@@ -91,8 +99,9 @@ export const HARBOR_20: BoatDefinition = {
     { trueWindAngleDegrees: 145, speedToWindRatio: 0.56 },
     { trueWindAngleDegrees: 180, speedToWindRatio: 0.48 },
   ],
-  collision: { halfLength: 2.85, halfBeam: 0.98 },
-  camera: { distance: 13.5, height: 7.2, lookAhead: 5.8 },
+  collision: { halfLength: 2.2, halfBeam: 0.78 },
+  camera: { distance: 14.5, height: 6.2, lookAhead: 4.5 },
+  visual: { rigForwardOffset: 0.48, playerHullColor: 0xf0eee8, playerSailColor: 0xf5f2e9, npcHullColor: 0x2f6f78, npcSailColor: 0xe7e0cf, npcTrimColor: 0xd49a4a },
 };
 
 export const COASTAL_28: BoatDefinition = {
@@ -146,6 +155,7 @@ export const COASTAL_28: BoatDefinition = {
   ],
   collision: { halfLength: 4.05, halfBeam: 1.28 },
   camera: { distance: 17.5, height: 9.1, lookAhead: 7.4 },
+  visual: { rigForwardOffset: 0, playerHullColor: 0xe8e4db, playerSailColor: 0xf2efe5, npcHullColor: 0x9a4d3f, npcSailColor: 0xe9e4d7, npcTrimColor: 0x294f5a },
 };
 
 export const LAKE_34: BoatDefinition = {
@@ -199,6 +209,7 @@ export const LAKE_34: BoatDefinition = {
   ],
   collision: { halfLength: 4.92, halfBeam: 1.55 },
   camera: { distance: 21, height: 10.8, lookAhead: 8.8 },
+  visual: { rigForwardOffset: -0.08, playerHullColor: 0xdfe5e3, playerSailColor: 0xeee9dc, npcHullColor: 0x334d68, npcSailColor: 0xe4dfd2, npcTrimColor: 0xc7b06c },
 };
 
 export const BOAT_DEFINITIONS: Readonly<Record<BoatId, BoatDefinition>> = {

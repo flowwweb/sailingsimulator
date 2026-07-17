@@ -28,7 +28,7 @@ Before editing:
 Product objective:
 
 - Teach wind direction, sail trim, luffing versus attached flow versus stall,
-  points of sail, and tacking.
+  points of sail, tacking, controlled gybing, reefing, and lowering/hoisting sail.
 - Make the lake initially feel like open sea. Build a 3.6 km-wide central basin
   with local islands, atmospheric outer-shore reveal, and 15–24 minute full
   crossings at normal speeds.
@@ -38,7 +38,7 @@ Non-goals until the core is proven:
 
 - no multiplayer, AI racers, regatta gates, boost, combat, economy, survival,
   fishing, crafting, spinnakers, or full CFD;
-- expose the mainsail-only Harbor 20 first; keep the Coastal 28 and Lake 34 as
+- expose the mainsail-only Fair Winds Dinghy first; keep the Coastal 28 and Lake 34 as
   validation profiles for optional headsail, draft, mass, handling, and polar
   contracts rather than a progression/fleet system;
 - no React/ECS/general rigid-body engine/server unless an existing proven need
@@ -58,6 +58,11 @@ Required engineering model:
   and righting moment.
 - The sheet changes the sail/boom constraint. Never implement trim as a hidden
   speed percentage.
+- Model full, first-reef, and lowered sail as continuous effective-area states.
+  The rendered cloth, telltales, force calculation, and HUD must use the same
+  deployment value.
+- Classify sail-side crossings from apparent wind so tacks and gybes are
+  distinct. A gybe may move the loaded boom faster, but never teleport it.
 - Make visual sail camber, leading-edge flutter, telltales, heel, wake, wind
   audio, cloth audio, and HUD agree with simulation state.
 - Use a camera-centered adaptive triangulated grid and the same six-component
@@ -90,7 +95,8 @@ ribbons.
 
 Interaction and teaching requirements:
 
-- Keyboard: A/D or arrows helm, W ease, S sheet in, R recover, Esc pause.
+- Keyboard: A/D or arrows helm, W ease, S sheet in, Q reef/shake out, X
+  lower/hoist sail, R recover, Esc pause.
 - Touch: spring-centered helm control and persistent sheet slider.
 - One contextual coaching message at a time.
 - Lesson sequence: find wind; make the sail draw; points of sail; tack.
@@ -127,6 +133,10 @@ Acceptance criteria for the first 3D vertical slice:
   eventually reduces rudder authority.
 - A tack crosses the no-go zone, changes sail side, loses speed, and recovers
   when the player bears off and retrims.
+- A gybe crosses the stern sector once, moves the boom with a faster bounded
+  swing, is reported separately from a tack, and requires retrim.
+- Reefing settles at 64% effective area. Lowering settles at zero aerodynamic
+  area; hoisting restores the selected reef setting. None is a speed slider.
 - Gusts are changes in the wind field, not a player power-up.
 - The visible water, wind cues, sail behavior, wake, and instruments do not
   contradict one another.

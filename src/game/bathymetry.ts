@@ -1,6 +1,7 @@
 export const LAKE_RADIUS = 1_800;
 
 export interface LakeShoal {
+  id: string;
   x: number;
   z: number;
   islandRadius: number;
@@ -8,11 +9,53 @@ export interface LakeShoal {
 }
 
 export const LAKE_SHOALS: readonly LakeShoal[] = [
-  { x: -520, z: 430, islandRadius: 55, shelfRadius: 160 },
-  { x: 560, z: 585, islandRadius: 74, shelfRadius: 178 },
-  { x: 690, z: 620, islandRadius: 52, shelfRadius: 155 },
-  { x: 915, z: -440, islandRadius: 90, shelfRadius: 210 },
+  {
+    id: "pine-islet",
+    x: -650,
+    z: 400,
+    islandRadius: 65,
+    shelfRadius: 170,
+  },
+  {
+    id: "beacon-west-headland",
+    x: -320,
+    z: 1_050,
+    islandRadius: 500,
+    shelfRadius: 620,
+  },
+  {
+    id: "north-light",
+    x: 980,
+    z: 720,
+    islandRadius: 300,
+    shelfRadius: 400,
+  },
+  {
+    id: "juniper-cove",
+    x: 980,
+    z: -510,
+    islandRadius: 105,
+    shelfRadius: 230,
+  },
+  {
+    id: "gull-key",
+    x: -930,
+    z: -430,
+    islandRadius: 48,
+    shelfRadius: 135,
+  },
+  {
+    id: "cedar-point",
+    x: 1_180,
+    z: 220,
+    islandRadius: 70,
+    shelfRadius: 170,
+  },
 ];
+
+export function lakeShoalFor(id: string): LakeShoal | undefined {
+  return LAKE_SHOALS.find((shoal) => shoal.id === id);
+}
 
 export function sampleLakeDepth(x: number, z: number): number {
   const distanceFromCenter = Math.hypot(x, z);

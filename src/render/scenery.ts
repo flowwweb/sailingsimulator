@@ -162,45 +162,12 @@ export class LakeScenery {
   }
 
   private createShoreMasses(): void {
-    const random = createRandom(8_221);
-    const colors = [
-      [0x7d8b73, 0x172d32],
-      [0x89907a, 0x1a3135],
-      [0x71816d, 0x152b31],
-    ] as const;
-    for (let index = 0; index < 34; index += 1) {
-      const angle =
-        (index / 34) * Math.PI * 2 +
-        (random() - 0.5) * 0.14;
-      const radius = LAKE_RADIUS - 140 + random() * 300;
-      const height = 48 + random() * 115;
-      const width = 105 + random() * 145;
-      const palette = colors[index % colors.length]!;
-      const material = this.dynamicMaterial(
-        palette[0],
-        palette[1],
-        0.94,
-      );
-      const land = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(
-          width,
-          1,
-        ),
-        material,
-      );
-      land.position.set(
-        Math.sin(angle) * radius,
-        height * 0.25 - 12,
-        Math.cos(angle) * radius,
-      );
-      land.rotation.y = random() * Math.PI;
-      land.scale.set(
-        1,
-        (height / width) * 0.72,
-        0.68 + random() * 0.7,
-      );
-      this.root.add(land);
-    }
+    const terrain = new THREE.Mesh(
+      createCoastalTerrainGeometry(),
+      this.dynamicMaterial(0x7d8b73, 0x172d32, 0.96),
+    );
+    terrain.name = "Irregular coastal terrain";
+    this.root.add(terrain);
   }
 
   private createForest(): void {
@@ -240,15 +207,11 @@ export class LakeScenery {
     const euler = new THREE.Euler();
     for (let index = 0; index < count; index += 1) {
       const angle = random() * Math.PI * 2;
-      const radius = LAKE_RADIUS - 300 + random() * 430;
+      const innerForest = coastalTerrainBand(angle, 1).radius + 18;
+      const outerForest = coastalTerrainBand(angle, 4).radius - 22;
+      const radius = innerForest + random() * (outerForest - innerForest);
       const height = 0.62 + random() * 1.45;
-      const terrainHeight =
-        12 +
-        Math.pow(
-          (radius - (LAKE_RADIUS - 300)) / 430,
-          1.35,
-        ) * 48 +
-        random() * 12;
+      const terrainHeight = sampleCoastalTerrainHeight(angle, radius);
       position.set(
         Math.sin(angle) * radius,
         terrainHeight + 5 * height,
@@ -393,9 +356,91 @@ export class LakeScenery {
   }
 }
 
+export function createCoastalTerrainGeometry(
+  segments = 128,
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const indices: number[] = [];
+
+  for (let segment = 0; segment <= segments; segment += 1) {
+    const angle = (segment / segments) * Math.PI * 2;
+    for (let band = 0; band < COASTAL_RADIAL_BANDS.length; band += 1) {
+      const { radius, height } = coastalTerrainBand(angle, band);
+      positions.push(
+        Math.sin(angle) * radius,
+        height,
+        Math.cos(angle) * radius,
+      );
+    }
+  }
+
+  const bandCount = COASTAL_RADIAL_BANDS.length;
+  for (let segment = 0; segment < segments; segment += 1) {
+    for (let band = 0; band < bandCount - 1; band += 1) {
+      const near = segment * bandCount + band;
+      const far = near + bandCount;
+      indices.push(near, far, near + 1, near + 1, far, far + 1);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+const COASTAL_RADIAL_BANDS = [0, 38, 125, 285, 520] as const;
+const COASTAL_BASE_HEIGHTS = [-1.4, 1.1, 10, 34, 72] as const;
+
+function coastalTerrainBand(
+  angle: number,
+  band: number,
+): { radius: number; height: number } {
+  const shoreline =
+    LAKE_RADIUS - 24 +
+    Math.sin(angle * 3 + 0.4) * 34 +
+    Math.sin(angle * 7 - 1.1) * 17 +
+    Math.sin(angle * 13 + 2.2) * 7;
+  const headland =
+    Math.sin(angle * 2.1 - 0.7) * 0.5 +
+    Math.sin(angle * 5.3 + 1.8) * 0.28;
+  const bandProgress = band / (COASTAL_RADIAL_BANDS.length - 1);
+  return {
+    radius:
+      shoreline + COASTAL_RADIAL_BANDS[band]! +
+      Math.sin(angle * (4 + band) + band * 1.7) * (5 + band * 6),
+    height:
+      COASTAL_BASE_HEIGHTS[band]! +
+      (band === 0
+        ? 0
+        : headland * (4 + band * 7) +
+          Math.sin(angle * 9 - band * 0.8) * bandProgress * 5),
+  };
+}
+
+export function sampleCoastalTerrainHeight(
+  angle: number,
+  radius: number,
+): number {
+  const bands = COASTAL_RADIAL_BANDS.map((_, band) =>
+    coastalTerrainBand(angle, band),
+  );
+  if (radius <= bands[0]!.radius) return bands[0]!.height;
+  for (let band = 1; band < bands.length; band += 1) {
+    const inner = bands[band - 1]!;
+    const outer = bands[band]!;
+    if (radius > outer.radius) continue;
+    const progress = (radius - inner.radius) / (outer.radius - inner.radius);
+    return THREE.MathUtils.lerp(inner.height, outer.height, progress);
+  }
+  return bands.at(-1)!.height;
+}
+
 const NIGHT_SKY = new THREE.Color(0x102844);
 const DAY_SKY = new THREE.Color(0x88b9cc);
-const SUNSET_SKY = new THREE.Color(0xf0a46f);
+const SUNSET_SKY = new THREE.Color(0xf5aa72);
 const OVERCAST_SKY = new THREE.Color(0x788d98);
 const VISIBILITY_FOG = new THREE.Color(0xc8c8ba);
 const WARM_SUN = new THREE.Color(0xffecc5);
@@ -467,9 +512,9 @@ function updateLightingState(
       .normalize();
   }
   const sunsetBlend = THREE.MathUtils.clamp(
-    golden * 0.76 * daylight,
+    golden * 0.9 * daylight,
     0,
-    0.72,
+    0.84,
   );
   target.daylight = daylight;
   target.sky

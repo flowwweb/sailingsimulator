@@ -11,6 +11,8 @@ export interface Vec2 {
 }
 
 export type SailSide = -1 | 1;
+export type ReefLevel = 0 | 1;
+export type Maneuver = "none" | "tack" | "gybe";
 
 export interface BoatState {
   position: Vec2;
@@ -23,7 +25,13 @@ export interface BoatState {
   headsailSheet: number;
   headsailAngle: number;
   sailSide: SailSide;
+  sailsRaised: boolean;
+  reefLevel: ReefLevel;
+  sailDeployment: number;
   tackCount: number;
+  gybeCount: number;
+  lastManeuver: Maneuver;
+  maneuverCount: number;
   heel: number;
   heave: number;
   heaveVelocity: number;
@@ -70,6 +78,7 @@ export interface SailDiagnostics {
   force: Vec2;
   driveForce: number;
   sideForce: number;
+  effectiveArea: number;
 }
 
 export interface HydroDiagnostics {
@@ -95,7 +104,10 @@ const AIR_DENSITY = 1.225;
 const MIN_BOOM_ANGLE = degrees(5);
 const MAX_BOOM_ANGLE = degrees(85);
 const BOOM_BASE_RATE = degrees(42);
-const IRONS_RECOVERY_TORQUE = 18;
+const IRONS_RECOVERY_TORQUE = 24;
+const IRONS_WEATHERCOCK_TORQUE = 5;
+const REEFED_SAIL_AREA_FACTOR = 0.64;
+const GYBE_THRESHOLD = degrees(110);
 
 export function degrees(value: number): number {
   return (value * Math.PI) / 180;
@@ -127,6 +139,11 @@ function moveToward(current: number, target: number, maximumDelta: number): numb
   const delta = target - current;
   if (Math.abs(delta) <= maximumDelta) return target;
   return current + Math.sign(delta) * maximumDelta;
+}
+
+export function sailDeploymentTarget(state: Pick<BoatState, "sailsRaised" | "reefLevel">): number {
+  if (!state.sailsRaised) return 0;
+  return state.reefLevel === 1 ? REEFED_SAIL_AREA_FACTOR : 1;
 }
 
 function magnitude(vector: Vec2): number {
@@ -216,7 +233,13 @@ export function createInitialState(): BoatState {
     headsailSheet: 0.52,
     headsailAngle: -degrees(46.6),
     sailSide: -1,
+    sailsRaised: true,
+    reefLevel: 0,
+    sailDeployment: 1,
     tackCount: 0,
+    gybeCount: 0,
+    lastManeuver: "none",
+    maneuverCount: 0,
     heel: 0,
     heave: 0,
     heaveVelocity: 0,
@@ -297,9 +320,10 @@ function computeSailElementAerodynamics(
   const wrongSide = Math.sign(desiredBoomAngle) !== Math.sign(sailAngle)
     ? smoothstep(3, 18, Math.abs(radiansToDegrees(sailAngle)))
     : 0;
-  const luff = Math.max(noGo, luffFromTrim, wrongSide * 0.92);
-  const stall = smoothstep(22, 38, alphaDegrees) * (1 - noGo);
-  const attached = clamp((1 - luff) * (1 - stall), 0, 1);
+  const availableSail = smoothstep(0.04, 0.24, state.sailDeployment);
+  const luff = Math.max(noGo, luffFromTrim, wrongSide * 0.92) * availableSail;
+  const stall = smoothstep(22, 38, alphaDegrees) * (1 - noGo) * availableSail;
+  const attached = clamp((1 - luff) * (1 - stall) * availableSail, 0, 1);
 
   let liftCoefficient: number;
   if (alphaDegrees <= 0) {
@@ -314,21 +338,23 @@ function computeSailElementAerodynamics(
     liftCoefficient = lerp(0.9, 0.12, smoothstep(25, 50, alphaDegrees));
   }
   liftCoefficient *= (1 - noGo) * (1 - wrongSide * 0.82);
+  liftCoefficient *= availableSail;
 
   const downwindDrag = smoothstep(105, 165, absoluteWindDegrees) * 0.85;
   const dragCoefficient =
     0.08 + 0.08 * liftCoefficient * liftCoefficient + stall * 0.72 + downwindDrag;
   const dynamicPressure = 0.5 * AIR_DENSITY * apparent.speed * apparent.speed;
+  const effectiveArea = sailDefinition.area * clamp(state.sailDeployment, 0, 1);
   const flowDirection = normalized(apparent.vector);
   const liftOption = { x: -flowDirection.y, y: flowDirection.x };
   const liftDirection = dot(liftOption, forward) >= 0 ? liftOption : scale(liftOption, -1);
   const liftForce = scale(
     liftDirection,
-    dynamicPressure * sailDefinition.area * liftCoefficient,
+    dynamicPressure * effectiveArea * liftCoefficient,
   );
   const dragForce = scale(
     flowDirection,
-    dynamicPressure * sailDefinition.area * dragCoefficient,
+    dynamicPressure * effectiveArea * dragCoefficient,
   );
   const force = add(liftForce, dragForce);
 
@@ -348,6 +374,7 @@ function computeSailElementAerodynamics(
     force,
     driveForce: dot(force, forward),
     sideForce: dot(force, starboard),
+    effectiveArea,
   };
 }
 
@@ -383,11 +410,19 @@ export function stepBoat(
       0,
       1,
     ),
+    sailDeployment: moveToward(
+      previous.sailDeployment,
+      sailDeploymentTarget(previous),
+      (previous.sailsRaised ? 0.32 : 0.58) * safeDt,
+    ),
   };
 
   const apparent = apparentWindFor(state, environment);
   const boomTarget = desiredBoomFor(apparent.angle, state.sheet, state.sailSide);
-  const boomRate = BOOM_BASE_RATE + degrees(5.5) * apparent.speed;
+  const changingSide = Math.sign(boomTarget) !== Math.sign(previous.boomAngle);
+  const isGybe = changingSide && Math.abs(apparent.angle) > GYBE_THRESHOLD;
+  const boomRate =
+    (BOOM_BASE_RATE + degrees(5.5) * apparent.speed) * (isGybe ? 2.25 : 1);
   state.boomAngle = moveToward(previous.boomAngle, boomTarget, boomRate * safeDt);
   if (hasHeadsail) {
     const headsailTarget = desiredBoomFor(
@@ -403,7 +438,14 @@ export function stepBoat(
   }
   if (Math.abs(state.boomAngle) > degrees(2)) {
     const newSide = (state.boomAngle < 0 ? -1 : 1) as SailSide;
-    if (newSide !== previous.sailSide) state.tackCount += 1;
+    if (newSide !== previous.sailSide && state.sailDeployment > 0.15) {
+      state.lastManeuver = Math.abs(apparent.angle) > GYBE_THRESHOLD
+        ? "gybe"
+        : "tack";
+      state.maneuverCount += 1;
+      if (state.lastManeuver === "gybe") state.gybeCount += 1;
+      else state.tackCount += 1;
+    }
     state.sailSide = newSide;
   }
 
@@ -449,18 +491,26 @@ export function stepBoat(
   state.velocity.x += acceleration.x * safeDt;
   state.velocity.y += acceleration.y * safeDt;
 
-  // Once the sail has pushed the boat into sternway, amplify the player's helm
-  // input just inside the no-go zone. This represents the combined effect of
-  // backing/sculling the teaching boat without granting a stopped rudder force.
-  const inIrons = 1 - smoothstep(degrees(28), degrees(42), Math.abs(apparent.angle));
+  // At very low speed the teaching boat can be backed or sculled through irons.
+  // Blend the help beyond the aerodynamic no-go boundary so the boat cannot
+  // settle into a stable, powerless angle at its edge.
+  const inIrons = 1 - smoothstep(degrees(30), degrees(52), Math.abs(apparent.angle));
   const sternway = smoothstep(0.03, 0.35, -forwardSpeed);
+  const stalledAhead =
+    smoothstep(0.62, 0.08, Math.max(forwardSpeed, 0)) *
+    smoothstep(0.35, 0.82, sail.luff);
+  const recoveryFlow = Math.max(sternway, stalledAhead * 0.72);
   const lowSpeed = 1 - smoothstep(0.35, 1.4, Math.abs(forwardSpeed));
   const ironsRecoveryTorque =
-    clamp(controls.rudder, -1, 1) * inIrons * sternway * lowSpeed *
+    clamp(controls.rudder, -1, 1) * inIrons * recoveryFlow * lowSpeed *
     apparent.speed * apparent.speed * IRONS_RECOVERY_TORQUE;
+  const ironsWeathercockTorque =
+    -Math.sign(apparent.angle) * inIrons * stalledAhead * lowSpeed *
+    apparent.speed * apparent.speed * IRONS_WEATHERCOCK_TORQUE;
   const yawTorque =
     rudderSideForce * boat.rudder.lever +
-    ironsRecoveryTorque -
+    ironsRecoveryTorque +
+    ironsWeathercockTorque -
     combinedSideForce * 0.12 -
     state.yawRate * 2_800;
   state.yawRate += (yawTorque / boat.hull.yawInertia) * safeDt;

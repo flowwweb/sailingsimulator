@@ -26,12 +26,13 @@ export function evaluateIncident(
   state: BoatState,
   boat: BoatDefinition,
   world: WorldDefinition = FAIR_WINDS_WORLD,
+  waterLevel = 0,
 ): IncidentResult {
   const speed = Math.hypot(state.velocity.x, state.velocity.y);
   const collision = evaluateObjectCollision(state, boat, world, speed);
   if (collision) return collision;
 
-  const grounding = evaluateGrounding(state, boat, world, speed);
+  const grounding = evaluateGrounding(state, boat, world, speed, waterLevel);
   if (grounding) return grounding;
 
   return {
@@ -47,6 +48,7 @@ function evaluateGrounding(
   boat: BoatDefinition,
   world: WorldDefinition,
   speed: number,
+  waterLevel: number,
 ): IncidentResult | undefined {
   const forward = { x: Math.sin(state.heading), z: Math.cos(state.heading) };
   const sampleOffsets = [
@@ -62,7 +64,7 @@ function evaluateGrounding(
       x: state.position.x + forward.x * offset,
       z: state.position.y + forward.z * offset,
     };
-    const depth = world.sampleDepth(point.x, point.z);
+    const depth = Math.max(0, world.sampleDepth(point.x, point.z) + waterLevel);
     if (depth >= minimumDepth) continue;
     minimumDepth = depth;
     minimumPoint = point;

@@ -135,6 +135,8 @@ function weather(
     rain: 0,
     cloud: 0.2,
     visibility: 1,
+    tideLevel: 0,
+    tideTrend: "rising",
     waves: [],
     ...overrides,
   };
@@ -159,6 +161,7 @@ function sail(
     force: { x: 0, y: 0 },
     driveForce: 0,
     sideForce: 0,
+    effectiveArea: 16,
     ...overrides,
   };
 }

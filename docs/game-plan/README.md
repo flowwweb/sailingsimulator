@@ -46,7 +46,8 @@ on-water instruction.
    draft-sensitive grounding, deterministic object collision, and an incident
    recovery cinematic. These validate extensibility without widening the
    default one-mainsail teaching loop.
-4. **Explicit later work:** independently controlled headsail sheets, reefing,
+4. **Explicit later work:** independently controlled headsail sheets, multiple
+   reef points and sail-by-sail reef plans,
    capsize recovery physics, currents, full docking simulation, structural
    damage simulation, six-degree rigid-body dynamics, multiplayer, racing
    rules, and real-world weather feeds.

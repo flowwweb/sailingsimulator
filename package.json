@@ -1,9 +1,9 @@
 {
-  "name": "sailingsimulator",
+  "name": "fair-winds",
   "version": "0.1.0",
   "private": false,
   "type": "module",
-  "description": "A focused browser sailing simulator that teaches wind awareness, trim, luffing, and tacking on a vast lake.",
+  "description": "Fair Winds is a focused browser sailing game that teaches wind awareness, trim, luffing, and tacking on a vast lake.",
   "scripts": {
     "dev": "vite",
     "preview": "vite preview",

@@ -17,7 +17,8 @@ attack; aerodynamic lift/drag; and separate hull/rudder response. See
 - Heading `0` points north (`+z`) and increases clockwise.
 - True wind is an air-velocity vector pointing where the air travels.
 - Boat state contains world position/velocity, heading, yaw rate, rudder angle,
-  sheet position, and filtered heel.
+  sheet position, sail side, reef level, continuous sail deployment, completed
+  tack/gybe state, and filtered heel.
 
 ## Step 1: apparent wind
 
@@ -53,14 +54,26 @@ boundaries and tests stable while tuning coefficients.
 
 ```text
 q = 0.5 × rho_air × |V_apparent|²
-Lift = q × sail_area × C_l(alpha)
-Drag = q × sail_area × C_d(alpha)
+effective_area = sail_area × deployment
+Lift = q × effective_area × C_l(alpha)
+Drag = q × effective_area × C_d(alpha)
 ```
 
 Lift acts perpendicular to apparent airflow; drag acts with it. Resolve the
 sum into boat-forward drive and boat-side force. Reduce useful lift smoothly in
 the approximately 40° no-go zone. Downwind propulsion becomes increasingly
 drag-dominant.
+
+The first reef transitions deployment from `1.0` to `0.64`; shaking it out
+returns to full area. Lowering transitions deployment to zero and therefore
+removes aerodynamic lift and drag. These changes drive the same cloth scale,
+telltale visibility, HUD state, and force calculation. They are not polar or
+speed multipliers.
+
+A completed boom-side crossing is classified from apparent wind at the
+crossing: wind forward of the aft sector is a tack, while wind more than 110°
+off the bow is a gybe. A gybe increases boom crossing rate to represent the
+loaded swing, but it remains bounded and deterministic.
 
 ## Step 4: water forces
 

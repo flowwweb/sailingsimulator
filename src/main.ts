@@ -14,10 +14,16 @@ import {
   type IncidentResult,
 } from "./game/hazards";
 import { GameInput } from "./game/input";
+import { LakeChart } from "./game/minimap";
+import { timeScaleForHold } from "./game/time-scale";
 import { TrimLesson } from "./game/lesson";
 import { sampleBoatWavePose } from "./game/wave-pose";
-import { FAIR_WINDS_WORLD } from "./game/world-definition";
+import {
+  FAIR_WINDS_WORLD,
+  type WorldActivity,
+} from "./game/world-definition";
 import { LANDMARKS, SailingWorld } from "./render/world";
+import { bindTabList, trapFocusWithin, type TabListController } from "./ui/primitives";
 import {
   HARBOR_20,
   getBoatDefinition,
@@ -32,6 +38,7 @@ import {
   degrees,
   pointOfSail,
   radiansToDegrees,
+  sailDeploymentTarget,
   sheetForBoomAngle,
   stepBoat,
   type BoatState,
@@ -50,6 +57,7 @@ import { WeatherSystem } from "./weather/weather";
 const canvas = required<HTMLCanvasElement>("#lake");
 const elements = {
   gameShell: required(".game-shell"),
+  minimap: required<HTMLCanvasElement>("#minimap"),
   pointOfSail: required("#point-of-sail"),
   wind: required("#wind-readout"),
   windArrow: required("#wind-arrow"),
@@ -79,14 +87,26 @@ const elements = {
   setSail: required<HTMLButtonElement>("#set-sail"),
   newJourney: required<HTMLButtonElement>("#new-journey"),
   titleSettings: required<HTMLButtonElement>("#title-settings"),
-  titleExit: required<HTMLButtonElement>("#title-exit"),
   titleMute: required<HTMLButtonElement>("#title-mute"),
   mute: required<HTMLButtonElement>("#mute"),
   reset: required<HTMLButtonElement>("#reset"),
+  reefSail: required<HTMLButtonElement>("#reef-sail"),
+  toggleSails: required<HTMLButtonElement>("#toggle-sails"),
   conditionsToggle: required<HTMLButtonElement>("#conditions-toggle"),
+  mapToggle: required<HTMLButtonElement>("#map-toggle"),
+  chartPanel: required("#chart-panel"),
+  chartBackdrop: required("#chart-backdrop"),
+  chartClose: required<HTMLButtonElement>("#chart-close"),
+  chartCanvas: required<HTMLCanvasElement>("#lake-chart"),
+  chartActivityList: required("#chart-activity-list"),
+  chartCourseReadout: required("#chart-course-readout"),
   conditionsClose: required<HTMLButtonElement>("#conditions-close"),
   conditionsPanel: required("#conditions-panel"),
   conditionsBackdrop: required("#conditions-backdrop"),
+  settingsResume: required<HTMLButtonElement>("#settings-resume"),
+  settingsMainMenu: required<HTMLButtonElement>("#settings-main-menu"),
+  settingsResetBoat: required<HTMLButtonElement>("#settings-reset-boat"),
+  touchControlsEnabled: required<HTMLInputElement>("#touch-controls-enabled"),
   boatSelect: required<HTMLSelectElement>("#boat-select"),
   musicTrackName: required("#music-track-name"),
   musicPlaybackStatus: required("#music-playback-status"),
@@ -113,6 +133,8 @@ try {
   throw error;
 }
 const input = new GameInput();
+const chart = new LakeChart(elements.chartCanvas);
+const miniChart = new LakeChart(elements.minimap);
 const lesson = new TrimLesson();
 let weatherConfig = loadWeatherConfig();
 const audio = new GameAudio(weatherConfig.seed);
@@ -134,13 +156,17 @@ let previousFrame = performance.now();
 let accumulator = 0;
 let started = false;
 let lastFlow = "";
+let lastManeuverCount = 0;
 let lessonCompletedAt = 0;
 let incident: IncidentResult | undefined;
 let incidentElapsed = 0;
 let touchCooldown = 0;
 let presentationTime = 0;
 let hudUpdateElapsed = 0;
+let developmentPreviewFrozen = false;
 let titleAudioPromise: Promise<void> | undefined;
+let settingsTabs: TabListController;
+let selectedActivityId = FAIR_WINDS_WORLD.activities[0]?.id;
 const fixedStep = 1 / 60;
 const titleState = createTitleState();
 let titleWeather = titleWeatherSystem.sample(0);
@@ -180,8 +206,8 @@ function createGameState(
 
 function createTitleState(): BoatState {
   const title = createGameState({
-    x: 620,
-    z: 785,
+    x: 610,
+    z: 790,
     heading: degrees(192),
   });
   title.sheet = 0.58;
@@ -199,16 +225,16 @@ function createTitleWeatherConfig(): WeatherConfig {
     timeOfDay: 6.65,
     wind: {
       ...DEFAULT_WEATHER.wind,
-      speed: 5.2,
+      speed: 4.4,
       directionFromDegrees: 96,
       gustStrength: 0,
     },
     waves: {
       ...DEFAULT_WEATHER.waves,
       mode: "manual",
-      height: 0.22,
-      length: 17,
-      steepness: 0.2,
+      height: 0.18,
+      length: 12,
+      steepness: 0.14,
       directionFromDegrees: 104,
     },
     rain: 0,
@@ -218,9 +244,34 @@ function createTitleWeatherConfig(): WeatherConfig {
 }
 
 function bindInterface(): void {
-  window.addEventListener("resize", () => world.resize());
+  window.addEventListener("resize", () => {
+    world.resize();
+    if (isChartOpen()) renderChart();
+  });
   window.addEventListener("keydown", (event) => {
-    if (event.code === "Escape" && isConditionsOpen()) setConditionsOpen(false);
+    if (event.code === "Escape" && isChartOpen()) {
+      event.preventDefault();
+      setChartOpen(false);
+      return;
+    }
+    if (event.code === "Escape" && isConditionsOpen()) {
+      event.preventDefault();
+      setConditionsOpen(false);
+      return;
+    }
+    if (event.code === "Tab" && isChartOpen()) {
+      trapFocusWithin(elements.chartPanel, event);
+      return;
+    }
+    if (event.code === "Tab" && isConditionsOpen()) {
+      trapFocusWithin(elements.conditionsPanel, event);
+      return;
+    }
+    if (!event.repeat && event.code === "KeyN" && started) {
+      event.preventDefault();
+      setChartOpen(!isChartOpen());
+      return;
+    }
     if (!started && !isConditionsOpen()) {
       void startTitleAudio();
       if (event.code === "ArrowDown" || event.code === "ArrowUp") {
@@ -246,11 +297,6 @@ function bindInterface(): void {
     void startTitleAudio();
     setConditionsOpen(true);
   });
-  elements.titleExit.addEventListener("click", () => {
-    void startTitleAudio();
-    window.close();
-    elements.status.textContent = "Close this tab to leave Fair Winds.";
-  });
   elements.titleMute.addEventListener("click", () => {
     void startTitleAudio();
     toggleMute();
@@ -262,9 +308,27 @@ function bindInterface(): void {
     lessonCompletedAt = simulationTime;
     updateLesson();
   });
+  elements.mapToggle.addEventListener("click", () => setChartOpen(!isChartOpen()));
+  elements.chartClose.addEventListener("click", () => setChartOpen(false));
+  elements.chartBackdrop.addEventListener("click", () => setChartOpen(false));
   elements.conditionsToggle.addEventListener("click", () => setConditionsOpen(!isConditionsOpen()));
   elements.conditionsClose.addEventListener("click", () => setConditionsOpen(false));
   elements.conditionsBackdrop.addEventListener("click", () => setConditionsOpen(false));
+  elements.settingsResume.addEventListener("click", () => setConditionsOpen(false));
+  elements.settingsMainMenu.addEventListener("click", returnToTitle);
+  elements.settingsResetBoat.addEventListener("click", resetBoat);
+  elements.touchControlsEnabled.checked =
+    localStorage.getItem("fair-winds-on-screen-controls") === "true";
+  syncOnScreenControls();
+  elements.touchControlsEnabled.addEventListener("change", () => {
+    localStorage.setItem(
+      "fair-winds-on-screen-controls",
+      String(elements.touchControlsEnabled.checked),
+    );
+    syncOnScreenControls();
+  });
+  settingsTabs = bindTabList(elements.conditionsPanel);
+  buildChartActivityList();
   elements.incidentRecover.addEventListener("click", recoverBoat);
   elements.incidentRestart.addEventListener("click", resetBoat);
   elements.boatSelect.addEventListener("change", () => {
@@ -279,7 +343,6 @@ function titleMenuItems(): HTMLButtonElement[] {
     elements.setSail,
     elements.newJourney,
     elements.titleSettings,
-    elements.titleExit,
   ];
 }
 
@@ -333,6 +396,26 @@ async function beginSailing(newJourney: boolean): Promise<void> {
     : "Set sail. Sheet in gently until the mainsail stops luffing.";
 }
 
+function returnToTitle(): void {
+  setConditionsOpen(false);
+  setChartOpen(false);
+  started = false;
+  elements.welcome.hidden = false;
+  elements.welcome.classList.remove("is-leaving");
+  elements.gameShell.classList.add("is-welcome");
+  selectTitleItem(elements.setSail);
+  elements.setSail.focus({ preventScroll: true });
+  audio.resetMotionState();
+  elements.status.textContent = "Main menu. Your journey is ready to continue.";
+}
+
+function syncOnScreenControls(): void {
+  elements.gameShell.classList.toggle(
+    "show-on-screen-controls",
+    elements.touchControlsEnabled.checked,
+  );
+}
+
 function resetJourney(): void {
   simulationTime = 0;
   weatherConfig = cloneWeatherConfig(DEFAULT_WEATHER);
@@ -353,6 +436,7 @@ function resetJourney(): void {
   });
   lesson.reset();
   lessonCompletedAt = 0;
+  lastManeuverCount = 0;
   clearIncident();
   world.resetWake();
 }
@@ -369,9 +453,17 @@ function refreshTitleDiagnostics(): void {
 }
 
 function enableDevelopmentPreview(): void {
-  if (!import.meta.env.DEV) return;
+  const localPreview =
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "localhost";
+  if (!import.meta.env.DEV && !localPreview) return;
   const parameters = new URLSearchParams(window.location.search);
+  developmentPreviewFrozen = parameters.get("freeze") === "1";
   const preview = parameters.get("preview");
+  const settingsStyle = parameters.get("settings")?.padStart(2, "0");
+  if (settingsStyle && /^(0[1-9]|10)$/.test(settingsStyle)) {
+    elements.conditionsPanel.dataset.settingsStyle = settingsStyle;
+  }
   if (preview !== "game" && preview !== "impact") return;
   const previewBoat = parameters.get("boat");
   if (
@@ -409,7 +501,7 @@ function enableDevelopmentPreview(): void {
     preview === "impact"
       ? {
           ...state,
-          position: { x: -472, y: 421 },
+          position: { x: -580, y: 396 },
           heading: degrees(38),
           velocity: { x: 2.4, y: 0.6 },
           sheet: 0.48,
@@ -456,17 +548,31 @@ function enableDevelopmentPreview(): void {
   }
   elements.status.textContent =
     `Development ${preview} preview. Audio remains muted until interaction.`;
+  const settingsSection = parameters.get("section");
+  if (settingsStyle) {
+    settingsTabs.select(settingsSection ?? "weather");
+    setConditionsOpen(true);
+  }
 }
 
 function loop(now: number): void {
   const frameDt = Math.min(Math.max((now - previousFrame) / 1_000, 0), 0.1);
   previousFrame = now;
   presentationTime += frameDt;
-  accumulator = Math.min(accumulator + frameDt, fixedStep * 5);
-
-  if (input.consumeReset()) resetBoat();
   if (input.consumeMute()) toggleMute();
   if (input.consumeConditions()) setConditionsOpen(!isConditionsOpen());
+  const simulationPaused = isSimulationPaused();
+  const simulationTimeScale = timeScaleForHold(input.isFastForwarding());
+  elements.gameShell.dataset.timeScale = `${simulationTimeScale}`;
+  if (!simulationPaused && input.consumeReset()) resetBoat();
+  if (input.consumeReef() && canHandleSails(simulationPaused)) toggleReef();
+  if (input.consumeSails() && canHandleSails(simulationPaused)) toggleSails();
+  accumulator = simulationPaused
+    ? 0
+    : Math.min(
+        accumulator + frameDt * simulationTimeScale,
+        fixedStep * 5 * simulationTimeScale,
+      );
 
   while (accumulator >= fixedStep) {
     previousState = state;
@@ -499,6 +605,7 @@ function loop(now: number): void {
           result.state,
           activeBoat,
           FAIR_WINDS_WORLD,
+          weather.tideLevel,
         );
         if (nextIncident.severity === "touch") {
           state = {
@@ -589,6 +696,7 @@ function loop(now: number): void {
       updateHud();
     }
   }
+  elements.gameShell.dataset.simulationTime = simulationTime.toFixed(3);
   requestAnimationFrame(loop);
 }
 
@@ -606,6 +714,7 @@ function resetBoat(): void {
   lesson.reset();
   audio.resetMotionState();
   lessonCompletedAt = 0;
+  lastManeuverCount = 0;
   clearIncident();
   world.resetWake();
   elements.status.textContent = "Boat reset. Sheet in gently to attach flow.";
@@ -638,6 +747,7 @@ function recoverBoat(): void {
   lesson.skip();
   audio.resetMotionState();
   lessonCompletedAt = simulationTime;
+  lastManeuverCount = 0;
   clearIncident();
   world.resetWake();
   elements.status.textContent =
@@ -693,19 +803,71 @@ function syncMuteControl(): void {
   if (label) label.textContent = muted ? "Muted" : "Sound";
 }
 
+function canHandleSails(simulationPaused: boolean): boolean {
+  return started && !simulationPaused && !incident;
+}
+
+function toggleReef(): void {
+  state = {
+    ...state,
+    reefLevel: state.reefLevel === 0 ? 1 : 0,
+  };
+  elements.status.textContent = state.reefLevel === 1
+    ? "Reefing. Sail area is reducing for stronger conditions."
+    : "Shaking out the reef. Full sail area is returning.";
+  updateHud();
+}
+
+function toggleSails(): void {
+  state = {
+    ...state,
+    sailsRaised: !state.sailsRaised,
+  };
+  elements.status.textContent = state.sailsRaised
+    ? state.reefLevel === 1
+      ? "Hoisting to the reefed setting."
+      : "Hoisting full sail."
+    : "Lowering sails. The boat will lose aerodynamic drive.";
+  updateHud();
+}
+
 function updateHud(): void {
   const speedKnots = Math.hypot(state.velocity.x, state.velocity.y) * 1.94384;
   const windKnots = diagnostics.apparentWindSpeed * 1.94384;
   const windAngle = Math.round(Math.abs(radiansToDegrees(diagnostics.apparentWindAngle)));
   const pointOfSailName = pointOfSail(diagnostics.apparentWindAngle);
-  const flow = diagnostics.luff > 0.55 ? "Luffing" : diagnostics.stall > 0.55 ? "Stalled" : "Attached";
-  const coach = pointOfSailName === "No-go zone"
-    ? "Ease sail · hold a turn"
-    : flow === "Luffing"
-    ? "Sheet in or bear away"
-    : flow === "Stalled"
-      ? "Ease a little"
-      : "Flow attached";
+  const targetDeployment = sailDeploymentTarget(state);
+  const sailMotion = !state.sailsRaised
+    ? state.sailDeployment > 0.03 ? "Lowering" : "Lowered"
+    : state.sailDeployment < targetDeployment - 0.03
+      ? state.sailDeployment < 0.08 ? "Hoisting" : "Shaking out"
+      : state.sailDeployment > targetDeployment + 0.03
+        ? "Reefing"
+        : undefined;
+  const flow = sailMotion ?? (
+    diagnostics.luff > 0.55
+      ? "Luffing"
+      : diagnostics.stall > 0.55
+        ? "Stalled"
+        : "Attached"
+  );
+  const coach = flow === "Lowered"
+    ? "Hoist sail to make way"
+    : flow === "Lowering"
+      ? "Sail drive reducing"
+      : flow === "Hoisting" || flow === "Shaking out"
+        ? "Fuller sail returning"
+        : flow === "Reefing"
+          ? "Reduced sail settling"
+          : pointOfSailName === "No-go zone"
+            ? "Ease sail · hold a turn"
+            : flow === "Luffing"
+              ? "Sheet in or bear away"
+              : flow === "Stalled"
+                ? "Ease a little"
+                : state.reefLevel === 1
+                  ? "Reefed flow attached"
+                  : "Flow attached";
   const rudderDegrees = Math.round(radiansToDegrees(state.rudderAngle));
   const boomDegrees = Math.round(Math.abs(radiansToDegrees(state.boomAngle)));
   const boomSide = state.boomAngle < 0 ? "port" : "starboard";
@@ -714,12 +876,12 @@ function updateHud(): void {
   elements.wind.textContent = `${windKnots.toFixed(1)} kn · ${windAngle}°`;
   elements.windArrow.style.transform = `rotate(${radiansToDegrees(diagnostics.apparentWindAngle)}deg)`;
   elements.speed.textContent = speedKnots.toFixed(1);
-  elements.sailPlanLabel.textContent = getSailDefinition(
-    activeBoat,
-    "headsail",
-  )
-    ? "Main + jib"
-    : "Mainsail";
+  const hasHeadsail = Boolean(getSailDefinition(activeBoat, "headsail"));
+  elements.sailPlanLabel.textContent = flow === "Lowered"
+    ? "Sails down"
+    : state.reefLevel === 1
+      ? hasHeadsail ? "Reefed main + jib" : "Reefed mainsail"
+      : hasHeadsail ? "Main + jib" : "Mainsail";
   elements.motion.textContent = `Heel ${Math.round(Math.abs(radiansToDegrees(state.heel)))}° · ${Math.abs(rudderDegrees) < 2 ? "Rudder centered" : `Rudder ${Math.abs(rudderDegrees)}°`}`;
   elements.flow.textContent = flow;
   elements.flow.dataset.state = flow.toLowerCase();
@@ -727,13 +889,44 @@ function updateHud(): void {
   elements.marker.style.left = `${state.sheet * 100}%`;
   elements.target.style.left = `${sheetForBoomAngle(diagnostics.idealBoomAngle) * 100}%`;
   elements.boom.textContent = `Boom ${boomDegrees}° ${boomSide}`;
+  syncSailControls();
   updateLesson();
   updateDestination();
   updateNavigation();
-  if (flow !== lastFlow && started) {
+  miniChart.render(state, FAIR_WINDS_WORLD, weather.trueWind, selectedActivity());
+  const completedManeuver =
+    state.maneuverCount !== lastManeuverCount && state.lastManeuver !== "none";
+  if (completedManeuver) {
+    elements.status.textContent = state.lastManeuver === "gybe"
+      ? "Gybe complete. The boom crossed with the wind astern; steady the helm and retrim."
+      : "Tack complete. Build speed on the new side and retrim.";
+    lastManeuverCount = state.maneuverCount;
+    lastFlow = flow;
+  } else if (flow !== lastFlow && started) {
     elements.status.textContent = `${flow}. ${coach}.`;
     lastFlow = flow;
   }
+}
+
+function syncSailControls(): void {
+  const reefed = state.reefLevel === 1;
+  const lowered = !state.sailsRaised;
+  elements.reefSail.setAttribute("aria-pressed", String(reefed));
+  elements.reefSail.setAttribute(
+    "aria-label",
+    reefed ? "Shake out reef (Q)" : "Take in a reef (Q)",
+  );
+  elements.reefSail.classList.toggle("is-active", reefed);
+  const reefLabel = elements.reefSail.querySelector<HTMLElement>(".rig-action-label");
+  if (reefLabel) reefLabel.textContent = reefed ? "Shake out" : "Reef";
+  elements.toggleSails.setAttribute("aria-pressed", String(lowered));
+  elements.toggleSails.setAttribute(
+    "aria-label",
+    lowered ? "Hoist sails (X)" : "Lower sails (X)",
+  );
+  elements.toggleSails.classList.toggle("is-active", lowered);
+  const sailLabel = elements.toggleSails.querySelector<HTMLElement>(".rig-action-label");
+  if (sailLabel) sailLabel.textContent = lowered ? "Hoist" : "Lower";
 }
 
 function updateNavigation(): void {
@@ -741,12 +934,13 @@ function updateNavigation(): void {
     Math.round(radiansToDegrees(state.heading)) % 360 +
     360
   ) % 360;
-  const depth = FAIR_WINDS_WORLD.sampleDepth(
+  const depth = Math.max(0, FAIR_WINDS_WORLD.sampleDepth(
     state.position.x,
     state.position.y,
-  );
+  ) + weather.tideLevel);
   const depthLabel = depth < 10 ? depth.toFixed(1) : Math.round(depth).toString();
-  const depthState = depth < 3 ? "Shoal water" : depth < 10 ? "Shallow water" : "Clear below";
+  const tideState = `${weather.tideTrend === "rising" ? "Rising" : "Falling"} ${weather.tideLevel >= 0 ? "+" : ""}${weather.tideLevel.toFixed(1)} m`;
+  const depthState = `${depth < 3 ? "Shoal water" : depth < 10 ? "Shallow water" : "Clear below"} · ${tideState}`;
   elements.heading.textContent = heading.toString().padStart(3, "0");
   elements.headingCardinal.textContent = cardinalDirection(heading);
   elements.depth.textContent = depthLabel;
@@ -786,6 +980,16 @@ function updateLesson(): void {
 }
 
 function updateDestination(): void {
+  const course = selectedActivity();
+  if (course) {
+    const distance = Math.hypot(
+      course.x - state.position.x,
+      course.z - state.position.y,
+    );
+    elements.destinationName.textContent = course.title;
+    elements.destinationDistance.textContent = formatChartDistance(distance);
+    return;
+  }
   let nearest = LANDMARKS[0]!;
   let nearestDistanceSquared = Number.POSITIVE_INFINITY;
   for (const landmark of LANDMARKS) {
@@ -798,7 +1002,97 @@ function updateDestination(): void {
   }
   const distance = Math.sqrt(nearestDistanceSquared);
   elements.destinationName.textContent = nearest.name;
-  elements.destinationDistance.textContent = distance < 1_000
+  elements.destinationDistance.textContent = formatChartDistance(distance);
+}
+
+function buildChartActivityList(): void {
+  elements.chartActivityList.replaceChildren();
+  FAIR_WINDS_WORLD.activities.forEach((activity, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "chart-activity";
+    button.dataset.activityId = activity.id;
+    button.setAttribute(
+      "aria-label",
+      `Set course for ${activity.title}. ${activity.objective}`,
+    );
+
+    const marker = document.createElement("span");
+    marker.className = "chart-activity-index";
+    const markerNumber = document.createElement("span");
+    markerNumber.textContent = String(index + 1);
+    marker.append(markerNumber);
+
+    const copy = document.createElement("span");
+    copy.className = "chart-activity-copy";
+    const title = document.createElement("strong");
+    title.textContent = activity.title;
+    const meta = document.createElement("span");
+    meta.textContent = `${activity.kind} · ${activity.area} · ${activity.difficulty}`;
+    const objective = document.createElement("small");
+    objective.textContent = activity.objective;
+    copy.append(title, meta, objective);
+
+    const distance = document.createElement("span");
+    distance.className = "chart-activity-distance";
+    button.append(marker, copy, distance);
+    button.addEventListener("click", () => selectChartActivity(activity.id));
+    elements.chartActivityList.append(button);
+  });
+  syncChartActivityList();
+}
+
+function selectedActivity(): WorldActivity | undefined {
+  return FAIR_WINDS_WORLD.activities.find(
+    (activity) => activity.id === selectedActivityId,
+  );
+}
+
+function selectChartActivity(id: string): void {
+  selectedActivityId = id;
+  syncChartActivityList();
+  renderChart();
+  updateDestination();
+  const activity = selectedActivity();
+  if (activity) {
+    elements.status.textContent =
+      `Course set for ${activity.title}. ${activity.objective}`;
+  }
+}
+
+function syncChartActivityList(): void {
+  for (const button of elements.chartActivityList.querySelectorAll<HTMLButtonElement>(
+    "[data-activity-id]",
+  )) {
+    const activity = FAIR_WINDS_WORLD.activities.find(
+      (candidate) => candidate.id === button.dataset.activityId,
+    );
+    if (!activity) continue;
+    const selected = activity.id === selectedActivityId;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+    const distance = Math.hypot(
+      activity.x - state.position.x,
+      activity.z - state.position.y,
+    );
+    const distanceLabel = button.querySelector<HTMLElement>(
+      ".chart-activity-distance",
+    );
+    if (distanceLabel) distanceLabel.textContent = formatChartDistance(distance);
+  }
+  const activity = selectedActivity();
+  elements.chartCourseReadout.textContent = activity
+    ? `Course: ${activity.title} · ${activity.objective}`
+    : "No course selected";
+}
+
+function renderChart(): void {
+  syncChartActivityList();
+  chart.render(state, FAIR_WINDS_WORLD, weather.trueWind, selectedActivity());
+}
+
+function formatChartDistance(distance: number): string {
+  return distance < 1_000
     ? `${Math.round(distance)} m`
     : `${(distance / 1_000).toFixed(1)} km`;
 }
@@ -807,15 +1101,68 @@ function isConditionsOpen(): boolean {
   return elements.conditionsPanel.classList.contains("is-open");
 }
 
-function setConditionsOpen(open: boolean): void {
+function isChartOpen(): boolean {
+  return elements.chartPanel.classList.contains("is-open");
+}
+
+function isSimulationPaused(): boolean {
+  return started && (
+    developmentPreviewFrozen ||
+    isConditionsOpen() ||
+    isChartOpen()
+  );
+}
+
+function setChartOpen(open: boolean, restoreFocus = true): void {
+  if (open && isConditionsOpen()) setConditionsOpen(false, false);
+  const pauseSimulation = open && started;
+  elements.chartPanel.classList.toggle("is-open", open);
+  elements.chartPanel.setAttribute("aria-hidden", String(!open));
+  elements.mapToggle.setAttribute("aria-expanded", String(open));
+  elements.chartBackdrop.hidden = !open;
+  elements.gameShell.classList.toggle("is-chart-open", open);
+  elements.gameShell.dataset.simulationPaused = String(
+    started && (open || isConditionsOpen()),
+  );
+  if (pauseSimulation) {
+    accumulator = 0;
+    previousState = state;
+  }
+  if (open) {
+    requestAnimationFrame(() => {
+      renderChart();
+      elements.chartClose.focus({ preventScroll: true });
+    });
+  } else if (restoreFocus && started) {
+    elements.mapToggle.focus({ preventScroll: true });
+  }
+}
+
+function setConditionsOpen(open: boolean, restoreFocus = true): void {
+  if (open && isChartOpen()) setChartOpen(false, false);
+  const pauseSimulation = open && started;
   elements.conditionsPanel.classList.toggle("is-open", open);
   elements.conditionsPanel.setAttribute("aria-hidden", String(!open));
   elements.conditionsToggle.setAttribute("aria-expanded", String(open));
   elements.conditionsBackdrop.hidden = !open;
-  if (open) required<HTMLElement>("#weather-preset").focus();
-  else if (!started) elements.titleSettings.focus({ preventScroll: true });
-  else elements.conditionsToggle.focus({ preventScroll: true });
+  elements.gameShell.classList.toggle("is-settings-open", open);
+  elements.gameShell.dataset.simulationPaused = String(
+    started && (open || isChartOpen()),
+  );
+  elements.settingsResume.textContent = pauseSimulation ? "Resume sailing" : "Close settings";
+  elements.settingsMainMenu.hidden = !started;
+  if (pauseSimulation) {
+    accumulator = 0;
+    previousState = state;
+  }
+  if (open) {
+    const activeTab = settingsTabs.tabs.find((tab) => tab.classList.contains("is-active"));
+    activeTab?.focus({ preventScroll: true });
+  }
+  else if (restoreFocus && !started) elements.titleSettings.focus({ preventScroll: true });
+  else if (restoreFocus) elements.conditionsToggle.focus({ preventScroll: true });
 }
+
 
 function bindWeatherControls(): void {
   const select = <T extends HTMLInputElement | HTMLSelectElement>(id: string) => required<T>(`#${id}`);
@@ -855,6 +1202,8 @@ function bindWeatherControls(): void {
     ["wave-height", (value) => { weatherConfig.waves.height = clampNumber(value, 0.03, 4); }],
     ["wave-length", (value) => { weatherConfig.waves.length = clampNumber(value, 4, 90); }],
     ["wave-steepness", (value) => { weatherConfig.waves.steepness = clampNumber(value, 0.04, 0.62); }],
+    ["tide-range", (value) => { weatherConfig.tide.range = clampNumber(value, 0, 3); }],
+    ["tide-phase", (value) => { weatherConfig.tide.phaseHours = clampNumber(value, 0, 12.4); }],
     ["rain", (value) => { weatherConfig.rain = clampNumber(value, 0, 1); }],
     ["cloud", (value) => { weatherConfig.cloud = clampNumber(value, 0, 1); }],
     ["time-of-day", (value) => { weatherConfig.timeOfDay = clampNumber(value, 0, 23.9); }],
@@ -1000,6 +1349,8 @@ function syncWeatherControls(): void {
   setValue("wave-height", weatherConfig.waves.height);
   setValue("wave-length", weatherConfig.waves.length);
   setValue("wave-steepness", weatherConfig.waves.steepness);
+  setValue("tide-range", weatherConfig.tide.range);
+  setValue("tide-phase", weatherConfig.tide.phaseHours);
   setValue("rain", weatherConfig.rain);
   setValue("cloud", weatherConfig.cloud);
   setValue("time-of-day", weatherConfig.timeOfDay);
@@ -1015,6 +1366,8 @@ function updateWeatherOutputs(): void {
   required<HTMLOutputElement>("#wave-height-output").value = weatherConfig.waves.mode === "linked" ? "Auto" : `${weatherConfig.waves.height.toFixed(2)} m`;
   required<HTMLOutputElement>("#wave-length-output").value = weatherConfig.waves.mode === "linked" ? "Auto" : `${Math.round(weatherConfig.waves.length)} m`;
   required<HTMLOutputElement>("#wave-steepness-output").value = weatherConfig.waves.mode === "linked" ? "Auto" : weatherConfig.waves.steepness.toFixed(2);
+  required<HTMLOutputElement>("#tide-range-output").value = `${weatherConfig.tide.range.toFixed(1)} m`;
+  required<HTMLOutputElement>("#tide-phase-output").value = `${weatherConfig.tide.phaseHours.toFixed(1)} h`;
   required<HTMLOutputElement>("#rain-output").value = `${Math.round(weatherConfig.rain * 100)}%`;
   required<HTMLOutputElement>("#cloud-output").value = `${Math.round(weatherConfig.cloud * 100)}%`;
   required<HTMLOutputElement>("#time-of-day-output").value = formatTimeOfDay(weatherConfig.timeOfDay);
@@ -1055,6 +1408,7 @@ function loadWeatherConfig(): WeatherConfig {
       ...candidate,
       wind: { ...DEFAULT_WEATHER.wind, ...candidate.wind },
       waves: { ...DEFAULT_WEATHER.waves, ...candidate.waves },
+      tide: { ...DEFAULT_WEATHER.tide, ...candidate.tide },
     };
   } catch {
     return cloneWeatherConfig(DEFAULT_WEATHER);

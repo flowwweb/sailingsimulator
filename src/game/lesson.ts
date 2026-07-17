@@ -74,7 +74,7 @@ export class TrimLesson {
       stage: "complete",
       eyebrow: "Free Sail",
       title: "Fair winds",
-      instruction: "Explore the open water. Turn through the wind to tack, and retrim for every point of sail.",
+      instruction: "Explore the lake. Tack through the wind, gybe with the wind astern, and reef or lower sail as conditions demand.",
       progress: 1,
     };
   }

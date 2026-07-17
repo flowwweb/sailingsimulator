@@ -13,8 +13,8 @@ describe("regional soundscapes", () => {
 
   it("brings woodland and songbirds forward in the north passage", () => {
     const soundscape = sampleSoundscape(FAIR_WINDS_WORLD, {
-      x: -330,
-      y: 420,
+      x: -650,
+      y: 400,
     });
 
     expect(soundscape.shore).toBeGreaterThan(0.85);
@@ -24,8 +24,8 @@ describe("regional soundscapes", () => {
 
   it("keeps the lighthouse reach exposed and waterbird-led", () => {
     const soundscape = sampleSoundscape(FAIR_WINDS_WORLD, {
-      x: 590,
-      y: 560,
+      x: 930,
+      y: 850,
     });
 
     expect(soundscape.openWater).toBeGreaterThan(0.9);
@@ -35,8 +35,8 @@ describe("regional soundscapes", () => {
 
   it("makes Juniper cove sheltered, wooded, and dock-adjacent", () => {
     const soundscape = sampleSoundscape(FAIR_WINDS_WORLD, {
-      x: 810,
-      y: -390,
+      x: 930,
+      y: -470,
     });
 
     expect(soundscape.shore).toBeGreaterThan(0.9);

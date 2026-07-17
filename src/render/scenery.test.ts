@@ -1,23 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { lightingForTime } from "./scenery";
+import { createCoastalTerrainGeometry, sampleCoastalTerrainHeight } from "./scenery";
 
-describe("cinematic lighting palette", () => {
-  it("creates bright warm golden hour and dark star-visible night", () => {
-    const sunset = lightingForTime(17.4, 0.12, 1);
-    const night = lightingForTime(23, 0.08, 1);
+describe("coastal terrain geometry", () => {
+  it("builds one varied shoreline rising from a submerged shelf", () => {
+    const geometry = createCoastalTerrainGeometry(64);
+    const positions = geometry.getAttribute("position");
+    const shorelineRadii: number[] = [];
+    const heights: number[] = [];
 
-    expect(sunset.sunIntensity).toBeGreaterThan(night.sunIntensity);
-    expect(sunset.exposure).toBeGreaterThan(night.exposure);
-    expect(night.starOpacity).toBeGreaterThan(0.5);
-    expect(sunset.starOpacity).toBeLessThan(night.starOpacity);
+    for (let vertex = 0; vertex < positions.count; vertex += 1) {
+      const x = positions.getX(vertex);
+      const z = positions.getZ(vertex);
+      heights.push(positions.getY(vertex));
+      if (vertex % 5 === 0) shorelineRadii.push(Math.hypot(x, z));
+    }
+
+    expect(Math.max(...shorelineRadii) - Math.min(...shorelineRadii)).toBeGreaterThan(70);
+    expect(Math.min(...heights)).toBeLessThan(0);
+    expect(Math.max(...heights)).toBeGreaterThan(50);
+    expect(geometry.index?.count).toBe(64 * 4 * 6);
   });
 
-  it("dims direct light and compresses the palette under cloud", () => {
-    const clear = lightingForTime(13, 0, 1);
-    const overcast = lightingForTime(13, 1, 0.7);
+  it("samples the same terrain surface used to ground distant trees", () => {
+    const angle = 1.37;
+    const shorelineHeight = sampleCoastalTerrainHeight(angle, 1_800);
+    const inlandHeight = sampleCoastalTerrainHeight(angle, 2_210);
 
-    expect(overcast.sunIntensity).toBeLessThan(clear.sunIntensity);
-    expect(overcast.exposure).toBeLessThan(clear.exposure);
-    expect(overcast.fog.getHex()).not.toBe(clear.fog.getHex());
+    expect(shorelineHeight).toBeLessThan(10);
+    expect(inlandHeight).toBeGreaterThan(shorelineHeight + 25);
   });
 });

@@ -1,14 +1,15 @@
-# Sailing Simulator
+# Fair Winds
 
 A focused browser game for learning the first principles of sailing on a lake
 large enough to feel like open water.
 
-**Live test build:** [floeb-sailingsimulator.web.app](https://floeb-sailingsimulator.web.app/)
+**Live test build:** [fairwinds.web.app](https://fairwinds.web.app/)
 
 The current repository slice is a browser-playable 3D core. Steer, sheet in or
 ease out, read apparent wind, see and hear the sail luff or stall, find
 attached flow, tack through the no-go zone, change the weather, and explore a
-large lake with sparse distant landmarks. The opening menu is itself a live
+large lake with sparse distant landmarks. Reef for reduced sail area, lower and
+hoist sail, or steer through a controlled gybe with the wind astern. The opening menu is itself a live
 golden-hour scene: analytic waves, reflected shores, the sailing boat, North
 Light, ambient lake sound, and the Fair Winds theme all use the same in-game
 rendering and audio systems as play.
@@ -48,7 +49,8 @@ npm run dev
 ```
 
 Controls: `A/D` or arrow keys steer, `W` eases the sheet, `S` sheets in, and
-`R` resets. `C` opens Settings and `M` mutes all audio. Touch controls stay
+`Q` reefs or shakes out, `X` lowers or hoists sail, and `R` resets. `N` opens
+the nautical chart, `C` opens Settings, and `M` mutes all audio. Touch controls stay
 visible on compact screens. Choose **Continue** or **New journey** once to
 enable the lake soundscape and Fair Winds theme. Settings provide persisted
 master, music, ambience, boat/sail, and weather volumes plus playlist controls.
@@ -70,6 +72,14 @@ in `.firebaserc`.
 See [Testing round](docs/TESTING.md) for the focused manual scenarios and the
 current simulation approximations.
 
+### W1 release workflow
+
+In this repository, **W1** means: review and stage all local work, commit it on
+`main`, push `origin/main`, deploy the committed build to Firebase Hosting, and
+verify the live site. Commit or push alone is not a completed W1. See
+[Repository workflows](docs/WORKFLOWS.md) for the exact contract and proof
+requirements.
+
 ## Project map
 
 - [Saltwind analysis](docs/research/saltwind-analysis.md)
@@ -83,13 +93,21 @@ current simulation approximations.
 - [Ten visual mockups](docs/mockups/README.md)
 - [Testing round](docs/TESTING.md)
 - [Performance profile and budgets](docs/PERFORMANCE.md)
+- [Repository workflows, including W1](docs/WORKFLOWS.md)
 
 ## Product guardrails
 
-The Harbor 20 mainsail trainer remains the default. Settings also expose a
+The Fair Winds Dinghy mainsail trainer remains the default. Settings also expose a
 Coastal 28 and Lake 34 to validate optional headsails, distinct drafts, mass,
 handling, camera scale, and reference polars. The release remains one focused
 lake without boost mechanics, multiplayer, combat, trading, or survival meters.
+
+The lake is authored from one shared navigation definition: bathymetry,
+grounding, rendered shoals, chart contours, channel marks, landmarks, and course
+destinations agree. Lantern Channel is the protected starting waterway, with a
+500 m dry-shore gap and a deep marked route between Cedar Head and North Light.
+The chart exposes seven current lesson, mission, and exploration destinations;
+they set the live waypoint, while scored completion remains a later slice.
 
 ## Reference and originality
 

@@ -69,7 +69,7 @@ Wave pose is a damped hydrostatic approximation, not direct animation. Sample
 the canonical wave field at hull-definition-sized centre, bow, stern, port and
 starboard footprints. Derive heave, pitch, roll, and their target velocities
 from the local water surface. Boat-specific underdamped natural frequencies
-give the Harbor 20 a quicker response than the longer, heavier Lake 34. Wave
+give the Fair Winds Dinghy a quicker response than the longer, heavier Lake 34. Wave
 pose still does not alter planar sail/keel/rudder forces; orbital flow,
 slamming, and full six-degree coupling remain documented later work.
 

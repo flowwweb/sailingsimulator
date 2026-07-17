@@ -22,6 +22,33 @@ function settledAtSheet(sheet: number) {
 }
 
 describe("sailing physics teaching contracts", () => {
+  it("lets the teaching dinghy build useful beam-reach speed", () => {
+    const run = (boat = HARBOR_20) => {
+      let state = createInitialState();
+      state.sheet = 0.52;
+      state.boomAngle = -degrees(47);
+      for (let index = 0; index < 60 * 30; index += 1) {
+        state = stepBoat(
+          state,
+          { rudder: 0, sheetRate: 0 },
+          { ...beamReach, boat },
+          1 / 60,
+        ).state;
+      }
+      return Math.hypot(state.velocity.x, state.velocity.y);
+    };
+    const previousHullTune = {
+      ...HARBOR_20,
+      hull: {
+        ...HARBOR_20.hull,
+        longitudinalDragLinear: 55,
+        longitudinalDragQuadratic: 26,
+      },
+    };
+
+    expect(run()).toBeGreaterThan(run(previousHullTune));
+  });
+
   it("uses boat velocity when calculating apparent wind", () => {
     const state = createInitialState();
     const stationary = computeSailAerodynamics(state, beamReach);
@@ -79,6 +106,95 @@ describe("sailing physics teaching contracts", () => {
     expect(state.boomAngle).toBeGreaterThan(degrees(20));
     expect(state.sailSide).toBe(1);
     expect(state.tackCount).toBe(1);
+    expect(state.gybeCount).toBe(0);
+    expect(state.lastManeuver).toBe("tack");
+  });
+
+  it("reduces aerodynamic area when reefed and removes it when sails are lowered", () => {
+    const fullState = createInitialState();
+    const target = computeSailAerodynamics(fullState, beamReach).idealBoomAngle;
+    fullState.sheet = sheetForBoomAngle(target);
+    fullState.boomAngle = -target;
+    const full = computeSailAerodynamics(fullState, beamReach);
+
+    const reefedState = {
+      ...fullState,
+      reefLevel: 1 as const,
+      sailDeployment: 0.64,
+    };
+    const reefed = computeSailAerodynamics(reefedState, beamReach);
+    const lowered = computeSailAerodynamics(
+      {
+        ...fullState,
+        sailsRaised: false,
+        sailDeployment: 0,
+      },
+      beamReach,
+    );
+
+    expect(reefed.effectiveArea / full.effectiveArea).toBeCloseTo(0.64, 6);
+    expect(reefed.driveForce / full.driveForce).toBeCloseTo(0.64, 6);
+    expect(lowered.effectiveArea).toBe(0);
+    expect(lowered.driveForce).toBeCloseTo(0, 8);
+    expect(lowered.sideForce).toBeCloseTo(0, 8);
+    expect(lowered.luff).toBe(0);
+    expect(lowered.attached).toBe(0);
+  });
+
+  it("transitions smoothly between full, reefed, lowered, and hoisted sail", () => {
+    let state = createInitialState();
+    state.reefLevel = 1;
+    const firstReefStep = stepBoat(
+      state,
+      { rudder: 0, sheetRate: 0 },
+      beamReach,
+      1 / 60,
+    ).state;
+    expect(firstReefStep.sailDeployment).toBeLessThan(1);
+    expect(firstReefStep.sailDeployment).toBeGreaterThan(0.64);
+    state = firstReefStep;
+    for (let index = 0; index < 120; index += 1) {
+      state = stepBoat(state, { rudder: 0, sheetRate: 0 }, beamReach, 1 / 60).state;
+    }
+    expect(state.sailDeployment).toBeCloseTo(0.64, 6);
+
+    state.sailsRaised = false;
+    for (let index = 0; index < 90; index += 1) {
+      state = stepBoat(state, { rudder: 0, sheetRate: 0 }, beamReach, 1 / 60).state;
+    }
+    expect(state.sailDeployment).toBeCloseTo(0, 6);
+
+    state.sailsRaised = true;
+    state.reefLevel = 0;
+    for (let index = 0; index < 210; index += 1) {
+      state = stepBoat(state, { rudder: 0, sheetRate: 0 }, beamReach, 1 / 60).state;
+    }
+    expect(state.sailDeployment).toBeCloseTo(1, 6);
+  });
+
+  it("classifies a boom crossing with wind astern as a gybe", () => {
+    let state = createInitialState();
+    state.sheet = 1;
+    state.sailSide = 1;
+    state.boomAngle = degrees(82);
+    const almostDeadRun: Environment = {
+      trueWind: { x: -1.389, y: 7.878 },
+    };
+
+    for (let index = 0; index < 180 && state.gybeCount === 0; index += 1) {
+      state = stepBoat(
+        state,
+        { rudder: 0, sheetRate: 0 },
+        almostDeadRun,
+        1 / 60,
+      ).state;
+    }
+
+    expect(state.sailSide).toBe(-1);
+    expect(state.gybeCount).toBe(1);
+    expect(state.tackCount).toBe(0);
+    expect(state.lastManeuver).toBe("gybe");
+    expect(state.maneuverCount).toBe(1);
   });
 
   it("gives the rudder no meaningful authority while stopped", () => {
@@ -115,6 +231,56 @@ describe("sailing physics teaching contracts", () => {
       const recovered = computeSailAerodynamics(state, headwind);
       expect(peakRecoveryTorque).toBeGreaterThan(0);
       expect(Math.abs(recovered.apparentWindAngle)).toBeGreaterThan(degrees(42));
+    }
+  });
+
+  it("does not stick at either edge of the no-go zone", () => {
+    const headwind: Environment = { trueWind: { x: 0, y: -8 } };
+    for (const side of [-1, 1]) {
+      let state = createInitialState();
+      state.heading = side * degrees(40);
+      state.velocity = { x: 0, y: 0 };
+      state.sheet = 0.86;
+
+      for (let index = 0; index < 60 * 7; index += 1) {
+        state = stepBoat(
+          state,
+          { rudder: side, sheetRate: 0 },
+          headwind,
+          1 / 60,
+        ).state;
+      }
+
+      const windAngle = Math.abs(
+        computeSailAerodynamics(state, headwind).apparentWindAngle,
+      );
+      expect(windAngle).toBeGreaterThan(degrees(52));
+    }
+  });
+
+  it("falls off a 33 degree no-go equilibrium with centered helm", () => {
+    const headwind: Environment = { trueWind: { x: 0, y: -8 } };
+    for (const side of [-1, 1]) {
+      let state = createInitialState();
+      state.heading = side * degrees(33);
+      state.velocity = {
+        x: Math.sin(state.heading) * 0.28,
+        y: Math.cos(state.heading) * 0.28,
+      };
+      state.sheet = 0.86;
+
+      for (let index = 0; index < 60 * 9; index += 1) {
+        state = stepBoat(
+          state,
+          { rudder: 0, sheetRate: 0 },
+          headwind,
+          1 / 60,
+        ).state;
+      }
+
+      expect(Math.abs(
+        computeSailAerodynamics(state, headwind).apparentWindAngle,
+      )).toBeGreaterThan(degrees(45));
     }
   });
 
@@ -193,7 +359,11 @@ describe("sailing physics teaching contracts", () => {
 
     expect(first).toEqual(second);
     expect(Object.values(first).flatMap((value) =>
-      typeof value === "object" ? Object.values(value) : [value],
+      typeof value === "object"
+        ? Object.values(value)
+        : typeof value === "number"
+          ? [value]
+          : [],
     ).every(Number.isFinite)).toBe(true);
   });
 

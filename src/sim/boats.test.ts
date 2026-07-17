@@ -10,9 +10,16 @@ import {
 
 describe("data-driven boat definitions", () => {
   it("keeps the first training boat mainsail-only", () => {
+    expect(HARBOR_20.name).toBe("Fair Winds Dinghy");
+    expect(HARBOR_20.description).toContain("open centerboard dinghy");
     expect(HARBOR_20.sailPlan).toHaveLength(1);
     expect(getSailDefinition(HARBOR_20, "mainsail")).toBeDefined();
     expect(getSailDefinition(HARBOR_20, "headsail")).toBeUndefined();
+    expect(HARBOR_20.hull.length).toBeLessThan(COASTAL_28.hull.length);
+    expect(HARBOR_20.hull.displacement).toBeLessThan(
+      COASTAL_28.hull.displacement,
+    );
+    expect(HARBOR_20.visual.rigForwardOffset).toBeGreaterThanOrEqual(0.45);
   });
 
   it("supports larger monohulls with optional headsails and deeper drafts", () => {
@@ -31,6 +38,8 @@ describe("data-driven boat definitions", () => {
       definitions.length,
     );
     for (const boat of definitions) {
+      expect(boat.visual.playerHullColor).not.toBe(boat.visual.npcHullColor);
+      expect(boat.visual.npcSailColor).toBeGreaterThan(0);
       expect(boat.polar.length).toBeGreaterThanOrEqual(5);
       expect(
         boat.polar.every(

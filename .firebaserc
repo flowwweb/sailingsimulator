@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "flowwweb-sailingsimulator"
+  },
+  "targets": {
+    "flowwweb-sailingsimulator": {
+      "hosting": {
+        "fairwinds": [
+          "fairwinds"
+        ]
+      }
+    }
   }
 }

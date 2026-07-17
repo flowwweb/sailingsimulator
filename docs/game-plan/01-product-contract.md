@@ -18,7 +18,7 @@ for qualified on-water instruction.
 
 | Area | Core commitment |
 | --- | --- |
-| Vessel | Harbor 20 mainsail trainer first; Coastal 28 and Lake 34 validation profiles prove optional headsail, mass, draft, handling, camera, and polar contracts |
+| Vessel | Fair Winds Dinghy mainsail trainer first; Coastal 28 and Lake 34 validation profiles prove optional headsail, mass, draft, handling, camera, and polar contracts |
 | World | Freshwater mountain basin 3.6 km across; central start, local islands, and atmospheric outer-shore reveal |
 | Modes | One guided trim lesson and Free Sail first; later three small lessons: find wind, points of sail, tack |
 | Conditions | Manual and seeded evolving weather, with wind, gusts, waves, rain, visibility, cloud, time scale, and presets |
@@ -62,12 +62,18 @@ introduce new hardware before the player has learned the one sail and one helm.
 ## World contract
 
 - World coordinates use meters across the implemented 1.8 km radius.
-- The player begins near the center. Low camera height, fog,
+- The player begins in Lantern Channel, a broad protected departure with land
+  readable on both sides, a 500 m dry-shore gap, and a tested deep-water route.
+  Low camera height, fog,
   layered terrain silhouettes, and sparse tall landmarks delay the shoreline
   reveal naturally.
 - A full crossing is intentionally slow: roughly 15–24 minutes at 5–8 knots.
 - Shoreline/grounding truth comes from analytic bathymetry and deterministic
   object volumes, never collision against decorative meshes.
+- The openable nautical chart is generated from that same bathymetry and world
+  definition. It shows depth contours, hazards, regions, routes, landmarks, and
+  selectable lesson/mission/exploration destinations without becoming a
+  permanent full-screen HUD.
 
 ## Non-negotiable non-goals
 
@@ -76,7 +82,7 @@ Do not add these before the core proof map is green:
 - multiplayer, leaderboards, race starts, racing rules, AI opponents, or boosts;
 - cargo, economy, survival, combat, fishing, crafting, character progression,
   or a fleet;
-- jibs, spinnakers, reefing, sail inventories, anchors, docking, damage,
+- spinnakers, independent sail-by-sail reef plans, sail inventories, anchors, docking, damage,
   capsize, or full six-degree rigid-body hydrodynamics;
 - real-world weather APIs, cloud services, accounts, telemetry, or native-only
   features;
