@@ -80,7 +80,7 @@ const elements = {
   newJourney: required<HTMLButtonElement>("#new-journey"),
   titleSettings: required<HTMLButtonElement>("#title-settings"),
   titleExit: required<HTMLButtonElement>("#title-exit"),
-  titleAudioNote: required(".title-audio-note"),
+  titleMute: required<HTMLButtonElement>("#title-mute"),
   mute: required<HTMLButtonElement>("#mute"),
   reset: required<HTMLButtonElement>("#reset"),
   conditionsToggle: required<HTMLButtonElement>("#conditions-toggle"),
@@ -249,9 +249,11 @@ function bindInterface(): void {
   elements.titleExit.addEventListener("click", () => {
     void startTitleAudio();
     window.close();
-    elements.titleAudioNote.textContent =
-      "This browser tab can now be closed";
     elements.status.textContent = "Close this tab to leave Fair Winds.";
+  });
+  elements.titleMute.addEventListener("click", () => {
+    void startTitleAudio();
+    toggleMute();
   });
   elements.mute.addEventListener("click", toggleMute);
   elements.reset.addEventListener("click", resetBoat);
@@ -306,9 +308,7 @@ async function startTitleAudio(): Promise<void> {
       await audio.start();
       await audio.selectMusicTrack("fair-winds");
       syncAudioControls();
-      elements.titleAudioNote.textContent = "Fair Winds theme · playing";
     } catch {
-      elements.titleAudioNote.textContent = "Audio unavailable · sailing remains playable";
       elements.status.textContent =
         "Audio is unavailable; sailing will continue silently.";
     }
@@ -682,8 +682,13 @@ function toggleMute(): void {
 
 function syncMuteControl(): void {
   const muted = audio.isMuted;
-  elements.mute.setAttribute("aria-pressed", String(muted));
-  elements.mute.classList.toggle("is-active", muted);
+  for (const control of [elements.mute, elements.titleMute]) {
+    control.setAttribute("aria-pressed", String(muted));
+    control.classList.toggle("is-active", muted);
+  }
+  const titleLabel = muted ? "Unmute sound" : "Mute sound";
+  elements.titleMute.setAttribute("aria-label", titleLabel);
+  elements.titleMute.title = titleLabel;
   const label = elements.mute.querySelector<HTMLElement>(".action-label");
   if (label) label.textContent = muted ? "Muted" : "Sound";
 }

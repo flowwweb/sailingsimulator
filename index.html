@@ -172,6 +172,20 @@
       </aside>
 
       <section id="welcome" class="welcome" aria-labelledby="welcome-title">
+        <button
+          id="title-mute"
+          class="title-audio-toggle"
+          type="button"
+          aria-label="Mute sound"
+          aria-pressed="false"
+          title="Mute sound"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="title-speaker" d="M4 9.2h3.6L12 5.7v12.6l-4.4-3.5H4V9.2Z" />
+            <path class="title-sound-waves" d="M15.1 9.1c.8.7 1.2 1.7 1.2 2.9s-.4 2.2-1.2 2.9M17.7 6.8c1.5 1.3 2.3 3.1 2.3 5.2s-.8 3.9-2.3 5.2" />
+            <path class="title-sound-muted" d="m15.2 9.2 5.3 5.3m0-5.3-5.3 5.3" />
+          </svg>
+        </button>
         <div class="welcome-lockup">
           <h1 id="welcome-title" class="sr-only">Fair Winds</h1>
           <img
@@ -186,7 +200,6 @@
             <button id="title-settings" class="title-menu-item" type="button">Settings</button>
             <button id="title-exit" class="title-menu-item" type="button">Exit</button>
           </nav>
-          <p class="title-audio-note">Click or press a key to hear the lake</p>
         </div>
       </section>
 

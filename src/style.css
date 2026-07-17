@@ -1263,12 +1263,69 @@ input:disabled {
   outline: none;
 }
 
-.title-audio-note {
-  margin: 20px 0 0 !important;
-  color: rgba(255, 255, 255, 0.48) !important;
-  font-size: 0.58rem !important;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+.title-audio-toggle {
+  position: absolute;
+  z-index: 2;
+  top: max(26px, calc(env(safe-area-inset-top) + 18px));
+  right: clamp(30px, 3.2vw, 54px);
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(8, 22, 28, 0.08);
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.title-audio-toggle:hover,
+.title-audio-toggle:focus-visible,
+.title-audio-toggle.is-active {
+  border-color: rgba(255, 255, 255, 0.72);
+  color: #fff;
+  background: rgba(8, 22, 28, 0.2);
+  transform: scale(1.04);
+}
+
+.title-audio-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
+}
+
+.title-audio-toggle svg {
+  width: 21px;
+  height: 21px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+}
+
+.title-speaker {
+  fill: currentColor;
+  stroke: none;
+}
+
+.title-sound-muted {
+  display: none;
+}
+
+.title-audio-toggle[aria-pressed="true"] .title-sound-waves {
+  display: none;
+}
+
+.title-audio-toggle[aria-pressed="true"] .title-sound-muted {
+  display: block;
 }
 
 @media (max-width: 760px) {
@@ -1308,9 +1365,11 @@ input:disabled {
     font-size: 0.94rem;
   }
 
-  .title-audio-note {
-    margin-top: 16px !important;
-    font-size: 0.52rem !important;
+  .title-audio-toggle {
+    top: max(18px, calc(env(safe-area-inset-top) + 12px));
+    right: max(18px, env(safe-area-inset-right));
+    width: 42px;
+    height: 42px;
   }
 }
 
@@ -1320,9 +1379,6 @@ input:disabled {
     transform: translateY(36px);
   }
 
-  .title-audio-note {
-    transform: translateY(36px);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

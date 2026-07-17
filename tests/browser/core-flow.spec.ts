@@ -45,6 +45,15 @@ test("cinematic title scene uses the supplied identity and remains animated", as
   );
   await expect(page.locator(".title-menu-item")).toHaveCount(4);
   await expect(page.locator("#set-sail")).toHaveClass(/is-selected/);
+  await expect(page.locator(".title-audio-note")).toHaveCount(0);
+  const titleMute = page.locator("#title-mute");
+  await expect(titleMute).toBeVisible();
+  await expect(titleMute).toHaveAttribute("aria-label", "Mute sound");
+  await titleMute.click();
+  await expect(titleMute).toHaveAttribute("aria-pressed", "true");
+  await expect(titleMute).toHaveAttribute("aria-label", "Unmute sound");
+  await titleMute.click();
+  await expect(titleMute).toHaveAttribute("aria-pressed", "false");
   const selectedFontSize = await page.locator("#set-sail").evaluate(
     (element) => Number.parseFloat(getComputedStyle(element).fontSize),
   );
