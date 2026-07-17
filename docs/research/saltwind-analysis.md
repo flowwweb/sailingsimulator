@@ -72,7 +72,10 @@ keel force, rudder lift, or genuine attached/luff/stall regions.
 3. Model surge, sway, and yaw with hull drag, keel side force, and rudder force.
 4. Remove boost and make gusts part of the weather field.
 5. Replace the gate race as the primary loop with four lessons and free sail.
-6. Expand the playable scale from a short 1.4 km course to a 10 km × 10 km lake.
+6. Expand the playable scale from a short 1.4 km course to a 3.6 km-wide basin.
+   At ordinary training-boat speeds, the 15–24 minute crossing plus haze and
+   intermediate islands creates the desired open-water impression without a
+   needlessly sparse 100 km² world.
 7. Use the original quiet-geometric art direction in
    [art-direction.md](../art-direction.md), not Saltwind's realistic materials.
 

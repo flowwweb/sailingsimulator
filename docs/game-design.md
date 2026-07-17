@@ -9,8 +9,10 @@ lecture: the boat comes alive when its heading, sail angle, and the wind agree.
 
 1. **Cause and effect before terminology.** Let the sail flap, the boat slow,
    and the telltales misbehave before naming luffing.
-2. **One coherent boat.** A forgiving 6-meter ballasted training keelboat with
-   one mainsail. It can heel and feel lively but should recover naturally.
+2. **One coherent starting boat, extensible sailing depth.** Begin with a
+   forgiving 6-meter ballasted training keelboat and one mainsail. Boat
+   definitions must support different displacement, draft, handling, polars,
+   and optional headsails without weakening the first lesson.
 3. **A lake that initially feels like open water.** Exploration reveals the
    basin gradually; the boundary is geography, not an invisible wall.
 4. **Quiet modern presentation.** The art direction supports reading wind,
@@ -18,21 +20,19 @@ lecture: the boat comes alive when its heading, sail angle, and the wind agree.
 
 ## World scale
 
-The playable lake is 10 km × 10 km. The player begins near its central basin,
-about 4–5 km from most shorelines. A low camera, curvature-like horizon mask,
-distance fog, and low-profile terrain make the lake feel ocean-sized at first.
-Only high landmarks appear at long range.
+The implemented basin is 3.6 km across. The player begins in deep central
+water, with local islands and navigation marks available before the outer
+shoreline becomes a clear enclosing boundary. A low camera, distance fog,
+layered mountain silhouettes, and an outward-shifted perimeter make the opening
+read as broad open water rather than a small enclosed pond.
 
 Expected speed is 5–8 knots (2.6–4.1 m/s):
 
 | Journey | Approximate time |
 | --- | ---: |
 | 1 km lesson leg | 4–7 minutes |
-| Center to first shore, 4 km | 16–26 minutes |
-| Full 10 km crossing | 40–65 minutes |
-
-The initial vertical slice may use a 1 km test basin, but distances, fog, wave
-tiling, and coordinates must be designed to scale without rewriting physics.
+| Center to outer shore, 1.8 km | 7–12 minutes |
+| Full 3.6 km crossing | 15–24 minutes |
 
 ## Core loop
 
@@ -108,34 +108,53 @@ target band or slowly demonstrate a correction, but player input owns the sail.
 
 ## Weather
 
-MVP weather is one fair-weather system with meaningful variation:
+Weather is configurable from the first 3D vertical slice so later conditions do
+not require a new simulation boundary:
 
-- prevailing true wind 8–12 knots;
-- slow direction shifts of ±5°;
-- spatial gust patches that add 10–35% speed and up to ±8° direction;
-- waves whose direction and amplitude respond slowly to the prevailing wind;
-- a mast pennant, water streaks, and distant surface color that reveal changes.
+- manual mode holds exact wind, wave, rain, visibility, and cloud values;
+- evolving mode uses a seed to vary wind and rain gradually within configured
+  bounds;
+- spatial gust patches add 10–35% true-wind speed and up to ±8° direction;
+- linked waves derive a developing wind sea, while six named manual sea states
+  cover calm, light chop, moderate, fresh, rough, and storm testing;
+- significant height, dominant length, crest steepness, and direction can be
+  tuned independently up to 3.5 m / 90 m;
+- rain changes particles, visibility, atmosphere, water response, and audio;
+- a mast pennant, water streaks, and distant surface color reveal changes.
 
-Rain, fronts, reefs, and day/night progression are later work. The sail must
-first react correctly to the fair-weather wind field.
+Initial presets are Learning Day, Variable Breeze, Rain Shower, and Calm
+Evening. The player can change the essential values in a quiet Conditions
+drawer; full parameters stay in a development-only tuning panel.
+
+The sail must react correctly to the sampled true wind in every condition.
+Short-sprint rain remains a sensory/visibility system. Waves drive
+boat-definition-sized buoyancy samples and underdamped heave, pitch, and roll
+that follow both surface displacement and vertical velocity. Full 6-DOF
+hydrodynamics, slamming loads, current, reefing, and structural failure remain
+outside the current accuracy claim.
 
 ## Art and interface
 
-Follow [quiet geometric modernism](art-direction.md). The HUD contains only:
-
-- wind/point-of-sail compass;
-- boat speed and trend;
-- sheet position with an optional lesson target band;
-- one contextual coaching sentence;
-- pause/settings.
+Follow [quiet geometric modernism](art-direction.md). The persistent HUD
+contains only waypoint, wind/point of sail, heading, speed, and sail flow/trim.
+Depth appears only in shallow water. The map, reset, audio mix, boat selection,
+and detailed weather controls live off-canvas in Settings; desktop key chrome
+appears only on the launch screen, while touch retains the four controls
+required to sail.
 
 Instrument data should confirm what the world already communicates. If the
 player must stare at a percentage to trim, the sail feedback is not good enough.
 
-## Explicit non-goals for the first public build
+## Scope boundary
 
 - multiplayer, AI competitors, regattas, leaderboards, or racing gates;
-- multiple boats, jibs, spinnakers, reefing, damage, docking physics, or MOB;
+- the redesigned first slice exposes only the training boat, but the simulation
+  and renderer support optional headsails and larger monohull definitions;
+- spinnakers, reefing, detailed repair, crew simulation, and MOB remain later;
 - economy, cargo, survival, fishing, crafting, combat, or character progression;
 - full CFD, soft-body cloth simulation, six-degree-of-freedom rigid-body water
   physics, WebGPU-only rendering, or photoreal assets.
+
+Grounding and meaningful collisions are now core teaching hazards. They end the
+current run with a calm zoom-out incident view and recovery choices. They do not
+introduce survival meters, punitive economy, or graphic destruction.

@@ -2,60 +2,212 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#102f40" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#183f4c" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta
       name="description"
-      content="A deterministic physics lab for a focused sailing simulator."
+      content="Fair Winds is a focused sailing simulator about wind, trim, luffing, tacking, and open-water exploration."
     />
-    <title>Sailing Simulator — Physics Lab</title>
+    <title>Fair Winds — Sailing Simulator</title>
   </head>
   <body>
-    <main class="lab-shell">
-      <canvas id="lake" aria-label="Top-down sailing physics lab"></canvas>
+    <main class="game-shell is-welcome">
+      <canvas id="lake" aria-label="A sailboat on a large open lake"></canvas>
 
-      <header class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <div>
-          <strong>Sailing Simulator</strong>
-          <span>Physics lab · Phase 0</span>
+      <header class="topbar">
+        <div class="top-actions">
+          <button id="mute" class="quiet-button" type="button" aria-pressed="false" title="Mute (M)">
+            <span aria-hidden="true">◖))</span><span class="action-label">Sound</span>
+          </button>
+          <button id="conditions-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="conditions-panel">
+            <span aria-hidden="true">☰</span><span class="action-label">Settings</span>
+          </button>
         </div>
       </header>
 
-      <section class="hud" aria-label="Sailing instruments">
-        <div class="instrument wind-instrument">
-          <span class="label">Apparent wind</span>
-          <strong id="point-of-sail">Beam reach</strong>
-          <span id="wind-readout">10.0 kn · 90°</span>
-        </div>
-
-        <div class="instrument speed-instrument">
-          <span class="label">Boat speed</span>
-          <strong><span id="speed">0.0</span> <small>kn</small></strong>
-          <span id="heel">Heel 0°</span>
-        </div>
-
-        <div class="instrument trim-instrument">
-          <div>
-            <span class="label">Sail trim</span>
-            <strong id="flow-state">Attached</strong>
+      <section class="sailing-hud" aria-label="Sailing instruments">
+        <article class="instrument wind-instrument">
+          <div class="wind-dial" aria-hidden="true">
+            <span class="boat-nose"></span>
+            <span id="wind-arrow" class="wind-arrow"></span>
           </div>
-          <div class="trim-track" aria-hidden="true">
-            <span id="trim-target" class="trim-target"></span>
-            <span id="trim-marker" class="trim-marker"></span>
+          <div class="instrument-copy">
+            <span class="label">Wind</span>
+            <strong id="wind-readout">14.6 kn · 90°</strong>
+            <span id="point-of-sail">Beam reach</span>
           </div>
-          <span id="coach">Hold this trim</span>
+        </article>
+
+        <article class="instrument speed-instrument">
+          <span class="label">Speed</span>
+          <strong><span id="speed">0.0</span><small>kn</small></strong>
+          <span id="motion-readout">Heel 0° · Rudder centered</span>
+        </article>
+
+        <article class="instrument trim-instrument">
+          <div class="trim-heading">
+            <div><span id="sail-plan-label" class="label">Mainsail</span><strong id="flow-state" data-state="luffing">Luffing</strong></div>
+            <span id="coach">Sheet in gently</span>
+          </div>
+          <div class="trim-track" aria-label="Sheet position and useful trim target">
+            <span id="trim-target" class="trim-target" title="Useful trim"></span>
+            <span id="trim-marker" class="trim-marker" title="Current sheet"></span>
+          </div>
+          <div class="trim-scale"><span>In</span><span id="boom-readout">Boom 78° port</span><span>Ease</span></div>
+        </article>
+      </section>
+
+      <section id="lesson-card" class="lesson-card" aria-live="polite">
+        <div class="lesson-copy">
+          <span id="lesson-eyebrow" class="label">1 · Feel the sail</span>
+          <strong id="lesson-title">Trim until it draws</strong>
+          <p id="lesson-instruction">Sheet in gently. Stop when the flutter settles and both telltales stream.</p>
+        </div>
+        <div class="lesson-progress" aria-hidden="true"><span id="lesson-progress"></span></div>
+        <button id="lesson-skip" class="text-button" type="button">Free Sail</button>
+      </section>
+
+      <aside id="destination" class="destination" aria-label="Nearest landmark">
+        <span class="destination-bearing" aria-hidden="true">◇</span>
+        <div><span class="label">Open water</span><strong id="destination-name">Juniper buoy</strong></div>
+        <span id="destination-distance">374 m</span>
+      </aside>
+
+      <aside class="navigation-hud" aria-label="Lake navigation">
+        <div class="heading-readout">
+          <span class="label">HDG</span>
+          <strong><span id="heading-readout">000</span><small>°</small></strong>
+          <span id="heading-cardinal">N</span>
+        </div>
+        <div id="depth-panel" class="depth-readout">
+          <span class="label">Depth</span>
+          <strong><span id="depth-readout">36</span><small>m</small></strong>
+          <span id="depth-state" data-state="deep">Clear below</span>
+        </div>
+      </aside>
+
+      <footer class="controls" aria-label="Sailing controls">
+        <div class="control-pair helm-controls">
+          <button type="button" data-control="port" aria-label="Turn helm to port"><kbd>A</kbd><span>Port</span></button>
+          <button type="button" data-control="starboard" aria-label="Turn helm to starboard"><kbd>D</kbd><span>Starboard</span></button>
+        </div>
+        <div class="controls-caption"><strong>Helm</strong><span>Turn through the wind to tack</span></div>
+        <div class="control-pair sheet-controls">
+          <button type="button" data-control="sheet" aria-label="Sheet the mainsail in"><kbd>S</kbd><span>Sheet in</span></button>
+          <button type="button" data-control="ease" aria-label="Ease the mainsail"><kbd>W</kbd><span>Ease</span></button>
+        </div>
+      </footer>
+
+      <button id="reset" class="reset-button" type="button" title="Reset boat (R)">↺ <span>Reset boat</span></button>
+
+      <div id="conditions-backdrop" class="conditions-backdrop" hidden></div>
+      <aside id="conditions-panel" class="conditions-panel" aria-hidden="true" aria-label="Game settings">
+        <header>
+          <div><span class="label">Lake setup</span><h2>Settings</h2></div>
+          <button id="conditions-close" class="icon-button" type="button" aria-label="Close settings">×</button>
+        </header>
+        <div class="conditions-scroll">
+          <div class="section-rule"><span>Boat</span></div>
+          <label class="field">
+            <span>Active monohull</span>
+            <select id="boat-select">
+              <option value="harbor-20">Harbor 20 · mainsail trainer</option>
+              <option value="coastal-28">Coastal 28 · main + headsail</option>
+              <option value="lake-34">Lake 34 · cruising sloop</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Preset</span>
+            <select id="weather-preset">
+              <option>Fair winds</option><option>Light air</option><option>Fresh breeze</option><option>Passing shower</option>
+            </select>
+          </label>
+          <div class="field-row">
+            <label class="field"><span>Weather</span><select id="weather-mode"><option value="manual">Manual</option><option value="evolving">Evolving</option></select></label>
+            <label class="field"><span>Seed</span><input id="weather-seed" type="number" min="0" max="999999" step="1" /></label>
+          </div>
+          <label class="range-field"><span><b>Wind speed</b><output id="wind-speed-output"></output></span><input id="wind-speed" type="range" min="1" max="14" step="0.1" /></label>
+          <label class="range-field"><span><b>Wind from</b><output id="wind-direction-output"></output></span><input id="wind-direction" type="range" min="0" max="359" step="1" /></label>
+          <label class="range-field"><span><b>Gusts</b><output id="gust-output"></output></span><input id="gust" type="range" min="0" max="0.5" step="0.01" /></label>
+          <div class="section-rule"><span>Water</span></div>
+          <label class="field"><span>Sea state</span><select id="sea-state"><option value="wind-linked">Linked to wind</option><option value="calm">Calm</option><option value="light">Light chop</option><option value="moderate">Moderate</option><option value="fresh">Fresh</option><option value="rough">Rough</option><option value="storm">Storm</option><option value="custom">Custom</option></select></label>
+          <label class="field"><span>Wave response</span><select id="wave-mode"><option value="linked">Linked to wind</option><option value="manual">Manual</option></select></label>
+          <label class="range-field"><span><b>Significant wave height</b><output id="wave-height-output"></output></span><input id="wave-height" type="range" min="0.03" max="4" step="0.01" /></label>
+          <label class="range-field"><span><b>Dominant wave length</b><output id="wave-length-output"></output></span><input id="wave-length" type="range" min="4" max="90" step="1" /></label>
+          <label class="range-field"><span><b>Crest steepness</b><output id="wave-steepness-output"></output></span><input id="wave-steepness" type="range" min="0.04" max="0.62" step="0.01" /></label>
+          <div class="section-rule"><span>Sky</span></div>
+          <label class="range-field"><span><b>Rain</b><output id="rain-output"></output></span><input id="rain" type="range" min="0" max="1" step="0.01" /></label>
+          <label class="range-field"><span><b>Cloud</b><output id="cloud-output"></output></span><input id="cloud" type="range" min="0" max="1" step="0.01" /></label>
+          <label class="range-field"><span><b>Time of day</b><output id="time-of-day-output"></output></span><input id="time-of-day" type="range" min="0" max="23.9" step="0.1" /></label>
+          <label class="range-field"><span><b>Time scale</b><output id="time-scale-output"></output></span><input id="time-scale" type="range" min="0" max="4" step="0.1" /></label>
+          <div class="section-rule"><span>Sound</span></div>
+          <div class="music-player" aria-label="Music player">
+            <div class="music-now-playing">
+              <span class="label">Lake soundtrack</span>
+              <strong id="music-track-name">Fair Winds</strong>
+              <span id="music-playback-status" aria-live="polite">Starts after Set Sail</span>
+            </div>
+            <div class="music-transport">
+              <button id="music-previous" type="button" aria-label="Previous music track">‹</button>
+              <button id="music-toggle" class="music-toggle" type="button" aria-label="Play music" aria-pressed="false">Play</button>
+              <button id="music-next" type="button" aria-label="Next music track">›</button>
+            </div>
+          </div>
+          <label class="field">
+            <span>Music track</span>
+            <select id="music-track-select"></select>
+          </label>
+          <label class="range-field"><span><b>Master volume</b><output id="master-volume-output"></output></span><input id="master-volume" type="range" min="0" max="100" step="1" /></label>
+          <label class="range-field"><span><b>Music</b><output id="music-volume-output"></output></span><input id="music-volume" type="range" min="0" max="100" step="1" /></label>
+          <label class="range-field"><span><b>Lake ambience</b><output id="ambience-volume-output"></output></span><input id="ambience-volume" type="range" min="0" max="100" step="1" /></label>
+          <label class="range-field"><span><b>Boat &amp; sail</b><output id="boat-volume-output"></output></span><input id="boat-volume" type="range" min="0" max="100" step="1" /></label>
+          <label class="range-field"><span><b>Weather</b><output id="weather-volume-output"></output></span><input id="weather-volume" type="range" min="0" max="100" step="1" /></label>
+          <p class="audio-note">Music stays intentionally low and ducks gently when the sail luffs, stalls, or rain intensifies.</p>
+        </div>
+        <footer>
+          <button id="copy-weather" class="secondary-button" type="button">Copy config</button>
+          <button id="restart-weather" class="primary-button" type="button">Restart weather</button>
+        </footer>
+      </aside>
+
+      <section id="welcome" class="welcome" aria-labelledby="welcome-title">
+        <div class="welcome-lockup">
+          <h1 id="welcome-title" class="sr-only">Fair Winds</h1>
+          <img
+            class="welcome-brand"
+            src="/brand/fairwinds-full.svg"
+            alt=""
+            aria-hidden="true"
+          />
+          <nav class="title-menu" aria-label="Main menu">
+            <button id="set-sail" class="title-menu-item is-selected" type="button">Continue</button>
+            <button id="new-journey" class="title-menu-item" type="button">New journey</button>
+            <button id="title-settings" class="title-menu-item" type="button">Settings</button>
+            <button id="title-exit" class="title-menu-item" type="button">Exit</button>
+          </nav>
+          <p class="title-audio-note">Click or press a key to hear the lake</p>
         </div>
       </section>
 
-      <footer class="controls">
-        <span><kbd>A</kbd><kbd>D</kbd> Helm</span>
-        <span><kbd>W</kbd> Ease</span>
-        <span><kbd>S</kbd> Sheet in</span>
-        <span><kbd>R</kbd> Reset</span>
-      </footer>
+      <section id="incident" class="incident-screen" aria-labelledby="incident-title" hidden>
+        <div class="incident-panel">
+          <svg class="incident-mark" viewBox="0 0 92 92" aria-hidden="true">
+            <path d="M43 8v61H15L43 8Z" fill="currentColor"></path>
+            <path d="M49 27v42h27L49 27Z" fill="currentColor" opacity="0.92"></path>
+          </svg>
+          <span class="label">Run ended</span>
+          <h2 id="incident-title">Grounded</h2>
+          <p id="incident-body">The boat is stranded in shallow water.</p>
+          <div class="incident-actions">
+            <button id="incident-recover" class="primary-button" type="button">Recover nearby</button>
+            <button id="incident-restart" class="secondary-button" type="button">Restart lesson</button>
+          </div>
+        </div>
+      </section>
 
       <p id="status" class="sr-only" aria-live="polite"></p>
+      <div id="fatal-error" class="fatal-error" hidden></div>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

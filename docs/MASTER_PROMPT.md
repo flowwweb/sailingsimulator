@@ -1,5 +1,10 @@
 # Master build prompt
 
+> For the short-sprint playable 3D and weather core, use the canonical
+> [one-shot core build prompt](ONE_SHOT_CORE_PROMPT.md). This document remains
+> the lower-risk incremental prompt when the work must be split across several
+> reviewed tasks.
+
 Copy the prompt below into a new Codex task rooted at this repository. It is
 written to produce narrow, provable increments instead of attempting the whole
 game in one unreviewable pass.
@@ -24,15 +29,18 @@ Product objective:
 
 - Teach wind direction, sail trim, luffing versus attached flow versus stall,
   points of sail, and tacking.
-- Make the lake initially feel like open sea. The final world is 10 km × 10 km,
-  with central-basin starts, atmospheric shoreline reveal, and 40–65 minute
-  full crossings at normal speeds.
+- Make the lake initially feel like open sea. Build a 3.6 km-wide central basin
+  with local islands, atmospheric outer-shore reveal, and 15–24 minute full
+  crossings at normal speeds.
 - Preserve calm free exploration after four short optional lessons.
 
 Non-goals until the core is proven:
 
 - no multiplayer, AI racers, regatta gates, boost, combat, economy, survival,
-  fishing, crafting, multiple boats, jibs, spinnakers, or full CFD;
+  fishing, crafting, spinnakers, or full CFD;
+- expose the mainsail-only Harbor 20 first; keep the Coastal 28 and Lake 34 as
+  validation profiles for optional headsail, draft, mass, handling, and polar
+  contracts rather than a progression/fleet system;
 - no React/ECS/general rigid-body engine/server unless an existing proven need
   is documented;
 - no WebGPU-only implementation and no photoreal asset pipeline.
@@ -52,10 +60,13 @@ Required engineering model:
   speed percentage.
 - Make visual sail camber, leading-edge flutter, telltales, heel, wake, wind
   audio, cloth audio, and HUD agree with simulation state.
-- Use a camera-centered analytic water grid and the same wave function/parameters
-  for CPU sampling and the GPU shader.
-- Start with a 1 km test lake and scale through data/config to 10 km without
-  changing simulation units or force logic.
+- Use a camera-centered adaptive triangulated grid and the same six-component
+  second-order wave spectrum on CPU and GPU.
+- Support wind-linked waves and named manual sea states from 0.08 m calm water
+  through a bounded 3.5 m extreme test state. Boat pose samples hull-sized
+  buoyancy points and follows displacement plus surface velocity.
+- Reflect scenery and the boat with a clipped, softened, resolution-capped
+  planar pass distorted by the analytic wave normal.
 
 Required art direction:
 
@@ -68,11 +79,14 @@ retro low-poly, outlined anime, or glossy generic mobile-game art. Prefer
 procedural geometry, vertex colors, shared materials, and atmosphere over large
 texture sets. The boat remains nautically correct even when simplified.
 
-Water must follow the standard low-poly method: a single coherent triangulated
-mesh, gentle vertex-wave displacement, flat face normals, subtle per-face blue
-variation, restrained Fresnel/specular highlights, and localized wake foam. Do
-not render water as a tiled patchwork, paper-like polygon bands, stacked ribbons,
-or realistic mirror reflections.
+Water must follow the standard low-poly method: one adaptive coherent
+triangulated mesh, six-component second-order vertex-wave displacement, smooth
+analytic reflection normals with a restrained faceted contribution,
+depth-aware color, Fresnel/specular highlights, crest foam, and localized wake.
+Use a clipped, softened, resolution-capped planar reflection so shore, boat, and
+landmark reflections match the mockups without becoming photoreal mirror
+water. Do not render tiled patchwork, paper-like polygon bands, or stacked
+ribbons.
 
 Interaction and teaching requirements:
 

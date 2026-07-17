@@ -6,9 +6,13 @@
   "description": "A focused browser sailing simulator that teaches wind awareness, trim, luffing, and tacking on a vast lake.",
   "scripts": {
     "dev": "vite",
+    "preview": "vite preview",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:browser": "npm run build && playwright test",
+    "firebase:serve": "npm run build && npx firebase-tools@15.24.0 emulators:start --only hosting",
+    "deploy:firebase": "npm run build && npx firebase-tools@15.24.0 deploy --only hosting"
   },
   "keywords": [
     "sailing",
@@ -19,9 +23,12 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "simplex-noise": "^4.0.3",
     "three": "0.185.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@types/three": "^0.185.0",
     "typescript": "7.0.2",
     "vite": "8.1.4",
     "vitest": "4.1.10"
