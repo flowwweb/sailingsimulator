@@ -37,6 +37,14 @@ export interface WorldObject {
     radius: number;
     response: "soft" | "hard";
   };
+  docking?: {
+    offsetX: number;
+    offsetZ: number;
+    captureRadius: number;
+    maxSpeed: number;
+    heading: number;
+    headingTolerance: number;
+  };
   navigation?: {
     description: string;
     visibleRange: number;
@@ -196,7 +204,19 @@ export const FAIR_WINDS_OBJECTS: readonly WorldObject[] = [
     x: 1_040,
     z: -480,
     heading: Math.PI * 0.44,
-    collision: { radius: 8, response: "hard" },
+    collision: { radius: 1.2, response: "hard" },
+    docking: {
+      offsetX: 0,
+      offsetZ: 3.2,
+      captureRadius: 4.5,
+      maxSpeed: 0.85,
+      heading: Math.PI * 0.94,
+      headingTolerance: Math.PI / 5,
+    },
+    navigation: {
+      description: "A sheltered teaching harbor with a low-speed visitor berth",
+      visibleRange: 760,
+    },
   },
   {
     id: "gull-key",
@@ -392,10 +412,10 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       id: "juniper-arrival",
       title: "Juniper arrival",
       kind: "mission",
-      x: 980,
-      z: -420,
+      x: 1_035,
+      z: -470,
       area: "Juniper Cove",
-      objective: "Approach the sheltered cove under control without touching the dock or grounding.",
+      objective: "Enter the sheltered cove under control and dock at the visitor berth below 1.7 kn.",
       difficulty: "Moderate",
     },
     {

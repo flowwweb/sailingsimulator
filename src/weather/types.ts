@@ -82,7 +82,7 @@ export const DEFAULT_WEATHER: WeatherConfig = {
   mode: "manual",
   seed: 8_143,
   timeScale: 1,
-  timeOfDay: 17.2,
+  timeOfDay: 13.8,
   wind: {
     speed: 7.5,
     directionFromDegrees: 90,
@@ -91,9 +91,9 @@ export const DEFAULT_WEATHER: WeatherConfig = {
   },
   waves: {
     mode: "linked",
-    height: 0.42,
-    length: 18,
-    steepness: 0.34,
+    height: 0.3,
+    length: 22,
+    steepness: 0.25,
     directionFromDegrees: 90,
   },
   tide: {

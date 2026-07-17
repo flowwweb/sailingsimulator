@@ -14,6 +14,16 @@ import {
   type IncidentResult,
 } from "./game/hazards";
 import { GameInput } from "./game/input";
+import {
+  dockingPoint,
+  evaluateDocking,
+  mooredBoatState,
+} from "./game/docking";
+import {
+  compassTicks,
+  normalizeHeading,
+  unwrapCompassHeading,
+} from "./game/compass-tape";
 import { LakeChart } from "./game/minimap";
 import { timeScaleForHold } from "./game/time-scale";
 import { TrimLesson } from "./game/lesson";
@@ -21,6 +31,7 @@ import { sampleBoatWavePose } from "./game/wave-pose";
 import {
   FAIR_WINDS_WORLD,
   type WorldActivity,
+  type WorldObject,
 } from "./game/world-definition";
 import { LANDMARKS, SailingWorld } from "./render/world";
 import { bindTabList, trapFocusWithin, type TabListController } from "./ui/primitives";
@@ -78,6 +89,7 @@ const elements = {
   destinationName: required("#destination-name"),
   destinationDistance: required("#destination-distance"),
   heading: required("#heading-readout"),
+  headingTape: required("#heading-tape"),
   headingCardinal: required("#heading-cardinal"),
   depthPanel: required("#depth-panel"),
   depth: required("#depth-readout"),
@@ -163,8 +175,11 @@ let lessonCompletedAt = 0;
 let incident: IncidentResult | undefined;
 let incidentElapsed = 0;
 let touchCooldown = 0;
+let dockedAt: WorldObject | undefined;
 let presentationTime = 0;
 let hudUpdateElapsed = 0;
+let compassHeading = radiansToDegrees(state.heading);
+const compassPixelsPerDegree = 2;
 let developmentPreviewFrozen = false;
 let titleAudioPromise: Promise<void> | undefined;
 let settingsTabs: TabListController;
@@ -181,6 +196,7 @@ let titleHeadsailDiagnostics = computeHeadsailAerodynamics(titleState, {
   boat: activeBoat,
 });
 
+buildCompassTape();
 bindInterface();
 world.resize();
 syncWeatherControls();
@@ -224,7 +240,7 @@ function createTitleWeatherConfig(): WeatherConfig {
     ...cloneWeatherConfig(DEFAULT_WEATHER),
     mode: "manual",
     timeScale: 1,
-    timeOfDay: 6.65,
+    timeOfDay: 9.4,
     wind: {
       ...DEFAULT_WEATHER.wind,
       speed: 4.4,
@@ -444,6 +460,7 @@ function resetJourney(): void {
   lesson.reset();
   lessonCompletedAt = 0;
   lastManeuverCount = 0;
+  clearDocking();
   clearIncident();
   world.resetWake();
 }
@@ -528,6 +545,30 @@ function enableDevelopmentPreview(): void {
       velocity: { x: 0, y: 0 },
     };
   }
+  if (preview === "game" && parameters.get("landmark") === "juniper-harbor") {
+    selectedActivityId = "juniper-arrival";
+    state = {
+      ...state,
+      position: { x: 980, y: -420 },
+      heading: degrees(136),
+      velocity: { x: 0, y: 0 },
+    };
+    if (parameters.get("docked") === "1") {
+      const dock = FAIR_WINDS_WORLD.objects.find(
+        (object) => object.id === "juniper-cove-dock",
+      );
+      if (dock?.docking) {
+        state = mooredBoatState(state, {
+          object: dock,
+          point: dockingPoint(dock),
+          heading: dock.docking.heading,
+          speed: 0,
+        });
+        dockedAt = dock;
+        elements.gameShell.dataset.dockedAt = dock.id;
+      }
+    }
+  }
   if (preview === "game") {
     const previewFlow = computeSailAerodynamics(state, {
       trueWind: weather.trueWind,
@@ -598,6 +639,35 @@ function loop(now: number): void {
       if (incident) {
         incidentElapsed += fixedStep;
       } else {
+        const controls = isConditionsOpen()
+          ? { rudder: 0, sheetRate: 0 }
+          : input.read();
+        if (dockedAt) {
+          const castingOff =
+            Math.abs(controls.rudder) > 0.01 ||
+            Math.abs(controls.sheetRate) > 0.01;
+          if (!castingOff) {
+            state = {
+              ...state,
+              velocity: { x: 0, y: 0 },
+              yawRate: 0,
+              rudderAngle: 0,
+            };
+            diagnostics = computeSailAerodynamics(state, {
+              trueWind: weather.trueWind,
+              boat: activeBoat,
+            });
+            headsailDiagnostics = computeHeadsailAerodynamics(state, {
+              trueWind: weather.trueWind,
+              boat: activeBoat,
+            });
+            accumulator -= fixedStep;
+            continue;
+          }
+          clearDocking();
+          elements.status.textContent =
+            "Casting off from Juniper Harbor. Steer clear of the finger pier.";
+        }
         const wavePose = sampleBoatWavePose(
           state,
           weather.waves,
@@ -606,9 +676,7 @@ function loop(now: number): void {
         );
         const result = stepBoat(
           state,
-          isConditionsOpen()
-            ? { rudder: 0, sheetRate: 0 }
-            : input.read(),
+          controls,
           {
             trueWind: weather.trueWind,
             wavePose,
@@ -622,7 +690,22 @@ function loop(now: number): void {
           FAIR_WINDS_WORLD,
           weather.tideLevel,
         );
-        if (nextIncident.severity === "touch") {
+        if (nextIncident.kind === "docking") {
+          const docking = evaluateDocking(
+            result.state,
+            activeBoat,
+            FAIR_WINDS_WORLD,
+          );
+          if (docking) {
+            state = mooredBoatState(result.state, docking);
+            dockedAt = docking.object;
+            elements.gameShell.dataset.dockedAt = docking.object.id;
+            elements.status.textContent =
+              "Docked at Juniper Harbor. Use the helm or sheets when you are ready to cast off.";
+          } else {
+            state = result.state;
+          }
+        } else if (nextIncident.severity === "touch") {
           state = {
             ...result.state,
             velocity: {
@@ -650,7 +733,11 @@ function loop(now: number): void {
         }
         diagnostics = result.sail;
         headsailDiagnostics = result.headsail;
-        if (!incident && lesson.update(fixedStep, diagnostics)) {
+        if (
+          !incident &&
+          nextIncident.kind !== "docking" &&
+          lesson.update(fixedStep, diagnostics)
+        ) {
           const view = lesson.view();
           elements.status.textContent = `${view.title}. ${view.instruction}`;
           if (view.stage === "complete") lessonCompletedAt = simulationTime;
@@ -698,6 +785,7 @@ function loop(now: number): void {
     !started,
     presentationTime,
   );
+  if (started) updateCompass(renderCurrent.heading);
   finishBoot();
   audio.update(
     renderWeather,
@@ -740,6 +828,7 @@ function resetBoat(): void {
   audio.resetMotionState();
   lessonCompletedAt = 0;
   lastManeuverCount = 0;
+  clearDocking();
   clearIncident();
   world.resetWake();
   elements.status.textContent = "Boat reset. Sheet in gently to attach flow.";
@@ -807,6 +896,11 @@ function clearIncident(): void {
   elements.gameShell.classList.remove("has-incident");
   elements.incident.classList.remove("is-visible");
   elements.incident.hidden = true;
+}
+
+function clearDocking(): void {
+  dockedAt = undefined;
+  delete elements.gameShell.dataset.dockedAt;
 }
 
 function toggleMute(): void {
@@ -955,10 +1049,7 @@ function syncSailControls(): void {
 }
 
 function updateNavigation(): void {
-  const heading = (
-    Math.round(radiansToDegrees(state.heading)) % 360 +
-    360
-  ) % 360;
+  const heading = Math.round(normalizeHeading(radiansToDegrees(state.heading))) % 360;
   const depth = Math.max(0, FAIR_WINDS_WORLD.sampleDepth(
     state.position.x,
     state.position.y,
@@ -975,6 +1066,36 @@ function updateNavigation(): void {
     "is-visible",
     depth < 10,
   );
+}
+
+function buildCompassTape(): void {
+  const fragment = document.createDocumentFragment();
+  for (const tick of compassTicks()) {
+    const marker = document.createElement("span");
+    marker.className = `heading-tick is-${tick.kind}`;
+    marker.style.setProperty(
+      "--tick-offset",
+      `${tick.degrees * compassPixelsPerDegree}px`,
+    );
+    if (tick.label) {
+      const label = document.createElement("span");
+      label.className = "heading-tick-label";
+      label.textContent = tick.label;
+      marker.append(label);
+    }
+    fragment.append(marker);
+  }
+  elements.headingTape.append(fragment);
+  updateCompass(state.heading);
+}
+
+function updateCompass(headingRadians: number): void {
+  compassHeading = unwrapCompassHeading(
+    compassHeading,
+    radiansToDegrees(headingRadians),
+  );
+  elements.headingTape.style.transform =
+    `translate3d(${-compassHeading * compassPixelsPerDegree}px, 0, 0)`;
 }
 
 function cardinalDirection(heading: number): string {

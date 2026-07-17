@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialState } from "../sim/model";
 import { COASTAL_28, HARBOR_20 } from "../sim/boats";
 import { evaluateIncident } from "./hazards";
+import { FAIR_WINDS_WORLD } from "./world-definition";
 
 describe("deterministic grounding and object hazards", () => {
   it("keeps the training boat clear in deep school water", () => {
@@ -56,6 +57,20 @@ describe("deterministic grounding and object hazards", () => {
     expect(incident.kind).toBe("collision");
     expect(incident.severity).toBe("impact");
     expect(incident.object?.kind).toBe("rock");
+  });
+
+  it("reports a controlled Juniper pier arrival as docking", () => {
+    const dock = FAIR_WINDS_WORLD.objects.find(
+      (object) => object.id === "juniper-cove-dock",
+    )!;
+    const state = createInitialState();
+    state.position = { x: 1_044, y: -479 };
+    state.heading = dock.docking!.heading;
+    state.velocity = { x: 0.2, y: 0.1 };
+
+    const incident = evaluateIncident(state, HARBOR_20);
+    expect(incident.kind).toBe("docking");
+    expect(incident.object?.id).toBe("juniper-cove-dock");
   });
 
   it("reports high-speed grounding as an impact", () => {

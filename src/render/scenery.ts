@@ -534,12 +534,12 @@ const OVERCAST_SUN = new THREE.Color(0xd8e2e8);
 const HEMISPHERE_SKY = new THREE.Color(0xdce8e8);
 const HEMISPHERE_GROUND_DAY = new THREE.Color(0x31463f);
 const HEMISPHERE_GROUND_NIGHT = new THREE.Color(0x182b36);
-const WATER_DEEP_NIGHT = new THREE.Color(0x0d354c);
-const WATER_DEEP_DAY = new THREE.Color(0x1d6578);
-const WATER_DEEP_OVERCAST = new THREE.Color(0x284b59);
-const WATER_SHALLOW_NIGHT = new THREE.Color(0x326f78);
-const WATER_SHALLOW_DAY = new THREE.Color(0x58adb0);
-const WATER_SHALLOW_OVERCAST = new THREE.Color(0x5f7d7d);
+const WATER_DEEP_NIGHT = new THREE.Color(0x082f4c);
+const WATER_DEEP_DAY = new THREE.Color(0x0f739b);
+const WATER_DEEP_OVERCAST = new THREE.Color(0x234f68);
+const WATER_SHALLOW_NIGHT = new THREE.Color(0x245f78);
+const WATER_SHALLOW_DAY = new THREE.Color(0x4aaabd);
+const WATER_SHALLOW_OVERCAST = new THREE.Color(0x568497);
 const MOON_COLOR = new THREE.Color(0xd9e2e7);
 
 function createLightingState(): LightingState {

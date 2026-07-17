@@ -608,7 +608,7 @@ export class SailingWorld {
           vec3 faceNormal = normalize(cross(dx, dy));
           if (faceNormal.y < 0.0) faceNormal = -faceNormal;
           float microScale =
-            0.008 + min(uSignificantWaveHeight, 1.5) * 0.007;
+            0.006 + min(uSignificantWaveHeight, 1.5) * 0.005;
           vec2 microSlope =
             vec2(0.94, 0.31) *
               cos(dot(vWorldPosition.xz, vec2(0.94, 0.31)) - uTime * 2.4) *
@@ -628,11 +628,11 @@ export class SailingWorld {
             )
           );
           vec3 normal = normalize(
-            mix(smoothNormal, faceNormal, 0.14)
+            mix(smoothNormal, faceNormal, 0.045)
           );
           vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
           float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
-          float fresnel = pow(1.0 - facing, 2.55);
+          float fresnel = pow(1.0 - facing, 3.05);
           float diffuse = clamp(dot(normal, uSunDirection), 0.0, 1.0);
           vec3 reflected = reflect(-uSunDirection, normal);
           float sparkle = pow(max(dot(reflected, viewDirection), 0.0), 118.0)
@@ -641,12 +641,28 @@ export class SailingWorld {
           float depthMix = smoothstep(2.0, 23.0, waterDepth);
           vec3 color = mix(uWaterShallow, uWaterDeep, depthMix);
           float faceVariation = dot(normal.xz, normalize(vec2(0.66, 0.34)));
-          color *= 0.9 + diffuse * 0.2 + faceVariation * 0.018;
+          color *= 0.97 + diffuse * 0.18 + faceVariation * 0.012;
           color = mix(
             color,
             uSkyColor,
-            0.075 + fresnel * (0.58 - uCloud * 0.14)
+            0.055 + fresnel * (0.48 - uCloud * 0.12)
           );
+          float ribbonA = 0.5 + 0.5 * sin(
+            dot(vWorldPosition.xz, vec2(0.16, 1.08)) - uTime * 1.1
+          );
+          float ribbonB = 0.5 + 0.5 * sin(
+            dot(vWorldPosition.xz, vec2(-0.23, 1.72)) + uTime * 0.82
+          );
+          float ribbonBreak = valueNoise(
+            vWorldPosition.xz * vec2(0.075, 0.19) + vec2(uTime * 0.025, 0.0)
+          );
+          float rippleRibbon = smoothstep(
+            0.72,
+            0.96,
+            ribbonA * 0.48 + ribbonB * 0.26 + ribbonBreak * 0.26
+          );
+          vec3 rippleColor = mix(uSkyColor, uSunColor, 0.28);
+          color += rippleColor * rippleRibbon * (0.025 + diffuse * 0.055);
           vec2 reflectionUv =
             vReflectionCoord.xy / max(vReflectionCoord.w, 0.0001);
           reflectionUv += normal.xz *
@@ -679,12 +695,12 @@ export class SailingWorld {
             reflectionUv - vec2(0.0, reflectionBlur.y)
           ).rgb * 0.16;
           float reflectionStrength =
-            (0.04 + fresnel * 0.5) *
+            (0.035 + fresnel * 0.42) *
             (1.0 - uCloud * 0.12);
           color = mix(
             color,
             sceneReflection,
-            clamp(reflectionStrength, 0.0, 0.58)
+            clamp(reflectionStrength, 0.0, 0.48)
           );
           vec2 surfaceOffset = vWorldPosition.xz - cameraPosition.xz;
           vec2 sunAcrossWater = normalize(uSunDirection.xz);
@@ -1479,20 +1495,67 @@ export class SailingWorld {
         flatShading: true,
       });
       const deck = new THREE.Mesh(
-        new THREE.BoxGeometry(13, 0.34, 2.2),
+        new THREE.BoxGeometry(22, 0.42, 2.6),
         deckMaterial,
       );
-      deck.position.y = 0.45;
+      deck.position.y = 0.56;
       group.add(deck);
-      for (const x of [-5.5, -1.8, 1.8, 5.5]) {
-        for (const z of [-0.8, 0.8]) {
+      const landing = new THREE.Mesh(
+        new THREE.BoxGeometry(5.5, 0.46, 6.4),
+        deckMaterial,
+      );
+      landing.position.set(-8.2, 0.58, -3.2);
+      group.add(landing);
+      for (const x of [-7.2, 7.2]) {
+        const finger = new THREE.Mesh(
+          new THREE.BoxGeometry(1.5, 0.32, 9.5),
+          deckMaterial,
+        );
+        finger.position.set(x, 0.5, 4.8);
+        group.add(finger);
+      }
+      for (const x of [-10.5, -7.2, -3.5, 0, 3.5, 7.2, 10.5]) {
+        for (const z of [-1, 1]) {
           const piling = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.16, 0.2, 2.2, 7),
+            new THREE.CylinderGeometry(0.16, 0.22, 2.8, 7),
             deckMaterial,
           );
-          piling.position.set(x, -0.15, z);
+          piling.position.set(x, -0.2, z);
           group.add(piling);
         }
+      }
+      const harborLightMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf4d794,
+        emissive: 0xffc56a,
+        emissiveIntensity: 1.8,
+        roughness: 0.6,
+      });
+      for (const x of [-10, 10]) {
+        const post = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.08, 0.11, 2.8, 7),
+          deckMaterial,
+        );
+        post.position.set(x, 2, 0);
+        const lamp = new THREE.Mesh(
+          new THREE.SphereGeometry(0.18, 8, 6),
+          harborLightMaterial,
+        );
+        lamp.position.set(x, 3.35, 0);
+        group.add(post, lamp);
+      }
+      const markerColors = [0xb94f3e, 0x3e8764];
+      for (let index = 0; index < 2; index += 1) {
+        const marker = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.34, 0.5, 1.8, 8),
+          new THREE.MeshStandardMaterial({
+            color: markerColors[index],
+            emissive: markerColors[index],
+            emissiveIntensity: 0.12,
+            roughness: 0.82,
+          }),
+        );
+        marker.position.set(index === 0 ? -8.8 : 8.8, 0.75, 10.2);
+        group.add(marker);
       }
       return;
     }
@@ -1544,6 +1607,25 @@ export class SailingWorld {
       roof.scale.z = 0.78;
       roof.position.y = 10.15;
       group.add(roof);
+      for (const [index, x] of [-18, 18].entries()) {
+        const shed = new THREE.Mesh(
+          new THREE.BoxGeometry(10, 3.6, 7),
+          timber,
+        );
+        shed.position.set(x, 6.8, 8 + index * 12);
+        const shedRoof = new THREE.Mesh(
+          new THREE.ConeGeometry(7, 2.6, 4),
+          new THREE.MeshStandardMaterial({
+            color: index === 0 ? 0x8d4e3d : 0x40585c,
+            roughness: 0.92,
+            flatShading: true,
+          }),
+        );
+        shedRoof.rotation.y = Math.PI / 4;
+        shedRoof.scale.z = 0.72;
+        shedRoof.position.set(x, 9.8, 8 + index * 12);
+        group.add(shed, shedRoof);
+      }
       for (let index = 0; index < 12; index += 1) {
         const tree = new THREE.Mesh(
           new THREE.ConeGeometry(

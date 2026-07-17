@@ -1,12 +1,18 @@
 import type { BoatState } from "../sim/model";
 import type { BoatDefinition } from "../sim/boats";
+import { evaluateDocking } from "./docking";
 import {
   FAIR_WINDS_WORLD,
   type WorldDefinition,
   type WorldObject,
 } from "./world-definition";
 
-export type IncidentKind = "clear" | "touch" | "grounding" | "collision";
+export type IncidentKind =
+  | "clear"
+  | "touch"
+  | "docking"
+  | "grounding"
+  | "collision";
 export type IncidentSeverity = "none" | "touch" | "stranded" | "impact";
 
 export interface IncidentResult {
@@ -29,6 +35,16 @@ export function evaluateIncident(
   waterLevel = 0,
 ): IncidentResult {
   const speed = Math.hypot(state.velocity.x, state.velocity.y);
+  const docking = evaluateDocking(state, boat, world);
+  if (docking) {
+    return {
+      kind: "docking",
+      severity: "none",
+      point: docking.point,
+      speed,
+      object: docking.object,
+    };
+  }
   const collision = evaluateObjectCollision(state, boat, world, speed);
   if (collision) return collision;
 

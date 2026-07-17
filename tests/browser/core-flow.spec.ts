@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const visualQaDirectory = resolve(".artifacts/visual-qa");
+const externalBrowserRun = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 
 function collectRuntimeErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -74,6 +75,7 @@ test("styled loading screen covers the app until its first rendered frame", asyn
 test("core sailing composition matches the visual baseline", async ({
   page,
 }, testInfo) => {
+  test.skip(externalBrowserRun, "Frozen preview fixtures run against localhost only.");
   const runtimeErrors = collectRuntimeErrors(page);
   await page.goto("/?preview=game&freeze=1");
   await expect(page.locator("#lake")).toBeVisible();
@@ -96,9 +98,53 @@ test("core sailing composition matches the visual baseline", async ({
   expect(runtimeErrors).toEqual([]);
 });
 
+test("live compass tape rotates with helm input", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/?preview=game");
+  const tape = page.locator("#heading-tape");
+  await expect(tape).toBeVisible();
+  const initialTransform = await tape.getAttribute("style");
+
+  await page.keyboard.down("KeyD");
+  await page.waitForTimeout(900);
+  await page.keyboard.up("KeyD");
+  await expect(tape).not.toHaveAttribute("style", initialTransform ?? "");
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("Juniper Harbor presents a sheltered visitor berth", async ({
+  page,
+}, testInfo) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/?preview=game&freeze=1&landmark=juniper-harbor");
+  await expect(page.locator("#lake")).toBeVisible();
+  await page.waitForTimeout(1_000);
+  await page.screenshot({
+    path: resolve(
+      visualQaDirectory,
+      `browser-juniper-harbor-${testInfo.project.name}.png`,
+    ),
+  });
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("Juniper visitor berth holds a docked boat", async ({ page }) => {
+  await page.goto(
+    "/?preview=game&landmark=juniper-harbor&docked=1&freeze=1",
+  );
+  await expect(page.locator(".game-shell")).toHaveAttribute(
+    "data-docked-at",
+    "juniper-cove-dock",
+  );
+  await expect(page.locator("#destination-name")).toHaveText(
+    "Juniper arrival",
+  );
+});
+
 test("impact composition keeps the boat and hazard readable", async ({
   page,
 }, testInfo) => {
+  test.skip(externalBrowserRun, "Frozen preview fixtures run against localhost only.");
   test.skip(testInfo.project.name !== "desktop-chrome");
   const runtimeErrors = collectRuntimeErrors(page);
   await page.goto("/?preview=impact&freeze=1");
@@ -544,7 +590,7 @@ test("production glass settings surface renders cleanly", async ({
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chrome");
   const runtimeErrors = collectRuntimeErrors(page);
-  await page.goto("/?preview=game&section=weather");
+  await beginLesson(page);
   await page.locator("#conditions-toggle").click();
   const modal = page.locator("#conditions-panel");
   await expect(modal).toBeVisible();
@@ -570,7 +616,7 @@ test("production glass settings surface renders cleanly", async ({
 test("glass settings remain usable on mobile", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-chrome");
   const runtimeErrors = collectRuntimeErrors(page);
-  await page.goto("/?preview=game");
+  await beginLesson(page);
   await page.locator("#conditions-toggle").tap();
   await page.locator('[data-ui-tab="sound"]').tap();
   await expect(page.locator("#conditions-panel")).toBeVisible();
