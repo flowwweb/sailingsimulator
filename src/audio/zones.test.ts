@@ -24,8 +24,8 @@ describe("regional soundscapes", () => {
 
   it("keeps the lighthouse reach exposed and waterbird-led", () => {
     const soundscape = sampleSoundscape(FAIR_WINDS_WORLD, {
-      x: 930,
-      y: 850,
+      x: 350,
+      y: 1_200,
     });
 
     expect(soundscape.openWater).toBeGreaterThan(0.9);

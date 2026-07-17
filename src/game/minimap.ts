@@ -1,4 +1,8 @@
-import { LAKE_RADIUS, sampleLakeDepth } from "./bathymetry";
+import {
+  LAKE_RADIUS,
+  isInsideLake,
+  sampleLakeDepth,
+} from "./bathymetry";
 import { buoyVisualSpec } from "../render/buoy-visual";
 import { worldObjectFeaturePosition } from "./world-definition";
 import type {
@@ -9,7 +13,7 @@ import type {
 } from "./world-definition";
 import type { BoatState, Vec2 } from "../sim/model";
 
-const DEPTH_CONTOURS = [2, 5, 10, 20, 30] as const;
+const DEPTH_CONTOURS = [2, 5, 10, 20] as const;
 const GRID_SPACING = 400;
 
 export class LakeChart {
@@ -86,26 +90,30 @@ export class LakeChart {
     context: CanvasRenderingContext2D,
     world: WorldDefinition,
   ): void {
+    if (this.cssSize < 240) return;
     context.save();
     context.textAlign = "center";
     for (const region of world.regions) {
       const center = this.toMap(region.centerX, region.centerZ);
-      const radius = (region.radius / (LAKE_RADIUS * 2)) * this.cssSize;
       const color = regionColor(region.purpose);
+      context.font = "700 7px 'Manrope', sans-serif";
+      const label = region.name.toUpperCase();
+      const labelWidth = context.measureText(label).width;
+      context.fillStyle = "rgba(238, 239, 218, 0.72)";
+      context.fillRect(
+        center.x - labelWidth * 0.5 - 4,
+        center.y - 7,
+        labelWidth + 8,
+        11,
+      );
       context.strokeStyle = color.stroke;
-      context.fillStyle = color.fill;
-      context.lineWidth = 1;
-      context.setLineDash([4, 4]);
+      context.lineWidth = 0.8;
       context.beginPath();
-      context.arc(center.x, center.y, radius, 0, Math.PI * 2);
-      context.fill();
+      context.moveTo(center.x - labelWidth * 0.5, center.y + 6);
+      context.lineTo(center.x + labelWidth * 0.5, center.y + 6);
       context.stroke();
-      context.setLineDash([]);
-      if (this.cssSize >= 240) {
-        context.fillStyle = color.text;
-        context.font = "700 7px 'Manrope', sans-serif";
-        context.fillText(region.name.toUpperCase(), center.x, center.y - radius + 11);
-      }
+      context.fillStyle = color.text;
+      context.fillText(label, center.x, center.y + 1);
     }
     context.restore();
   }
@@ -323,7 +331,7 @@ export class LakeChart {
         const worldX = ((x + 0.5) / width - 0.5) * LAKE_RADIUS * 2;
         const worldZ = (0.5 - (y + 0.5) / height) * LAKE_RADIUS * 2;
         const depth = sampleLakeDepth(worldX, worldZ);
-        const insideLake = Math.hypot(worldX, worldZ) < LAKE_RADIUS;
+        const insideLake = isInsideLake(worldX, worldZ);
         const offset = (y * width + x) * 4;
         const color = depthColor(depth, insideLake);
         image.data[offset] = color[0];
@@ -331,7 +339,6 @@ export class LakeChart {
         image.data[offset + 2] = color[2];
         image.data[offset + 3] = 255;
 
-        if (!insideLake || depth <= 0 || (x === 0 && y === 0)) continue;
         const leftDepth = x > 0
           ? sampleLakeDepth(
               ((x - 0.5) / width - 0.5) * LAKE_RADIUS * 2,
@@ -344,7 +351,14 @@ export class LakeChart {
               (0.5 - (y - 0.5) / height) * LAKE_RADIUS * 2,
             )
           : depth;
-        if (DEPTH_CONTOURS.some((contour) =>
+        const wet = depth > 0;
+        const shoreline =
+          wet !== (leftDepth > 0) || wet !== (upperDepth > 0);
+        if (shoreline) {
+          image.data[offset] = 48;
+          image.data[offset + 1] = 83;
+          image.data[offset + 2] = 88;
+        } else if (wet && DEPTH_CONTOURS.some((contour) =>
           crossedContour(depth, leftDepth, contour) ||
           crossedContour(depth, upperDepth, contour))) {
           image.data[offset] = 73;

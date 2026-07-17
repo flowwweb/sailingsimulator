@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { lakeShoalFor, sampleLakeDepth } from "./bathymetry";
-import { FAIR_WINDS_WORLD } from "./world-definition";
+import {
+  FAIR_WINDS_WORLD,
+  worldObjectFeaturePosition,
+} from "./world-definition";
 
 describe("authored Fair Winds lake layout", () => {
   it("starts the player in deep water inside a genuinely sailable channel", () => {
@@ -28,11 +31,11 @@ describe("authored Fair Winds lake layout", () => {
     const dryGap =
       northLight.x -
       cedarHead.x -
-      cedarHead.islandRadius -
-      northLight.islandRadius;
+      cedarHead.islandRadius * cedarHead.scaleX -
+      northLight.islandRadius * northLight.scaleX;
 
     expect(dryGap).toBeGreaterThanOrEqual(500);
-    expect(sampleLakeDepth(600, 710)).toBeGreaterThan(10);
+    expect(sampleLakeDepth(500, 900)).toBeGreaterThan(10);
   });
 
   it("provides distinct chart areas and course destinations", () => {
@@ -50,6 +53,20 @@ describe("authored Fair Winds lake layout", () => {
       expect(Math.hypot(activity.x, activity.z)).toBeLessThan(
         FAIR_WINDS_WORLD.radius,
       );
+    }
+  });
+
+  it("places permanent shoreline landmarks on dry terrain", () => {
+    const permanentLandmarks = FAIR_WINDS_WORLD.objects.filter((object) =>
+      ["lighthouse", "cabin", "waypoint"].includes(object.kind),
+    );
+
+    for (const landmark of permanentLandmarks) {
+      const position = worldObjectFeaturePosition(landmark);
+      expect(
+        sampleLakeDepth(position.x, position.z),
+        `${landmark.name} should be attached to land`,
+      ).toBe(0);
     }
   });
 });

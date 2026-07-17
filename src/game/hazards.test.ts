@@ -15,7 +15,7 @@ describe("deterministic grounding and object hazards", () => {
 
   it("makes deeper-draft boats ground on routes the trainer can clear", () => {
     const state = createInitialState();
-    state.position = { x: 1_580, y: 0 };
+    state.position = { x: 1_590, y: 0 };
 
     const trainer = evaluateIncident(state, HARBOR_20);
     const coastal = evaluateIncident(state, COASTAL_28);
@@ -27,7 +27,7 @@ describe("deterministic grounding and object hazards", () => {
 
   it("uses tidal water level when calculating grounding clearance", () => {
     const state = createInitialState();
-    state.position = { x: 1_580, y: 0 };
+    state.position = { x: 1_590, y: 0 };
 
     const lowWater = evaluateIncident(state, COASTAL_28, undefined, -0.5);
     const highWater = evaluateIncident(state, COASTAL_28, undefined, 2);
@@ -71,7 +71,7 @@ describe("deterministic grounding and object hazards", () => {
 
   it("makes the North Light island a real collision hazard", () => {
     const state = createInitialState();
-    state.position = { x: 980, y: 720 };
+    state.position = { x: 1_050, y: 1_160 };
     state.velocity = { x: 2.1, y: 0.4 };
     const incident = evaluateIncident(state, HARBOR_20);
 

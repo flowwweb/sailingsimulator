@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const visualQaDirectory = resolve(".artifacts/visual-qa");
@@ -32,6 +32,44 @@ async function setRange(page: Page, selector: string, value: string): Promise<vo
 }
 
 test.beforeAll(() => mkdirSync(visualQaDirectory, { recursive: true }));
+
+test("styled loading screen covers the app until its first rendered frame", async ({
+  context,
+  page,
+}, testInfo) => {
+  let releaseBundle!: () => void;
+  const bundleGate = new Promise<void>((resolveGate) => {
+    releaseBundle = resolveGate;
+  });
+  await page.route("**/assets/*.js", async (route) => {
+    await bundleGate;
+    await route.continue();
+  });
+
+  await page.goto("/", { waitUntil: "commit" });
+  const loader = page.locator("#boot-loader");
+  await expect(loader).toBeVisible();
+  await expect(page.locator(".boot-spinner")).toBeVisible();
+  await expect(loader).toHaveCSS("background-color", "rgb(24, 63, 76)");
+  await expect(page.locator(".game-shell")).toHaveCSS("visibility", "hidden");
+  const cdp = await context.newCDPSession(page);
+  const capture = await cdp.send("Page.captureScreenshot", {
+    format: "png",
+    fromSurface: true,
+  });
+  writeFileSync(
+    resolve(
+      visualQaDirectory,
+      `loading-screen-${testInfo.project.name}.png`,
+    ),
+    Buffer.from(capture.data, "base64"),
+  );
+
+  releaseBundle();
+  await expect(page.locator("html")).toHaveAttribute("data-app-ready", "true");
+  await expect(loader).toHaveCount(0);
+  await expect(page.locator(".game-shell")).toHaveCSS("visibility", "visible");
+});
 
 test("core sailing composition matches the visual baseline", async ({
   page,
@@ -169,8 +207,8 @@ test("starter dinghy presents as a coherent open mainsail trainer", async ({
   await expect(page.locator("#boat-select")).toHaveValue("harbor-20");
   await expect(page.locator("#sail-plan-label")).toHaveText("Mainsail");
   if (testInfo.project.name === "mobile-chrome") {
-    await expect(page.locator("#reef-sail")).toBeHidden();
-    await expect(page.locator("#toggle-sails")).toBeHidden();
+    await expect(page.locator("#reef-sail")).toBeVisible();
+    await expect(page.locator("#toggle-sails")).toBeVisible();
   }
   await page.locator("#conditions-toggle").click();
   await page.locator('[data-ui-tab="weather"]').click();
@@ -299,6 +337,22 @@ test("nautical chart exposes accurate lake areas and selectable courses", async 
   expect(runtimeErrors).toEqual([]);
 });
 
+test("North Light and its trees meet the headland terrain", async ({
+  page,
+}, testInfo) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/?preview=game&freeze=1&landmark=north-light");
+  await expect(page.locator("#lake")).toBeVisible();
+  await page.waitForTimeout(1_200);
+  await page.screenshot({
+    path: resolve(
+      visualQaDirectory,
+      `browser-north-light-${testInfo.project.name}.png`,
+    ),
+  });
+  expect(runtimeErrors).toEqual([]);
+});
+
 test("desktop launch, sail controls, settings, boats, and persistence stay coherent", async ({
   page,
 }, testInfo) => {
@@ -403,7 +457,7 @@ test("night, rain, and Storm conditions reach the rendered game", async ({
   expect(runtimeErrors).toEqual([]);
 });
 
-test("optional mobile controls can be enabled from settings", async ({
+test("mobile controls are available by default and drive the boat", async ({
   context,
   page,
 }, testInfo) => {
@@ -413,6 +467,13 @@ test("optional mobile controls can be enabled from settings", async ({
 
   const controls = page.locator(".controls [data-control]");
   await expect(controls).toHaveCount(4);
+  for (const control of await controls.all()) await expect(control).toBeVisible();
+
+  await page.locator("#conditions-toggle").tap();
+  await page.locator('[data-ui-tab="controls"]').tap();
+  await expect(page.locator("#touch-controls-enabled")).toBeChecked();
+  await page.locator("#touch-controls-enabled").uncheck();
+  await page.locator("#conditions-close").tap();
   for (const control of await controls.all()) await expect(control).toBeHidden();
 
   await page.locator("#conditions-toggle").tap();
@@ -441,6 +502,27 @@ test("optional mobile controls can be enabled from settings", async ({
     touchPoints: [],
   });
   await expect(page.locator("#boom-readout")).not.toHaveText(initialBoom ?? "");
+
+  const starboard = page.locator('[data-control="starboard"]');
+  const helmBox = await starboard.boundingBox();
+  expect(helmBox).not.toBeNull();
+  const helmX = helmBox!.x + helmBox!.width / 2;
+  const helmY = helmBox!.y + helmBox!.height / 2;
+  const initialMotion = await page.locator("#motion-readout").textContent();
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [
+      { x: helmX, y: helmY, radiusX: 8, radiusY: 8, force: 1 },
+    ],
+  });
+  await page.waitForTimeout(550);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect(page.locator("#motion-readout")).not.toHaveText(
+    initialMotion ?? "",
+  );
 
   await page.locator("#reef-sail").tap();
   await expect(page.locator("#reef-sail")).toHaveAttribute("aria-pressed", "true");

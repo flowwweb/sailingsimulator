@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap");
-
 :root {
   color: #f7f0df;
   background: #183f4c;
@@ -2284,7 +2282,7 @@ input:disabled {
     left: 0;
     width: 100vw;
     max-height: none;
-    height: 100dvh;
+    height: 100%;
     transform: translateY(16px);
   }
 
@@ -4081,6 +4079,44 @@ input:disabled {
 }
 
 @media (max-width: 760px) {
+  .controls {
+    grid-template-areas:
+      "helm sheet"
+      "rig rig";
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+    gap: 8px 10px;
+  }
+
+  .helm-controls {
+    grid-area: helm;
+  }
+
+  .sheet-controls {
+    grid-area: sheet;
+    grid-column: auto;
+  }
+
+  .controls-caption {
+    display: grid;
+    grid-area: rig;
+    justify-self: center;
+  }
+
+  .rig-controls button {
+    min-height: 44px;
+  }
+
+  .rig-controls .rig-action-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+
   .navigation-hud {
     bottom: calc(max(74px, env(safe-area-inset-bottom) + 66px));
     width: min(330px, calc(100vw - 32px));

@@ -6,7 +6,12 @@ import {
   navigationObjects,
   type WorldObject,
 } from "../game/world-definition";
-import { LAKE_SHOALS, lakeShoalFor } from "../game/bathymetry";
+import {
+  LAKE_BASIN,
+  LAKE_SHOALS,
+  lakeShoalFor,
+} from "../game/bathymetry";
+import { landmarkGroundHeight } from "./landmark-grounding";
 import type { BoatState, SailDiagnostics } from "../sim/model";
 import {
   HARBOR_20,
@@ -14,6 +19,7 @@ import {
   type BoatDefinition,
 } from "../sim/boats";
 import {
+  sampleWaves,
   significantWaveHeight,
   waveShaderArrays,
 } from "../weather/waves";
@@ -21,9 +27,10 @@ import type { WeatherSnapshot } from "../weather/types";
 import { LakeScenery } from "./scenery";
 import { AmbientLife } from "./ambient-life";
 import {
-  HULL_WATER_MASK_HALF_BEAM,
-  HULL_WATER_MASK_HALF_LENGTH,
+  HULL_CONTACT_BOW_Z,
+  HULL_CONTACT_STERN_Z,
   INTERIOR_FLOOR_BOW_Z,
+  hullContactWidthAt,
 } from "./hull-water-mask";
 import { buoyVisualSpec } from "./buoy-visual";
 import { wakeSurfacePoints } from "./wake-surface";
@@ -115,6 +122,7 @@ export class SailingWorld {
   private readonly telltales: THREE.Line[] = [];
   private readonly wakeLines: [THREE.Line, THREE.Line];
   private readonly wakeFoam: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  private readonly hullContactFoam: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private readonly wakeTracks: [THREE.Vector3[], THREE.Vector3[]] = [[], []];
   private readonly windLines: THREE.LineSegments;
   private readonly windSeeds: Float32Array;
@@ -161,7 +169,8 @@ export class SailingWorld {
     this.scene.add(this.boatRoot);
     this.wakeLines = [this.createWakeLine(), this.createWakeLine()];
     this.wakeFoam = this.createWakeFoam();
-    this.scene.add(...this.wakeLines, this.wakeFoam);
+    this.hullContactFoam = this.createHullContactFoam();
+    this.scene.add(...this.wakeLines, this.wakeFoam, this.hullContactFoam);
     [this.windLines, this.windSeeds] = this.createWindLines();
     this.scene.add(this.windLines);
     [this.rain, this.rainSeeds] = this.createRain();
@@ -323,6 +332,7 @@ export class SailingWorld {
       sailChordScale,
     );
     this.updateWater(weather, x, z, heading);
+    this.updateHullContactFoam(current, weather, x, z, heading);
     this.updateWake(current, weather);
     this.ambientLife.update(weather.time, current, weather.trueWind);
     this.updateWind(weather, current, x, z);
@@ -396,6 +406,26 @@ export class SailingWorld {
             LAKE_SHOALS.map((shoal) => shoal.shelfRadius),
           ),
         },
+        uShoalScale: {
+          value: new Float32Array(
+            LAKE_SHOALS.flatMap((shoal) => [shoal.scaleX, shoal.scaleZ]),
+          ),
+        },
+        uShoalRotation: {
+          value: new Float32Array(
+            LAKE_SHOALS.map((shoal) => shoal.rotation),
+          ),
+        },
+        uShoalIrregularity: {
+          value: new Float32Array(
+            LAKE_SHOALS.map((shoal) => shoal.irregularity),
+          ),
+        },
+        uShoalPhase: {
+          value: new Float32Array(
+            LAKE_SHOALS.map((shoal) => shoal.phase),
+          ),
+        },
         uSunDirection: { value: new THREE.Vector3(-0.45, 0.72, -0.3).normalize() },
         uSunColor: { value: new THREE.Color(0xffe7bd) },
         uSkyColor: { value: new THREE.Color(0x9bc4cb) },
@@ -414,7 +444,6 @@ export class SailingWorld {
         uFogNear: { value: 180 },
         uFogFar: { value: 1_900 },
         uCloud: { value: 0.2 },
-        uBoatMask: { value: new THREE.Vector4(0, 0, 0, 1) },
       },
       vertexShader: `
         precision highp float;
@@ -484,7 +513,10 @@ export class SailingWorld {
         uniform vec2 uShoalCenter[${LAKE_SHOALS.length}];
         uniform float uShoalIslandRadius[${LAKE_SHOALS.length}];
         uniform float uShoalShelfRadius[${LAKE_SHOALS.length}];
-        uniform vec4 uBoatMask;
+        uniform vec2 uShoalScale[${LAKE_SHOALS.length}];
+        uniform float uShoalRotation[${LAKE_SHOALS.length}];
+        uniform float uShoalIrregularity[${LAKE_SHOALS.length}];
+        uniform float uShoalPhase[${LAKE_SHOALS.length}];
         varying vec3 vWorldPosition;
         varying vec4 vReflectionCoord;
         varying float vWaveHeight;
@@ -513,16 +545,57 @@ export class SailingWorld {
             local.y
           );
         }
+        float organicRadius(float angle, float irregularity, float phase) {
+          return 1.0 + irregularity * (
+            0.6 * sin(angle * 3.0 + phase) +
+            0.27 * sin(angle * 5.0 - phase * 0.7) +
+            0.13 * sin(angle * 8.0 + phase * 1.9)
+          );
+        }
+        float organicDistance(
+          vec2 delta,
+          vec2 scale,
+          float rotation,
+          float irregularity,
+          float phase
+        ) {
+          float cosine = cos(rotation);
+          float sine = sin(rotation);
+          vec2 local = vec2(
+            delta.x * cosine + delta.y * sine,
+            -delta.x * sine + delta.y * cosine
+          ) / scale;
+          float angle = atan(local.y, local.x);
+          return length(local) / organicRadius(angle, irregularity, phase);
+        }
         float estimatedDepth(vec2 point) {
-          float edgeProgress = 1.0 - length(point) / 1800.0;
-          float depth = 36.0 * smootherstep(0.0, 0.72, edgeProgress);
+          float boundaryDistance = organicDistance(
+            point,
+            vec2(${LAKE_BASIN.radiusX.toFixed(1)}, ${LAKE_BASIN.radiusZ.toFixed(1)}),
+            ${LAKE_BASIN.rotation.toFixed(4)},
+            ${LAKE_BASIN.irregularity.toFixed(4)},
+            ${LAKE_BASIN.phase.toFixed(4)}
+          );
+          float edgeProgress = 1.0 - boundaryDistance;
+          float depth = 36.0 * smootherstep(0.0, 0.66, edgeProgress);
+          float depthVariation = (
+            2.4 * sin((point.x + 140.0) / 430.0) * cos((point.y - 80.0) / 520.0) +
+            1.1 * sin((point.x - point.y) / 310.0)
+          ) * smootherstep(0.08, 0.55, edgeProgress);
+          depth = clamp(depth + depthVariation, 0.0, 38.0);
           for (int index = 0; index < ${LAKE_SHOALS.length}; index += 1) {
-            float shoalDistance = length(point - uShoalCenter[index]);
-            if (shoalDistance < uShoalShelfRadius[index]) {
+            float localShoalDistance = organicDistance(
+              point - uShoalCenter[index],
+              uShoalScale[index],
+              uShoalRotation[index],
+              uShoalIrregularity[index],
+              uShoalPhase[index]
+            );
+            if (localShoalDistance < uShoalShelfRadius[index]) {
               float shelfDepth = 12.0 * smootherstep(
                 uShoalIslandRadius[index],
                 uShoalShelfRadius[index],
-                shoalDistance
+                localShoalDistance
               );
               depth = min(depth, shelfDepth);
             }
@@ -530,20 +603,6 @@ export class SailingWorld {
           return max(0.0, depth);
         }
         void main() {
-          vec2 boatDelta = vWorldPosition.xz - uBoatMask.xy;
-          float boatSine = sin(uBoatMask.z);
-          float boatCosine = cos(uBoatMask.z);
-          vec2 boatLocal = vec2(
-            boatDelta.x * boatCosine - boatDelta.y * boatSine,
-            boatDelta.x * boatSine + boatDelta.y * boatCosine
-          );
-          vec2 hullRadius = vec2(
-            ${HULL_WATER_MASK_HALF_BEAM.toFixed(2)},
-            ${HULL_WATER_MASK_HALF_LENGTH.toFixed(2)}
-          ) * uBoatMask.w;
-          if (dot(boatLocal / hullRadius, boatLocal / hullRadius) < 1.0) {
-            discard;
-          }
           vec3 dx = dFdx(vWorldPosition);
           vec3 dy = dFdy(vWorldPosition);
           vec3 faceNormal = normalize(cross(dx, dy));
@@ -895,11 +954,13 @@ export class SailingWorld {
       roughness: 0.58,
       flatShading: true,
     });
+    const mastTop = 6.975;
+    const mastStep = -0.62;
     const mast = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.06, 0.082, 6.55, 8),
+      new THREE.CylinderGeometry(0.06, 0.082, mastTop - mastStep, 8),
       mastMaterial,
     );
-    mast.position.set(0, 3.7, 0.72);
+    mast.position.set(0, (mastTop + mastStep) * 0.5, 0.72);
     this.rigPose.add(mast);
     this.boomPivot.position.set(0, 1.03, 0.72);
     const boom = new THREE.Mesh(
@@ -1102,6 +1163,79 @@ export class SailingWorld {
     return wake;
   }
 
+  private createHullContactFoam(): THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> {
+    const sampleCount = 24;
+    const verticesPerSide = sampleCount * 2;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array(verticesPerSide * 2 * 3), 3),
+    );
+    const indices: number[] = [];
+    for (let sideIndex = 0; sideIndex < 2; sideIndex += 1) {
+      const offset = sideIndex * verticesPerSide;
+      for (let index = 0; index < sampleCount - 1; index += 1) {
+        const inner = offset + index * 2;
+        const nextInner = inner + 2;
+        indices.push(inner, inner + 1, nextInner, nextInner, inner + 1, nextInner + 1);
+      }
+    }
+    geometry.setIndex(indices);
+    geometry.setDrawRange(0, indices.length);
+    const foam = new THREE.Mesh(
+      geometry,
+      new THREE.MeshBasicMaterial({
+        color: 0xe9faf7,
+        transparent: true,
+        opacity: 0.46,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    foam.frustumCulled = false;
+    foam.renderOrder = 3;
+    return foam;
+  }
+
+  private updateHullContactFoam(
+    state: BoatState,
+    weather: WeatherSnapshot,
+    x: number,
+    z: number,
+    heading: number,
+  ): void {
+    const positions = this.hullContactFoam.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const sampleCount = 24;
+    const boatScale = this.activeBoat.hull.length / HARBOR_20.hull.length;
+    const speed = Math.hypot(state.velocity.x, state.velocity.y);
+    const foamReach = (0.08 + THREE.MathUtils.clamp(speed * 0.025, 0, 0.16)) * boatScale;
+    const cosine = Math.cos(heading);
+    const sine = Math.sin(heading);
+    for (let sideIndex = 0; sideIndex < 2; sideIndex += 1) {
+      const side = sideIndex === 0 ? -1 : 1;
+      for (let index = 0; index < sampleCount; index += 1) {
+        const progress = index / (sampleCount - 1);
+        const localZ = THREE.MathUtils.lerp(HULL_CONTACT_BOW_Z, HULL_CONTACT_STERN_Z, progress) * boatScale;
+        const localX = side * hullContactWidthAt(localZ / boatScale) * boatScale;
+        const bowBurst = Math.pow(1 - progress, 3) * THREE.MathUtils.clamp(speed * 0.055, 0, 0.32) * boatScale;
+        for (let band = 0; band < 2; band += 1) {
+          const bandX = localX + side * (band * foamReach + bowBurst);
+          const worldX = x + bandX * cosine + localZ * sine;
+          const worldZ = z - bandX * sine + localZ * cosine;
+          const wave = sampleWaves(weather.waves, worldX, worldZ, weather.time);
+          const vertex = sideIndex * sampleCount * 2 + index * 2 + band;
+          positions.setXYZ(vertex, worldX, weather.tideLevel + wave.height + 0.028, worldZ);
+        }
+      }
+    }
+    positions.needsUpdate = true;
+    this.hullContactFoam.material.opacity = THREE.MathUtils.clamp(
+      0.25 + speed * 0.045 + Math.abs(state.heaveVelocity) * 0.16,
+      0.25,
+      0.68,
+    );
+  }
+
   private updateWake(state: BoatState, weather: WeatherSnapshot): void {
     this.wakeCenter.set(
       state.position.x,
@@ -1234,13 +1368,6 @@ export class SailingWorld {
     );
     this.water.material.uniforms.uTime!.value = weather.time;
     this.water.material.uniforms.uCloud!.value = weather.cloud;
-    const boatScale = this.activeBoat.hull.length / HARBOR_20.hull.length;
-    this.water.material.uniforms.uBoatMask!.value.set(
-      x,
-      z,
-      heading,
-      boatScale,
-    );
     if (this.waveReference !== weather.waves) {
       this.waveReference = weather.waves;
       const arrays = waveShaderArrays(weather.waves);
@@ -1300,6 +1427,7 @@ export class SailingWorld {
     rockMaterial: THREE.Material,
     pineMaterial: THREE.Material,
   ): void {
+    const shoal = lakeShoalFor(object.landformId ?? object.id);
     if (object.kind === "buoy") {
       const spec = buoyVisualSpec(object.buoyMark);
       const markerMaterial = new THREE.MeshStandardMaterial({
@@ -1370,15 +1498,28 @@ export class SailingWorld {
     }
 
     if (object.kind === "cabin") {
+      const landCenterX = (shoal?.x ?? object.x + 50) - object.x;
+      const landCenterZ = (shoal?.z ?? object.z - 30) - object.z;
+      const landRadius = shoal?.islandRadius ?? 105;
+      const landScaleX = shoal?.scaleX ?? 1;
+      const landScaleZ = shoal?.scaleZ ?? 1;
+      const landRotation = shoal?.rotation ?? 0;
       const coveLand = new THREE.Mesh(
-        new THREE.CylinderGeometry(92, 105, 10, 15),
+        new THREE.CylinderGeometry(
+          landRadius * 0.88,
+          landRadius,
+          10,
+          19,
+        ),
         new THREE.MeshStandardMaterial({
           color: 0x7f8f70,
           roughness: 0.96,
           flatShading: true,
         }),
       );
-      coveLand.position.set(50, 0, -30);
+      coveLand.position.set(landCenterX, 0, landCenterZ);
+      coveLand.scale.set(landScaleX, 1, landScaleZ);
+      coveLand.rotation.y = landRotation;
       group.add(coveLand);
       const timber = new THREE.MeshStandardMaterial({
         color: 0x745742,
@@ -1413,10 +1554,13 @@ export class SailingWorld {
           ),
           pineMaterial,
         );
+        const phase = index * 2.3;
+        const localX = Math.sin(phase) * landRadius * landScaleX * 0.58;
+        const localZ = Math.cos(phase) * landRadius * landScaleZ * 0.54;
         tree.position.set(
-          50 + Math.sin(index * 2.3) * (18 + (index % 4) * 10),
+          landCenterX + localX * Math.cos(landRotation) + localZ * Math.sin(landRotation),
           10,
-          -30 + Math.cos(index * 2.3) * (16 + (index % 5) * 9),
+          landCenterZ - localX * Math.sin(landRotation) + localZ * Math.cos(landRotation),
         );
         group.add(tree);
       }
@@ -1425,8 +1569,11 @@ export class SailingWorld {
 
     const isBeaconHeadland = object.id === "beacon-west-headland";
     const islandRadius =
-      lakeShoalFor(object.id)?.islandRadius ??
+      shoal?.islandRadius ??
       (object.kind === "lighthouse" ? 50 : isBeaconHeadland ? 62 : 55);
+    const islandScaleX = shoal?.scaleX ?? 1;
+    const islandScaleZ = shoal?.scaleZ ?? 1;
+    const landRotation = shoal?.rotation ?? 0;
     const islandHeight =
       isBeaconHeadland ? 32 : object.kind === "lighthouse" ? 26 : 7.5;
     const cinematicLandmark = isBeaconHeadland || object.kind === "lighthouse";
@@ -1442,7 +1589,8 @@ export class SailingWorld {
         rockMaterial,
       );
       shoreShelf.position.y = 0.35;
-      shoreShelf.rotation.y = 0.18;
+      shoreShelf.scale.set(islandScaleX, 1, islandScaleZ);
+      shoreShelf.rotation.y = landRotation + 0.18;
       group.add(shoreShelf);
 
       const cliff = new THREE.Mesh(
@@ -1456,9 +1604,13 @@ export class SailingWorld {
         ),
         rockMaterial,
       );
-      cliff.scale.z = isBeaconHeadland ? 0.78 : 0.86;
+      cliff.scale.set(
+        islandScaleX,
+        1,
+        islandScaleZ * (isBeaconHeadland ? 0.78 : 0.86),
+      );
       cliff.position.y = islandHeight * 0.5;
-      cliff.rotation.y = isBeaconHeadland ? -0.22 : 0.12;
+      cliff.rotation.y = landRotation + (isBeaconHeadland ? -0.22 : 0.12);
       group.add(cliff);
 
       const capHeight = isBeaconHeadland ? 3.6 : 3;
@@ -1473,7 +1625,8 @@ export class SailingWorld {
       );
       summitY = islandHeight * 1.03 + capHeight * 0.5;
       cap.position.y = summitY - capHeight * 0.5;
-      cap.rotation.y = -0.15;
+      cap.scale.set(islandScaleX, 1, islandScaleZ);
+      cap.rotation.y = landRotation - 0.15;
       group.add(cap);
       this.addRockFringe(
         group,
@@ -1481,6 +1634,9 @@ export class SailingWorld {
         islandRadius,
         rockMaterial,
         isBeaconHeadland ? 3.4 : 5.7,
+        islandScaleX,
+        islandScaleZ,
+        landRotation,
       );
     } else {
       const island = new THREE.Mesh(
@@ -1493,6 +1649,8 @@ export class SailingWorld {
         islandMaterial,
       );
       island.position.y = 0.2;
+      island.scale.set(islandScaleX, 1, islandScaleZ);
+      island.rotation.y = landRotation;
       group.add(island);
       const rock = new THREE.Mesh(
         new THREE.DodecahedronGeometry(11, 0),
@@ -1506,16 +1664,42 @@ export class SailingWorld {
     this.addPineGrove(
       group,
       isBeaconHeadland ? 72 : object.kind === "lighthouse" ? 38 : 18,
-      islandRadius * (cinematicLandmark ? 0.62 : 0.74),
-      islandRadius * (isBeaconHeadland ? 0.48 : 0.62),
+      islandRadius * (cinematicLandmark ? 0.62 : 0.74) * islandScaleX,
+      islandRadius * (isBeaconHeadland ? 0.48 : 0.62) * islandScaleZ,
       cinematicLandmark ? summitY : islandHeight * 0.5 + 0.2,
       pineMaterial,
       isBeaconHeadland ? 1.9 : object.kind === "lighthouse" ? 4.6 : 7.2,
+      landRotation,
+      cinematicLandmark && shoal
+        ? (localX, localZ) =>
+            landmarkGroundHeight(
+              shoal,
+              object.x + localX,
+              object.z + localZ,
+              islandHeight,
+              summitY,
+            )
+        : undefined,
     );
     if (object.kind === "lighthouse") {
       const towerX = object.landmarkOffset?.x ?? 12;
       const towerZ = object.landmarkOffset?.z ?? -4;
       const towerHeight = 25;
+      const towerBaseY = shoal
+        ? landmarkGroundHeight(
+            shoal,
+            object.x + towerX,
+            object.z + towerZ,
+            islandHeight,
+            summitY,
+          )
+        : summitY;
+      const footing = new THREE.Mesh(
+        new THREE.CylinderGeometry(3.35, 4.15, 1.3, 11),
+        rockMaterial,
+      );
+      footing.position.set(towerX, towerBaseY + 0.4, towerZ);
+      group.add(footing);
       const beacon = new THREE.Mesh(
         new THREE.CylinderGeometry(1.55, 2.75, towerHeight, 10),
         new THREE.MeshStandardMaterial({
@@ -1526,7 +1710,7 @@ export class SailingWorld {
           flatShading: true,
         }),
       );
-      const towerCenterY = summitY + towerHeight * 0.5 - 0.25;
+      const towerCenterY = towerBaseY + towerHeight * 0.5 - 0.2;
       beacon.position.set(towerX, towerCenterY, towerZ);
       group.add(beacon);
       const stripeMaterial = new THREE.MeshStandardMaterial({
@@ -1541,7 +1725,7 @@ export class SailingWorld {
           new THREE.CylinderGeometry(1.82, 2.08, 3.2, 10),
           stripeMaterial,
         );
-        stripe.position.set(towerX, summitY + offset, towerZ);
+        stripe.position.set(towerX, towerBaseY + offset, towerZ);
         group.add(stripe);
       }
       const gallery = new THREE.Mesh(
@@ -1552,7 +1736,7 @@ export class SailingWorld {
           flatShading: true,
         }),
       );
-      gallery.position.set(towerX, summitY + towerHeight + 0.2, towerZ);
+      gallery.position.set(towerX, towerBaseY + towerHeight + 0.2, towerZ);
       group.add(gallery);
       const lantern = new THREE.Mesh(
         new THREE.CylinderGeometry(2, 2, 2.4, 10),
@@ -1564,7 +1748,7 @@ export class SailingWorld {
           flatShading: true,
         }),
       );
-      lantern.position.set(towerX, summitY + towerHeight + 1.6, towerZ);
+      lantern.position.set(towerX, towerBaseY + towerHeight + 1.6, towerZ);
       group.add(lantern);
       const roof = new THREE.Mesh(
         new THREE.ConeGeometry(2.8, 2.2, 10),
@@ -1574,10 +1758,10 @@ export class SailingWorld {
           flatShading: true,
         }),
       );
-      roof.position.set(towerX, summitY + towerHeight + 3.85, towerZ);
+      roof.position.set(towerX, towerBaseY + towerHeight + 3.85, towerZ);
       group.add(roof);
       const lamp = new THREE.PointLight(0xffd884, 16, 80);
-      lamp.position.set(towerX, summitY + towerHeight + 1.6, towerZ);
+      lamp.position.set(towerX, towerBaseY + towerHeight + 1.6, towerZ);
       group.add(lamp);
     }
   }
@@ -1588,6 +1772,9 @@ export class SailingWorld {
     radius: number,
     material: THREE.Material,
     seed: number,
+    scaleX = 1,
+    scaleZ = 1,
+    shapeRotation = 0,
   ): void {
     const rocks = new THREE.InstancedMesh(
       new THREE.DodecahedronGeometry(5.4, 0),
@@ -1602,10 +1789,12 @@ export class SailingWorld {
     for (let index = 0; index < count; index += 1) {
       const phase = seed + index * 2.399963;
       const spread = 0.88 + ((index * 17) % 11) / 42;
+      const localX = Math.sin(phase) * radius * spread * scaleX;
+      const localZ = Math.cos(phase) * radius * spread * 0.82 * scaleZ;
       position.set(
-        Math.sin(phase) * radius * spread,
+        localX * Math.cos(shapeRotation) + localZ * Math.sin(shapeRotation),
         1.2 + (index % 4) * 0.52,
-        Math.cos(phase) * radius * spread * 0.82,
+        -localX * Math.sin(shapeRotation) + localZ * Math.cos(shapeRotation),
       );
       euler.set(
         (index % 3) * 0.08,
@@ -1634,6 +1823,8 @@ export class SailingWorld {
     baseY: number,
     crownMaterial: THREE.Material,
     seed: number,
+    shapeRotation = 0,
+    groundHeightAt?: (localX: number, localZ: number) => number,
   ): void {
     const trunkMaterial = new THREE.MeshStandardMaterial({
       color: 0x594330,
@@ -1672,9 +1863,11 @@ export class SailingWorld {
       const phase = seed + index * 2.399963;
       const radial = 0.24 + (((index * 29) % count) / Math.max(count - 1, 1)) * 0.72;
       const height = 0.72 + (index % 7) * 0.085;
-      const treeBase = baseY + (1 - radial) * 1.2;
-      const x = Math.sin(phase) * radiusX * radial;
-      const z = Math.cos(phase) * radiusZ * radial;
+      const localX = Math.sin(phase) * radiusX * radial;
+      const localZ = Math.cos(phase) * radiusZ * radial;
+      const x = localX * Math.cos(shapeRotation) + localZ * Math.sin(shapeRotation);
+      const z = -localX * Math.sin(shapeRotation) + localZ * Math.cos(shapeRotation);
+      const treeBase = groundHeightAt?.(x, z) ?? baseY + (1 - radial) * 1.2;
       euler.set(0, phase * 0.37, 0);
       rotation.setFromEuler(euler);
 

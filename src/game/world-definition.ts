@@ -31,6 +31,7 @@ export interface WorldObject {
   z: number;
   heading?: number;
   buoyMark?: "port" | "starboard" | "training";
+  landformId?: string;
   landmarkOffset?: { x: number; z: number };
   collision?: {
     radius: number;
@@ -131,7 +132,7 @@ export const FAIR_WINDS_OBJECTS: readonly WorldObject[] = [
     name: "Cedar Head",
     kind: "waypoint",
     x: -320,
-    z: 1_050,
+    z: 1_300,
     navigation: {
       description: "The western headland of Lantern Channel",
       visibleRange: 1_200,
@@ -141,10 +142,10 @@ export const FAIR_WINDS_OBJECTS: readonly WorldObject[] = [
     id: "north-light",
     name: "North light",
     kind: "lighthouse",
-    x: 980,
-    z: 720,
+    x: 1_050,
+    z: 1_160,
     landmarkOffset: { x: -260, z: -10 },
-    collision: { radius: 290, response: "hard" },
+    collision: { radius: 310, response: "hard" },
     navigation: {
       description: "A lighthouse above the exposed northern reach",
       visibleRange: 1_400,
@@ -180,8 +181,9 @@ export const FAIR_WINDS_OBJECTS: readonly WorldObject[] = [
     id: "juniper-cove-cabin",
     name: "Juniper cove cabin",
     kind: "cabin",
-    x: 930,
-    z: -480,
+    x: 1_100,
+    z: -500,
+    landformId: "juniper-cove",
     navigation: {
       description: "Sheltered cove and recovery harbor",
       visibleRange: 650,
@@ -191,8 +193,8 @@ export const FAIR_WINDS_OBJECTS: readonly WorldObject[] = [
     id: "juniper-cove-dock",
     name: "Juniper dock",
     kind: "dock",
-    x: 885,
-    z: -465,
+    x: 1_040,
+    z: -480,
     heading: Math.PI * 0.44,
     collision: { radius: 8, response: "hard" },
   },
@@ -211,8 +213,9 @@ export const FAIR_WINDS_OBJECTS: readonly WorldObject[] = [
     id: "cedar-point",
     name: "Cedar Point",
     kind: "waypoint",
-    x: 1_180,
-    z: 220,
+    x: 1_450,
+    z: 200,
+    landmarkOffset: { x: -250, z: 20 },
     navigation: {
       description: "A long eastern point sheltering Glasswater Bay",
       visibleRange: 1_050,
@@ -231,8 +234,8 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       id: "lantern-channel",
       name: "Lantern Channel",
       centerX: 600,
-      centerZ: 590,
-      radius: 330,
+      centerZ: 720,
+      radius: 390,
       description: "A broad, deep departure channel between Cedar Head and North Light",
       soundscape: "pine-shore",
       purpose: "lesson",
@@ -260,8 +263,8 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
     {
       id: "lighthouse-reach",
       name: "Lighthouse Reach",
-      centerX: 1_010,
-      centerZ: 850,
+      centerX: 450,
+      centerZ: 1_120,
       radius: 360,
       description: "Exposed water beyond North Light with a clean fetch",
       soundscape: "exposed-reach",
@@ -290,8 +293,8 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
     {
       id: "juniper-cove",
       name: "Juniper Cove",
-      centerX: 930,
-      centerZ: -470,
+      centerX: 1_020,
+      centerZ: -450,
       radius: 270,
       description: "Sheltered shallows, dock, and recovery harbor",
       soundscape: "sheltered-cove",
@@ -317,8 +320,8 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       points: [
         { x: 600, z: 330 },
         { x: 600, z: 500 },
-        { x: 600, z: 700 },
-        { x: 570, z: 930 },
+        { x: 580, z: 720 },
+        { x: 500, z: 930 },
       ],
     },
     {
@@ -379,8 +382,8 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       id: "north-light-rounding",
       title: "Round North Light",
       kind: "mission",
-      x: 730,
-      z: 1_040,
+      x: 450,
+      z: 950,
       area: "Lighthouse Reach",
       objective: "Exit Lantern Channel and round the lighthouse with safe offing.",
       difficulty: "Moderate",
@@ -389,8 +392,8 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       id: "juniper-arrival",
       title: "Juniper arrival",
       kind: "mission",
-      x: 860,
-      z: -440,
+      x: 980,
+      z: -420,
       area: "Juniper Cove",
       objective: "Approach the sheltered cove under control without touching the dock or grounding.",
       difficulty: "Moderate",

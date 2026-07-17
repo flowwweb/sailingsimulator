@@ -357,7 +357,7 @@ export class LakeScenery {
 }
 
 export function createCoastalTerrainGeometry(
-  segments = 128,
+  segments = COASTAL_TERRAIN_SEGMENTS,
 ): THREE.BufferGeometry {
   const positions: number[] = [];
   const indices: number[] = [];
@@ -393,6 +393,7 @@ export function createCoastalTerrainGeometry(
 
 const COASTAL_RADIAL_BANDS = [0, 38, 125, 285, 520] as const;
 const COASTAL_BASE_HEIGHTS = [-1.4, 1.1, 10, 34, 72] as const;
+const COASTAL_TERRAIN_SEGMENTS = 128;
 
 function coastalTerrainBand(
   angle: number,
@@ -423,9 +424,48 @@ function coastalTerrainBand(
 export function sampleCoastalTerrainHeight(
   angle: number,
   radius: number,
+  segments = COASTAL_TERRAIN_SEGMENTS,
 ): number {
+  const normalizedAngle = THREE.MathUtils.euclideanModulo(
+    angle,
+    Math.PI * 2,
+  );
+  const segment = Math.min(
+    Math.floor((normalizedAngle / (Math.PI * 2)) * segments),
+    segments - 1,
+  );
+  const startAngle = (segment / segments) * Math.PI * 2;
+  const endAngle = ((segment + 1) / segments) * Math.PI * 2;
+  const point = {
+    x: Math.sin(normalizedAngle) * radius,
+    z: Math.cos(normalizedAngle) * radius,
+  };
+
+  for (let band = 0; band < COASTAL_RADIAL_BANDS.length - 1; band += 1) {
+    const innerStart = coastalTerrainVertex(startAngle, band);
+    const innerEnd = coastalTerrainVertex(endAngle, band);
+    const outerStart = coastalTerrainVertex(startAngle, band + 1);
+    const outerEnd = coastalTerrainVertex(endAngle, band + 1);
+    const firstTriangleHeight = heightOnTerrainTriangle(
+      point,
+      innerStart,
+      innerEnd,
+      outerStart,
+    );
+    if (firstTriangleHeight !== undefined) return firstTriangleHeight;
+    const secondTriangleHeight = heightOnTerrainTriangle(
+      point,
+      outerStart,
+      innerEnd,
+      outerEnd,
+    );
+    if (secondTriangleHeight !== undefined) return secondTriangleHeight;
+  }
+
+  // Preserve a useful result outside the rendered ring. Forest placement stays
+  // inside it and therefore always takes the exact triangle path above.
   const bands = COASTAL_RADIAL_BANDS.map((_, band) =>
-    coastalTerrainBand(angle, band),
+    coastalTerrainBand(normalizedAngle, band),
   );
   if (radius <= bands[0]!.radius) return bands[0]!.height;
   for (let band = 1; band < bands.length; band += 1) {
@@ -436,6 +476,51 @@ export function sampleCoastalTerrainHeight(
     return THREE.MathUtils.lerp(inner.height, outer.height, progress);
   }
   return bands.at(-1)!.height;
+}
+
+interface TerrainVertex {
+  x: number;
+  y: number;
+  z: number;
+}
+
+function coastalTerrainVertex(angle: number, band: number): TerrainVertex {
+  const terrainBand = coastalTerrainBand(angle, band);
+  return {
+    x: Math.sin(angle) * terrainBand.radius,
+    y: terrainBand.height,
+    z: Math.cos(angle) * terrainBand.radius,
+  };
+}
+
+function heightOnTerrainTriangle(
+  point: { x: number; z: number },
+  a: TerrainVertex,
+  b: TerrainVertex,
+  c: TerrainVertex,
+): number | undefined {
+  const denominator =
+    (b.z - c.z) * (a.x - c.x) +
+    (c.x - b.x) * (a.z - c.z);
+  if (Math.abs(denominator) < 1e-8) return undefined;
+  const aWeight =
+    ((b.z - c.z) * (point.x - c.x) +
+      (c.x - b.x) * (point.z - c.z)) /
+    denominator;
+  const bWeight =
+    ((c.z - a.z) * (point.x - c.x) +
+      (a.x - c.x) * (point.z - c.z)) /
+    denominator;
+  const cWeight = 1 - aWeight - bWeight;
+  const epsilon = 1e-6;
+  if (
+    aWeight < -epsilon ||
+    bWeight < -epsilon ||
+    cWeight < -epsilon
+  ) {
+    return undefined;
+  }
+  return a.y * aWeight + b.y * bWeight + c.y * cWeight;
 }
 
 const NIGHT_SKY = new THREE.Color(0x102844);

@@ -124,12 +124,14 @@ const elements = {
 
 let activeBoat: BoatDefinition = loadBoatDefinition();
 let world: SailingWorld;
+let bootComplete = false;
 try {
   world = new SailingWorld(canvas);
   world.setBoat(activeBoat);
 } catch (error) {
   elements.fatal.hidden = false;
   elements.fatal.textContent = "Fair Winds needs WebGL to draw the lake. Try an up-to-date browser with hardware acceleration enabled.";
+  finishBoot();
   throw error;
 }
 const input = new GameInput();
@@ -317,8 +319,13 @@ function bindInterface(): void {
   elements.settingsResume.addEventListener("click", () => setConditionsOpen(false));
   elements.settingsMainMenu.addEventListener("click", returnToTitle);
   elements.settingsResetBoat.addEventListener("click", resetBoat);
+  const storedOnScreenControls = localStorage.getItem(
+    "fair-winds-on-screen-controls",
+  );
   elements.touchControlsEnabled.checked =
-    localStorage.getItem("fair-winds-on-screen-controls") === "true";
+    storedOnScreenControls === null
+      ? window.matchMedia("(hover: none), (pointer: coarse)").matches
+      : storedOnScreenControls === "true";
   syncOnScreenControls();
   elements.touchControlsEnabled.addEventListener("change", () => {
     localStorage.setItem(
@@ -513,6 +520,14 @@ function enableDevelopmentPreview(): void {
           boomAngle: -degrees(43),
           velocity: { x: 0, y: 2.15 },
         };
+  if (preview === "game" && parameters.get("landmark") === "north-light") {
+    state = {
+      ...state,
+      position: { x: 600, y: 900 },
+      heading: degrees(38),
+      velocity: { x: 0, y: 0 },
+    };
+  }
   if (preview === "game") {
     const previewFlow = computeSailAerodynamics(state, {
       trueWind: weather.trueWind,
@@ -683,6 +698,7 @@ function loop(now: number): void {
     !started,
     presentationTime,
   );
+  finishBoot();
   audio.update(
     renderWeather,
     renderCurrent,
@@ -698,6 +714,15 @@ function loop(now: number): void {
   }
   elements.gameShell.dataset.simulationTime = simulationTime.toFixed(3);
   requestAnimationFrame(loop);
+}
+
+function finishBoot(): void {
+  if (bootComplete) return;
+  bootComplete = true;
+  document.documentElement.dataset.appReady = "true";
+  window.setTimeout(() => {
+    document.querySelector("#boot-loader")?.remove();
+  }, 260);
 }
 
 function resetBoat(): void {
