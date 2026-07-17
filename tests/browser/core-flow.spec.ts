@@ -100,7 +100,7 @@ test("core sailing composition matches the visual baseline", async ({
 
 test("live compass tape rotates with helm input", async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
-  await page.goto("/?preview=game");
+  await beginLesson(page);
   const tape = page.locator("#heading-tape");
   await expect(tape).toBeVisible();
   const initialTransform = await tape.getAttribute("style");
@@ -115,6 +115,7 @@ test("live compass tape rotates with helm input", async ({ page }) => {
 test("Juniper Harbor presents a sheltered visitor berth", async ({
   page,
 }, testInfo) => {
+  test.skip(externalBrowserRun, "Harbor visual fixture runs against localhost only.");
   const runtimeErrors = collectRuntimeErrors(page);
   await page.goto("/?preview=game&freeze=1&landmark=juniper-harbor");
   await expect(page.locator("#lake")).toBeVisible();
@@ -129,6 +130,7 @@ test("Juniper Harbor presents a sheltered visitor berth", async ({
 });
 
 test("Juniper visitor berth holds a docked boat", async ({ page }) => {
+  test.skip(externalBrowserRun, "Docked preview fixture runs against localhost only.");
   await page.goto(
     "/?preview=game&landmark=juniper-harbor&docked=1&freeze=1",
   );
@@ -159,7 +161,7 @@ test("impact composition keeps the boat and hazard readable", async ({
 });
 
 test("Space fast-forwards at 2x only while held", async ({ page }) => {
-  await page.goto("/?preview=game");
+  await beginLesson(page);
   const gameShell = page.locator(".game-shell");
   await expect(gameShell).toHaveAttribute("data-time-scale", "1");
 
@@ -171,7 +173,7 @@ test("Space fast-forwards at 2x only while held", async ({ page }) => {
 });
 
 test("live minimap stays visible while sailing", async ({ page }) => {
-  await page.goto("/?preview=game");
+  await beginLesson(page);
   await expect(page.locator("#minimap")).toBeVisible();
 });
 
@@ -386,6 +388,7 @@ test("nautical chart exposes accurate lake areas and selectable courses", async 
 test("North Light and its trees meet the headland terrain", async ({
   page,
 }, testInfo) => {
+  test.skip(externalBrowserRun, "Headland visual fixture runs against localhost only.");
   const runtimeErrors = collectRuntimeErrors(page);
   await page.goto("/?preview=game&freeze=1&landmark=north-light");
   await expect(page.locator("#lake")).toBeVisible();
