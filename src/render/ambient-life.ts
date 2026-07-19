@@ -82,6 +82,15 @@ export class AmbientLife {
     });
   }
 
+  trafficSnapshot(): TrafficPose[] {
+    return this.boats.map(({ x, z, heading, speed }) => ({
+      x,
+      z,
+      heading,
+      speed,
+    }));
+  }
+
   private createBirds(): void {
     const material = new THREE.MeshBasicMaterial({
       color: 0x26383b,

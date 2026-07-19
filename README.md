@@ -12,7 +12,12 @@ large lake with sparse distant landmarks. Reef for reduced sail area, lower and
 hoist sail, or steer through a controlled gybe with the wind astern. The opening menu is itself a live
 golden-hour scene: analytic waves, reflected shores, the sailing boat, North
 Light, ambient lake sound, and the Fair Winds theme all use the same in-game
-rendering and audio systems as play.
+rendering and audio systems as play. A nine-stage sailing academy now carries
+that same cause-and-effect teaching through trim, points of sail, tacking,
+gybing, and reefing. Seven chart activities have live objectives, four-part
+debrief scores, and a persistent local logbook; waypoint bearing, VMG, traffic
+advice, a short weather outlook, docking, high contrast, and an installable
+offline shell support the complete browser experience.
 
 ![Core gameplay direction](docs/mockups/02-core-gameplay.png)
 
@@ -65,7 +70,8 @@ npm run test:browser
 
 `npm run test:browser` uses installed Chrome to exercise the production build
 at 1440×900 and 390×844, including keyboard/touch sail input, Settings, boat
-persistence, screenshots, and a strict console/page-error gate. Deploy the
+persistence, academy/activity coaching, local logbook scoring, PWA contracts,
+screenshots, and a strict console/page-error gate. Deploy the
 same static build with `npm run deploy:firebase`; the default project is kept
 in `.firebaserc`.
 

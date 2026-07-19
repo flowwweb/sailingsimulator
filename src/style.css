@@ -3650,6 +3650,118 @@ input:disabled {
   backdrop-filter: blur(12px) saturate(0.78);
 }
 
+/* Learning-loop additions: keep new information compact and subordinate. */
+.destination-metrics {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.destination-metrics small {
+  color: rgba(247, 248, 243, 0.74);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.forecast-card {
+  display: grid;
+  gap: 5px;
+  padding: 14px 16px;
+}
+
+.forecast-card strong {
+  color: var(--settings-ink);
+  font-size: 0.9rem;
+}
+
+.forecast-card > span:last-child {
+  color: var(--settings-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.encounter-readout {
+  display: grid;
+  min-width: 126px;
+  align-content: center;
+  gap: 3px;
+  padding-left: 15px;
+  border-left: 1px solid rgba(247, 248, 243, 0.2);
+}
+
+.encounter-readout strong {
+  max-width: 170px;
+  color: rgba(247, 248, 243, 0.82);
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.encounter-readout[data-role="give-way"] strong {
+  color: #ffd16b;
+}
+
+.encounter-readout[data-role="stand-on"] strong {
+  color: #c8f0df;
+}
+
+.chart-activity-score {
+  display: block;
+  color: #315f5a;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chart-activity.is-complete .chart-activity-index span {
+  background: #315f5a;
+  color: #f7f0df;
+}
+
+.game-shell.is-high-contrast .ui-glass-surface,
+.game-shell.is-high-contrast .instrument,
+.game-shell.is-high-contrast .destination,
+.game-shell.is-high-contrast .navigation-hud {
+  border-color: rgba(255, 255, 255, 0.82);
+  background: rgba(5, 20, 29, 0.78);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.72);
+}
+
+.game-shell.is-high-contrast :focus-visible {
+  outline: 3px solid #ffd16b !important;
+  outline-offset: 3px;
+}
+
+.game-shell.is-high-contrast .label,
+.game-shell.is-high-contrast .destination-metrics small {
+  color: #fff;
+}
+
+@media (max-width: 760px) {
+  .destination-metrics small {
+    display: none;
+  }
+
+  .encounter-readout {
+    display: none;
+  }
+
+  .encounter-readout:not([data-role="clear"]) {
+    position: fixed;
+    right: 14px;
+    bottom: 128px;
+    display: grid;
+    max-width: 180px;
+    padding: 9px 11px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 8px;
+    background: rgba(5, 20, 29, 0.84);
+  }
+}
+
 @media (max-width: 760px) {
   #conditions-panel {
     top: 0;

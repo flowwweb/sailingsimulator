@@ -143,6 +143,30 @@ test("Juniper visitor berth holds a docked boat", async ({ page }) => {
   );
 });
 
+test("scored docking debrief is written to the local logbook", async ({
+  page,
+}, testInfo) => {
+  test.skip(externalBrowserRun, "Docked scoring fixture runs against localhost only.");
+  test.skip(testInfo.project.name !== "desktop-chrome");
+  await page.goto(
+    "/?preview=game&landmark=juniper-harbor&docked=1",
+  );
+  await page.locator("#map-toggle").click();
+  await page.locator('[data-activity-id="juniper-arrival"]').click();
+  await expect(page.locator(".game-shell")).toHaveAttribute(
+    "data-activity-score",
+    /\d+/,
+  );
+  await expect(page.locator("#lesson-instruction")).toContainText("Safety");
+  await expect(
+    page.locator('[data-activity-id="juniper-arrival"]'),
+  ).toHaveClass(/is-complete/);
+  const stored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("fair-winds-progress-v1") ?? "{}"),
+  );
+  expect(stored.activities["juniper-arrival"].completions).toBe(1);
+});
+
 test("impact composition keeps the boat and hazard readable", async ({
   page,
 }, testInfo) => {
@@ -175,6 +199,59 @@ test("Space fast-forwards at 2x only while held", async ({ page }) => {
 test("live minimap stays visible while sailing", async ({ page }) => {
   await beginLesson(page);
   await expect(page.locator("#minimap")).toBeVisible();
+});
+
+test("academy, live activity coaching, and forecast form one learning loop", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome");
+  const runtimeErrors = collectRuntimeErrors(page);
+  await beginLesson(page);
+  await expect(page.locator(".game-shell")).toHaveAttribute(
+    "data-academy-stage",
+    /trim|stall|recover|close-hauled|beam-reach|broad-reach|tack|gybe|reef|complete/,
+  );
+  await page.locator("#map-toggle").click();
+  await page.locator('[data-activity-id="school-water-tacks"]').click();
+  await expect(page.locator(".game-shell")).toHaveAttribute(
+    "data-active-activity",
+    "school-water-tacks",
+  );
+  await expect(page.locator("#lesson-title")).toHaveText("Two clean tacks");
+  await expect(page.locator("#lesson-instruction")).toContainText("2 clean tacks");
+  await page.locator("#chart-close").click();
+
+  await page.locator("#conditions-toggle").click();
+  await page.locator('[data-ui-tab="weather"]').click();
+  await expect(page.locator("#forecast-summary")).toContainText("Wind");
+  await expect(page.locator("#forecast-advice")).not.toBeEmpty();
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("high contrast and installable shell persist cleanly", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome");
+  await beginLesson(page);
+  await page.locator("#conditions-toggle").click();
+  await page.locator('[data-ui-tab="controls"]').click();
+  await page.locator("#high-contrast-enabled").check();
+  await expect(page.locator(".game-shell")).toHaveClass(/is-high-contrast/);
+  await page.reload();
+  await expect(page.locator(".game-shell")).toHaveClass(/is-high-contrast/);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const transitionDuration = await page
+    .locator("#set-sail")
+    .evaluate((element) => getComputedStyle(element).transitionDuration);
+  expect(Number.parseFloat(transitionDuration)).toBeLessThanOrEqual(0.01);
+
+  const manifest = await request.get("/manifest.webmanifest");
+  expect(manifest.ok()).toBe(true);
+  expect((await manifest.json()).display).toBe("standalone");
+  const serviceWorker = await request.get("/sw.js");
+  expect(serviceWorker.ok()).toBe(true);
+  expect(await serviceWorker.text()).toContain('url.pathname.startsWith("/music/")');
 });
 
 test("cinematic title scene uses the supplied identity and remains animated", async ({
@@ -516,7 +593,13 @@ test("mobile controls are available by default and drive the boat", async ({
 
   const controls = page.locator(".controls [data-control]");
   await expect(controls).toHaveCount(4);
-  for (const control of await controls.all()) await expect(control).toBeVisible();
+  for (const control of await controls.all()) {
+    await expect(control).toBeVisible();
+    const target = await control.boundingBox();
+    expect(target).not.toBeNull();
+    expect(target!.width).toBeGreaterThanOrEqual(44);
+    expect(target!.height).toBeGreaterThanOrEqual(44);
+  }
 
   await page.locator("#conditions-toggle").tap();
   await page.locator('[data-ui-tab="controls"]').tap();

@@ -24,9 +24,21 @@ import {
   normalizeHeading,
   unwrapCompassHeading,
 } from "./game/compass-tape";
+import { SailingAcademy } from "./game/academy";
+import {
+  ActivitySession,
+  type ActivityView,
+} from "./game/activity-session";
+import { courseMetrics } from "./game/course-navigation";
 import { LakeChart } from "./game/minimap";
+import {
+  PROGRESS_STORAGE_KEY,
+  createProgress,
+  parseProgress,
+  recordActivityCompletion,
+  type SailingProgress,
+} from "./game/progress";
 import { timeScaleForHold } from "./game/time-scale";
-import { TrimLesson } from "./game/lesson";
 import { sampleBoatWavePose } from "./game/wave-pose";
 import {
   FAIR_WINDS_WORLD,
@@ -34,6 +46,7 @@ import {
   type WorldObject,
 } from "./game/world-definition";
 import { LANDMARKS, SailingWorld } from "./render/world";
+import { classifyEncounter } from "./render/traffic-navigation";
 import { bindTabList, trapFocusWithin, type TabListController } from "./ui/primitives";
 import {
   HARBOR_20,
@@ -64,6 +77,7 @@ import {
   type WeatherSnapshot,
 } from "./weather/types";
 import { WeatherSystem } from "./weather/weather";
+import { weatherTrend } from "./weather/forecast";
 
 const canvas = required<HTMLCanvasElement>("#lake");
 const elements = {
@@ -88,12 +102,15 @@ const elements = {
   lessonSkip: required<HTMLButtonElement>("#lesson-skip"),
   destinationName: required("#destination-name"),
   destinationDistance: required("#destination-distance"),
+  destinationCourse: required("#destination-course"),
   heading: required("#heading-readout"),
   headingTape: required("#heading-tape"),
   headingCardinal: required("#heading-cardinal"),
   depthPanel: required("#depth-panel"),
   depth: required("#depth-readout"),
   depthState: required("#depth-state"),
+  encounterPanel: required("#encounter-panel"),
+  encounterAdvisory: required("#encounter-advisory"),
   status: required("#status"),
   welcome: required("#welcome"),
   setSail: required<HTMLButtonElement>("#set-sail"),
@@ -119,6 +136,12 @@ const elements = {
   settingsMainMenu: required<HTMLButtonElement>("#settings-main-menu"),
   settingsResetBoat: required<HTMLButtonElement>("#settings-reset-boat"),
   touchControlsEnabled: required<HTMLInputElement>("#touch-controls-enabled"),
+  highContrastEnabled: required<HTMLInputElement>("#high-contrast-enabled"),
+  settingsResetLogbook: required<HTMLButtonElement>("#settings-reset-logbook"),
+  settingsLogbookSummary: required("#settings-logbook-summary"),
+  logbookSummary: required("#logbook-summary"),
+  forecastSummary: required("#forecast-summary"),
+  forecastAdvice: required("#forecast-advice"),
   boatSelect: required<HTMLSelectElement>("#boat-select"),
   musicTrackName: required("#music-track-name"),
   musicPlaybackStatus: required("#music-playback-status"),
@@ -149,7 +172,7 @@ try {
 const input = new GameInput();
 const chart = new LakeChart(elements.chartCanvas);
 const miniChart = new LakeChart(elements.minimap);
-const lesson = new TrimLesson();
+const academy = new SailingAcademy();
 let weatherConfig = loadWeatherConfig();
 const audio = new GameAudio(weatherConfig.seed);
 const weatherSystem = new WeatherSystem(weatherConfig);
@@ -176,6 +199,14 @@ let incident: IncidentResult | undefined;
 let incidentElapsed = 0;
 let touchCooldown = 0;
 let dockedAt: WorldObject | undefined;
+let progress: SailingProgress = parseProgress(
+  localStorage.getItem(PROGRESS_STORAGE_KEY),
+);
+let activitySession: ActivitySession | undefined;
+let activityView: ActivityView | undefined;
+let progressDistanceSinceSave = 0;
+let voyageCounted = false;
+if (progress.academyCompleted) academy.skip();
 let presentationTime = 0;
 let hudUpdateElapsed = 0;
 let compassHeading = radiansToDegrees(state.heading);
@@ -203,12 +234,26 @@ syncWeatherControls();
 syncAudioControls();
 updateHud();
 enableDevelopmentPreview();
+registerServiceWorker();
 requestAnimationFrame(loop);
 
 function required<T extends HTMLElement = HTMLElement>(selector: string): T {
   const element = document.querySelector<T>(selector);
   if (!element) throw new Error(`Missing element: ${selector}`);
   return element;
+}
+
+function registerServiceWorker(): void {
+  const local =
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "localhost";
+  if (!("serviceWorker" in navigator) || local || !import.meta.env.PROD) return;
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").catch(() => {
+      elements.status.textContent =
+        "Offline support is unavailable; online sailing is unaffected.";
+    });
+  });
 }
 
 function createGameState(
@@ -262,6 +307,7 @@ function createTitleWeatherConfig(): WeatherConfig {
 }
 
 function bindInterface(): void {
+  window.addEventListener("pagehide", persistProgress);
   window.addEventListener("resize", () => {
     world.resize();
     if (isChartOpen()) renderChart();
@@ -322,9 +368,13 @@ function bindInterface(): void {
   elements.mute.addEventListener("click", toggleMute);
   elements.reset.addEventListener("click", resetBoat);
   elements.lessonSkip.addEventListener("click", () => {
-    lesson.skip();
-    lessonCompletedAt = simulationTime;
-    updateLesson();
+    if (activitySession) {
+      setChartOpen(true);
+    } else {
+      academy.skip();
+      lessonCompletedAt = simulationTime;
+      updateLesson();
+    }
   });
   elements.mapToggle.addEventListener("click", () => setChartOpen(!isChartOpen()));
   elements.chartClose.addEventListener("click", () => setChartOpen(false));
@@ -349,6 +399,31 @@ function bindInterface(): void {
       String(elements.touchControlsEnabled.checked),
     );
     syncOnScreenControls();
+  });
+  const storedHighContrast = localStorage.getItem(
+    "fair-winds-high-contrast",
+  );
+  elements.highContrastEnabled.checked = storedHighContrast === "true";
+  syncHighContrast();
+  elements.highContrastEnabled.addEventListener("change", () => {
+    localStorage.setItem(
+      "fair-winds-high-contrast",
+      String(elements.highContrastEnabled.checked),
+    );
+    syncHighContrast();
+  });
+  elements.settingsResetLogbook.addEventListener("click", () => {
+    progress = createProgress();
+    persistProgress();
+    activitySession = undefined;
+    activityView = undefined;
+    academy.reset({
+      tackCount: state.tackCount,
+      gybeCount: state.gybeCount,
+    });
+    syncChartActivityList();
+    updateLesson();
+    elements.status.textContent = "Local logbook reset. Academy coaching is ready.";
   });
   settingsTabs = bindTabList(elements.conditionsPanel);
   buildChartActivityList();
@@ -404,7 +479,14 @@ async function startTitleAudio(): Promise<void> {
 
 async function beginSailing(newJourney: boolean): Promise<void> {
   await startTitleAudio();
-  if (newJourney) resetJourney();
+  if (newJourney || !voyageCounted) {
+    progress = { ...progress, voyages: progress.voyages + 1 };
+    persistProgress();
+    voyageCounted = true;
+  }
+  if (newJourney) {
+    resetJourney();
+  }
   started = true;
   world.resetCamera();
   elements.gameShell.classList.remove("is-welcome");
@@ -439,6 +521,13 @@ function syncOnScreenControls(): void {
   );
 }
 
+function syncHighContrast(): void {
+  elements.gameShell.classList.toggle(
+    "is-high-contrast",
+    elements.highContrastEnabled.checked,
+  );
+}
+
 function resetJourney(): void {
   simulationTime = 0;
   weatherConfig = cloneWeatherConfig(DEFAULT_WEATHER);
@@ -457,8 +546,13 @@ function resetJourney(): void {
     trueWind: weather.trueWind,
     boat: activeBoat,
   });
-  lesson.reset();
+  academy.reset({
+    tackCount: state.tackCount,
+    gybeCount: state.gybeCount,
+  });
   lessonCompletedAt = 0;
+  activitySession = undefined;
+  activityView = undefined;
   lastManeuverCount = 0;
   clearDocking();
   clearIncident();
@@ -733,15 +827,38 @@ function loop(now: number): void {
         }
         diagnostics = result.sail;
         headsailDiagnostics = result.headsail;
+        const sailedDistance = Math.hypot(
+          state.position.x - previousState.position.x,
+          state.position.y - previousState.position.y,
+        );
+        if (sailedDistance > 0 && sailedDistance < 12) {
+          progress = {
+            ...progress,
+            distanceSailed: progress.distanceSailed + sailedDistance,
+          };
+          progressDistanceSinceSave += sailedDistance;
+          if (progressDistanceSinceSave >= 50) {
+            progressDistanceSinceSave = 0;
+            persistProgress();
+          }
+        }
         if (
           !incident &&
           nextIncident.kind !== "docking" &&
-          lesson.update(fixedStep, diagnostics)
+          !activitySession &&
+          academy.update(fixedStep, academyObservation())
         ) {
-          const view = lesson.view();
+          const view = academy.view();
           elements.status.textContent = `${view.title}. ${view.instruction}`;
-          if (view.stage === "complete") lessonCompletedAt = simulationTime;
+          if (view.stage === "complete") {
+            lessonCompletedAt = simulationTime;
+            if (!progress.academyCompleted) {
+              progress = { ...progress, academyCompleted: true };
+              persistProgress();
+            }
+          }
         }
+        updateActivitySession(fixedStep);
       }
     }
     accumulator -= fixedStep;
@@ -824,7 +941,12 @@ function resetBoat(): void {
     trueWind: weather.trueWind,
     boat: activeBoat,
   });
-  lesson.reset();
+  academy.reset({
+    tackCount: state.tackCount,
+    gybeCount: state.gybeCount,
+  });
+  activitySession = undefined;
+  activityView = undefined;
   audio.resetMotionState();
   lessonCompletedAt = 0;
   lastManeuverCount = 0;
@@ -858,7 +980,7 @@ function recoverBoat(): void {
     trueWind: weather.trueWind,
     boat: activeBoat,
   });
-  lesson.skip();
+  academy.skip();
   audio.resetMotionState();
   lessonCompletedAt = simulationTime;
   lastManeuverCount = 0;
@@ -1066,6 +1188,22 @@ function updateNavigation(): void {
     "is-visible",
     depth < 10,
   );
+  const playerTrafficPose = {
+    x: state.position.x,
+    z: state.position.y,
+    heading: state.heading,
+    speed: Math.hypot(state.velocity.x, state.velocity.y),
+  };
+  const advisories = world
+    .trafficSnapshot()
+    .map((traffic) => classifyEncounter(playerTrafficPose, traffic))
+    .filter((advisory) => advisory.type !== "clear")
+    .sort((a, b) => a.distance - b.distance);
+  const encounter = advisories[0];
+  elements.encounterPanel.dataset.role = encounter?.role ?? "clear";
+  elements.encounterAdvisory.textContent = encounter
+    ? `${encounter.advice} · ${Math.round(encounter.distance)} m`
+    : "Clear";
 }
 
 function buildCompassTape(): void {
@@ -1113,7 +1251,42 @@ function cardinalDirection(heading: number): string {
 }
 
 function updateLesson(): void {
-  const view = lesson.view();
+  if (activitySession && activityView) {
+    const activity = activitySession.activity;
+    const score = activityView.score;
+    elements.gameShell.dataset.activeActivity = activity.id;
+    elements.gameShell.dataset.activityProgress =
+      activityView.progress.toFixed(3);
+    if (score) {
+      elements.gameShell.dataset.activityScore = String(score.total);
+    } else {
+      delete elements.gameShell.dataset.activityScore;
+    }
+    elements.lessonEyebrow.textContent = score
+      ? `${activity.kind} complete · ${score.total}/100`
+      : `${activity.kind} · ${Math.round(activityView.progress * 100)}%`;
+    elements.lessonTitle.textContent = score
+      ? score.summary
+      : activity.title;
+    elements.lessonInstruction.textContent = score
+      ? `Control ${score.control} · Trim ${score.trim} · Safety ${score.safety} · Efficiency ${score.efficiency}`
+      : activityView.instruction;
+    elements.lessonProgress.style.width =
+      `${Math.min(activityView.progress, 1) * 100}%`;
+    elements.lessonSkip.textContent = "Choose next";
+    elements.lessonSkip.disabled = false;
+    elements.lessonCard.classList.toggle(
+      "is-complete",
+      activityView.completed,
+    );
+    elements.lessonCard.classList.remove("is-minimized");
+    return;
+  }
+  const view = academy.view();
+  delete elements.gameShell.dataset.activeActivity;
+  delete elements.gameShell.dataset.activityProgress;
+  delete elements.gameShell.dataset.activityScore;
+  elements.gameShell.dataset.academyStage = view.stage;
   elements.lessonEyebrow.textContent = view.eyebrow;
   elements.lessonTitle.textContent = view.title;
   elements.lessonInstruction.textContent = view.instruction;
@@ -1125,15 +1298,77 @@ function updateLesson(): void {
   elements.lessonCard.classList.toggle("is-minimized", shouldMinimize);
 }
 
+function academyObservation() {
+  return {
+    attached: diagnostics.attached,
+    stall: diagnostics.stall,
+    pointOfSail: pointOfSail(diagnostics.apparentWindAngle),
+    tackCount: state.tackCount,
+    gybeCount: state.gybeCount,
+    reefed: state.reefLevel === 1,
+    heelRadians: state.heel,
+  };
+}
+
+function updateActivitySession(dt: number): void {
+  if (!activitySession) return;
+  const previousCompleted = activityView?.completed ?? false;
+  activityView = activitySession.update({
+    dt,
+    x: state.position.x,
+    z: state.position.y,
+    speed: Math.hypot(state.velocity.x, state.velocity.y),
+    heading: state.heading,
+    attached: diagnostics.attached,
+    tackCount: state.tackCount,
+    reefed: state.reefLevel === 1,
+    heelRadians: state.heel,
+    depth:
+      FAIR_WINDS_WORLD.sampleDepth(state.position.x, state.position.y) +
+      weather.tideLevel,
+    dockedAt: dockedAt?.id,
+    incident: Boolean(incident),
+  });
+  if (!previousCompleted && activityView.completed && activityView.score) {
+    progress = recordActivityCompletion(
+      progress,
+      activitySession.activity.id,
+      activityView.score,
+    );
+    persistProgress();
+    syncChartActivityList();
+    lessonCompletedAt = simulationTime;
+    elements.status.textContent =
+      `${activitySession.activity.title} complete. Score ${activityView.score.total} of 100.`;
+  }
+}
+
+function persistProgress(): void {
+  localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+}
+
 function updateDestination(): void {
   const course = selectedActivity();
   if (course) {
-    const distance = Math.hypot(
-      course.x - state.position.x,
-      course.z - state.position.y,
+    const metrics = courseMetrics(
+      state.position,
+      state.velocity,
+      state.heading,
+      course,
     );
     elements.destinationName.textContent = course.title;
-    elements.destinationDistance.textContent = formatChartDistance(distance);
+    elements.destinationDistance.textContent = formatChartDistance(
+      metrics.distance,
+    );
+    const bearing = Math.round(metrics.bearingDegrees)
+      .toString()
+      .padStart(3, "0");
+    const turn =
+      Math.abs(metrics.courseErrorDegrees) < 4
+        ? "On course"
+        : `${Math.abs(Math.round(metrics.courseErrorDegrees))}° ${metrics.courseErrorDegrees > 0 ? "starboard" : "port"}`;
+    elements.destinationCourse.textContent =
+      `${bearing}° · VMG ${(metrics.vmg * 1.94384).toFixed(1)} kn · ${turn}`;
     return;
   }
   let nearest = LANDMARKS[0]!;
@@ -1149,6 +1384,7 @@ function updateDestination(): void {
   const distance = Math.sqrt(nearestDistanceSquared);
   elements.destinationName.textContent = nearest.name;
   elements.destinationDistance.textContent = formatChartDistance(distance);
+  elements.destinationCourse.textContent = "Nearest landmark";
 }
 
 function buildChartActivityList(): void {
@@ -1181,6 +1417,9 @@ function buildChartActivityList(): void {
 
     const distance = document.createElement("span");
     distance.className = "chart-activity-distance";
+    const score = document.createElement("span");
+    score.className = "chart-activity-score";
+    copy.append(score);
     button.append(marker, copy, distance);
     button.addEventListener("click", () => selectChartActivity(activity.id));
     elements.chartActivityList.append(button);
@@ -1196,10 +1435,15 @@ function selectedActivity(): WorldActivity | undefined {
 
 function selectChartActivity(id: string): void {
   selectedActivityId = id;
+  const activity = selectedActivity();
+  if (activity) {
+    activitySession = new ActivitySession(activity);
+    activityView = undefined;
+    updateActivitySession(0);
+  }
   syncChartActivityList();
   renderChart();
   updateDestination();
-  const activity = selectedActivity();
   if (activity) {
     elements.status.textContent =
       `Course set for ${activity.title}. ${activity.objective}`;
@@ -1215,7 +1459,9 @@ function syncChartActivityList(): void {
     );
     if (!activity) continue;
     const selected = activity.id === selectedActivityId;
+    const record = progress.activities[activity.id];
     button.classList.toggle("is-selected", selected);
+    button.classList.toggle("is-complete", Boolean(record));
     button.setAttribute("aria-pressed", String(selected));
     const distance = Math.hypot(
       activity.x - state.position.x,
@@ -1225,7 +1471,22 @@ function syncChartActivityList(): void {
       ".chart-activity-distance",
     );
     if (distanceLabel) distanceLabel.textContent = formatChartDistance(distance);
+    const scoreLabel = button.querySelector<HTMLElement>(
+      ".chart-activity-score",
+    );
+    if (scoreLabel) {
+      scoreLabel.textContent = record
+        ? `Best ${record.bestScore} · ${record.completions} ${record.completions === 1 ? "completion" : "completions"}`
+        : "Not yet completed";
+    }
   }
+  const completed = Object.keys(progress.activities).length;
+  elements.logbookSummary.textContent =
+    `${completed} of ${FAIR_WINDS_WORLD.activities.length} activities complete · ${progress.voyages} ${progress.voyages === 1 ? "voyage" : "voyages"} · ${formatChartDistance(progress.distanceSailed)} sailed.`;
+  elements.settingsLogbookSummary.textContent =
+    completed === 0
+      ? `${formatChartDistance(progress.distanceSailed)} sailed · no completed activities yet`
+      : `${completed} activities · ${progress.voyages} voyages · ${formatChartDistance(progress.distanceSailed)}`;
   const activity = selectedActivity();
   elements.chartCourseReadout.textContent = activity
     ? `Course: ${activity.title} · ${activity.objective}`
@@ -1521,6 +1782,20 @@ function updateWeatherOutputs(): void {
   required<HTMLInputElement>("#wave-height").disabled = weatherConfig.waves.mode === "linked";
   required<HTMLInputElement>("#wave-length").disabled = weatherConfig.waves.mode === "linked";
   required<HTMLInputElement>("#wave-steepness").disabled = weatherConfig.waves.mode === "linked";
+  updateForecast();
+}
+
+function updateForecast(): void {
+  const current = weatherSystem.sample(simulationTime);
+  const future = weatherSystem.sample(simulationTime + 300);
+  const trend = weatherTrend(current, future);
+  elements.forecastSummary.textContent = trend.summary;
+  elements.forecastAdvice.textContent =
+    trend.reefAdvice === "reef-now"
+      ? "Reef before entering exposed water."
+      : trend.reefAdvice === "consider-reef"
+        ? "Consider one reef before the breeze builds."
+        : "Full sail remains appropriate.";
 }
 
 function matchingSeaState(): string {
