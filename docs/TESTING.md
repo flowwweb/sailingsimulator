@@ -18,8 +18,9 @@ npm run test:browser
 
 The browser suite builds the production bundle, launches installed Chrome at
 1440×900 and 390×844, exercises launch, keyboard and touch sheet input,
-Conditions, boat selection and persistence, rejects console/page errors, and
-writes fresh captures under `.artifacts/visual-qa/`.
+Conditions, boat selection and persistence, academy/activity coaching,
+logbook scoring, high contrast, manifest/service-worker delivery, rejects
+console/page errors, and writes fresh captures under `.artifacts/visual-qa/`.
 
 Open `http://127.0.0.1:4317/`, choose **Continue**, and use headphones if
 available. The first test round should answer one question: does the boat teach
@@ -118,6 +119,23 @@ At a phone-sized viewport, confirm the helm and sheet pairs are reachable with
 both thumbs, can be held simultaneously, and release on pointer cancellation.
 Open Conditions and confirm the drawer fills the width without horizontal
 overflow. Rotate once and confirm the HUD and controls remain usable.
+
+### 8. Academy, activities, and logbook
+
+Complete the academy stages in order: attached flow, deliberate stall,
+reattachment, close-hauled, beam reach, broad reach, one tack, one gybe, and a
+settled reef. Open the chart and start **Two clean tacks**; confirm the lesson
+card switches from academy coaching to activity progress. Complete any
+activity and review the control, trim, safety, and efficiency debrief. Reload
+the page and confirm its best score and completion count remain in the local
+logbook. Use Settings → Controls → Local logbook only when deliberately testing
+the reset path.
+
+For navigation, set a distant course and confirm bearing, signed turn guidance,
+and VMG respond to heading and motion. For weather judgment, compare the
+five-minute outlook in Settings with the evolving conditions and reef before a
+reported build. When another sailing boat closes inside the advisory range,
+confirm the traffic card distinguishes give-way from stand-on behavior.
 
 ## Feedback to capture
 

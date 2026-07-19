@@ -34,6 +34,7 @@ import {
 } from "./hull-water-mask";
 import { buoyVisualSpec } from "./buoy-visual";
 import { wakeSurfacePoints } from "./wake-surface";
+import type { TrafficPose } from "./traffic-navigation";
 
 export interface Landmark {
   name: string;
@@ -251,6 +252,10 @@ export class SailingWorld {
       getSailDefinition(boat, "headsail"),
     );
     this.resetWake();
+  }
+
+  trafficSnapshot(): TrafficPose[] {
+    return this.ambientLife.trafficSnapshot();
   }
 
   render(
