@@ -1,0 +1,21 @@
+{
+  "name": "Fair Winds Sailing Academy",
+  "short_name": "Fair Winds",
+  "description": "A focused sailing simulator for learning wind, trim, points of sail, tacking, navigation, and docking.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#183f4c",
+  "theme_color": "#183f4c",
+  "categories": ["education", "games"],
+  "icons": [
+    {
+      "src": "/brand/fairwinds-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
