@@ -6,3 +6,7 @@ coverage/
 .artifacts/
 .firebase/
 config.bat
+
+# Real environment files and secrets must not be committed.
+!.env.example
+!.env.*.example
