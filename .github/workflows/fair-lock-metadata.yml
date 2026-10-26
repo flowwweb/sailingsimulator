@@ -159,7 +159,7 @@ jobs:
           image='docker.io/library/node@sha256:2dd9a4f758e173b65fee15388f7706af6fb01ef50cf7a2c0538711d67a6981ae'
           timeout 120s docker pull --platform linux/amd64 "$image"
           test "$(docker image inspect --format '{{.Id}}' "$image")" = 'sha256:dc1f22974dab4be31a8b56d58cb1f8fc218e83de83ccd831d885b3d7ac1223fb'
-          command='set -eu; test "$(id -u)" = 1000; test ! -e /var/run/docker.sock; cd /work; tar -xf -; exec node repair.cjs'
+          command='set -eu; test "$(id -u)" = 1000; test ! -e /var/run/docker.sock; cd /work; unset OLDPWD; tar -xf -; exec node repair.cjs'
           cid=$(docker create --platform linux/amd64 --interactive --user 1000:1000 \
             --read-only --cap-drop ALL --security-opt no-new-privileges=true \
             --pids-limit 64 --memory 512m --memory-swap 512m --cpus 1 \
