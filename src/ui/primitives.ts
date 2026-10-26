@@ -37,9 +37,9 @@ export function bindTabList(root: HTMLElement): TabListController {
 export function trapFocusWithin(root: HTMLElement, event: KeyboardEvent): void {
   const focusable = Array.from(
     root.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), select:not([disabled]), input:not([disabled])',
+      'button:not([disabled]), select:not([disabled]), input:not([disabled]), summary',
     ),
-  ).filter((element) => !element.closest<HTMLElement>("[hidden]"));
+  ).filter((element) => element.tabIndex >= 0 && !element.closest<HTMLElement>("[hidden]"));
   if (focusable.length === 0) return;
 
   const first = focusable[0]!;
