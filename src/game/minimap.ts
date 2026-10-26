@@ -36,20 +36,17 @@ export class LakeChart {
     context.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
     context.clearRect(0, 0, this.cssSize, this.cssSize);
     context.drawImage(this.background, 0, 0, this.cssSize, this.cssSize);
-    this.drawGrid(context);
-    this.drawRegions(context, world);
-    this.drawRoutes(context, world);
+    const compact = this.canvas.id === "minimap";
+    if (!compact) { this.drawGrid(context); this.drawRegions(context, world); this.drawRoutes(context, world); }
     this.drawObjects(context, world.objects);
-    this.drawActivities(context, world.activities, selectedActivity?.id);
+    this.drawActivities(context, compact && selectedActivity ? [selectedActivity] : compact ? [] : world.activities, selectedActivity?.id);
     if (selectedActivity) this.drawCourse(context, state, selectedActivity);
     this.drawBoat(context, state);
-    this.drawWind(context, trueWind);
-    this.drawCompassRose(context);
-    this.drawScale(context);
+    if (!compact) { this.drawWind(context, trueWind); this.drawCompassRose(context); this.drawScale(context); }
 
     context.strokeStyle = "rgba(36, 66, 75, 0.72)";
     context.lineWidth = 1;
-    context.strokeRect(0.5, 0.5, this.cssSize - 1, this.cssSize - 1);
+    if (!compact) context.strokeRect(0.5, 0.5, this.cssSize - 1, this.cssSize - 1);
   }
 
   private toMap(x: number, z: number): { x: number; y: number } {
@@ -196,7 +193,7 @@ export class LakeChart {
     const boat = this.toMap(state.position.x, state.position.y);
     const destination = this.toMap(activity.x, activity.z);
     context.save();
-    context.strokeStyle = "rgba(179, 112, 47, 0.88)";
+    context.strokeStyle = this.canvas.id === "minimap" ? "#ffbd00" : "rgba(179, 112, 47, 0.88)";
     context.lineWidth = 1.4;
     context.setLineDash([6, 4]);
     context.beginPath();
@@ -214,7 +211,8 @@ export class LakeChart {
     context.save();
     context.translate(boat.x, boat.y);
     context.rotate(state.heading);
-    context.fillStyle = "#b86f32";
+    if (this.canvas.id === "minimap") context.scale(1.3, 1.3);
+    context.fillStyle = this.canvas.id === "minimap" ? "#ffffff" : "#b86f32";
     context.strokeStyle = "#173f49";
     context.lineWidth = 1.3;
     context.beginPath();
@@ -333,7 +331,8 @@ export class LakeChart {
         const depth = sampleLakeDepth(worldX, worldZ);
         const insideLake = isInsideLake(worldX, worldZ);
         const offset = (y * width + x) * 4;
-        const color = depthColor(depth, insideLake);
+        const color = this.canvas.id === "minimap" ? !insideLake || depth <= 0 ? [94, 139, 111]
+          : depth < 2 ? [190, 181, 133] : depth < 5 ? [80, 134, 121] : [3, 67, 99] : depthColor(depth, insideLake);
         image.data[offset] = color[0];
         image.data[offset + 1] = color[1];
         image.data[offset + 2] = color[2];
@@ -355,10 +354,10 @@ export class LakeChart {
         const shoreline =
           wet !== (leftDepth > 0) || wet !== (upperDepth > 0);
         if (shoreline) {
-          image.data[offset] = 48;
-          image.data[offset + 1] = 83;
-          image.data[offset + 2] = 88;
-        } else if (wet && DEPTH_CONTOURS.some((contour) =>
+          image.data[offset] = this.canvas.id === "minimap" ? 219 : 48;
+          image.data[offset + 1] = this.canvas.id === "minimap" ? 218 : 83;
+          image.data[offset + 2] = this.canvas.id === "minimap" ? 179 : 88;
+        } else if (this.canvas.id !== "minimap" && wet && DEPTH_CONTOURS.some((contour) =>
           crossedContour(depth, leftDepth, contour) ||
           crossedContour(depth, upperDepth, contour))) {
           image.data[offset] = 73;
@@ -464,6 +463,16 @@ function drawObjectSymbol(
   } else if (object.kind === "dock") {
     context.fillRect(-3, -3, 6, 6);
     context.strokeRect(-3, -3, 6, 6);
+  } else if (object.kind === "town") {
+    context.fillRect(-5, -3, 10, 6);
+    context.strokeRect(-5, -3, 10, 6);
+    context.beginPath();
+    context.moveTo(-6, -3);
+    context.lineTo(-2.5, -7);
+    context.lineTo(0, -3);
+    context.lineTo(3.5, -7);
+    context.lineTo(6, -3);
+    context.stroke();
   } else {
     context.rotate(Math.PI / 4);
     context.fillRect(-3, -3, 6, 6);

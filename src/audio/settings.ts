@@ -115,7 +115,11 @@ function sanitizeVolume(
 }
 
 function browserStorage(): StorageLike | undefined {
-  return typeof localStorage === "undefined" ? undefined : localStorage;
+  try {
+    return typeof localStorage === "undefined" ? undefined : localStorage;
+  } catch {
+    return undefined;
+  }
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

@@ -1,4 +1,7 @@
 import { LAKE_RADIUS, sampleLakeDepth } from "./bathymetry";
+import { LIGHTHOUSE_SOLIDS, type TownSolid } from "./town-solids";
+
+export const STONE_QUAY = { x: -5, y: 1.5, z: -2, width: 11, height: 3.2, depth: 82 } as const;
 
 export type WorldObjectKind =
   | "buoy"
@@ -6,6 +9,7 @@ export type WorldObjectKind =
   | "dock"
   | "lighthouse"
   | "cabin"
+  | "town"
   | "waypoint";
 
 export type SoundscapeKind =
@@ -33,8 +37,7 @@ export interface WorldObject {
   buoyMark?: "port" | "starboard" | "training";
   landformId?: string;
   landmarkOffset?: { x: number; z: number };
-  collision?: {
-    radius: number;
+  collision?: ({ radius: number } | { box: typeof STONE_QUAY; solids?: readonly TownSolid[] }) & {
     response: "soft" | "hard";
   };
   docking?: {
@@ -186,15 +189,16 @@ export const FAIR_WINDS_OBJECTS: readonly WorldObject[] = [
     },
   },
   {
-    id: "juniper-cove-cabin",
-    name: "Juniper cove cabin",
-    kind: "cabin",
+    id: "juniper-fishing-town",
+    name: "Juniper Fishing Town",
+    kind: "town",
     x: 1_100,
     z: -500,
     landformId: "juniper-cove",
+    collision: { box: STONE_QUAY, solids: LIGHTHOUSE_SOLIDS, response: "hard" },
     navigation: {
-      description: "Sheltered cove and recovery harbor",
-      visibleRange: 650,
+      description: "Working waterfront, recovery harbor, and sheltered visitor berth",
+      visibleRange: 1_050,
     },
   },
   {

@@ -32,6 +32,21 @@ describe("audio settings", () => {
     expect(settings.volumes.weather).toBe(0.25);
   });
 
+  it("uses session defaults when acquiring browser storage throws", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      get() { throw new Error("Storage denied"); },
+    });
+    try {
+      expect(loadAudioSettings()).toEqual(DEFAULT_AUDIO_SETTINGS);
+      expect(() => saveAudioSettings(DEFAULT_AUDIO_SETTINGS)).not.toThrow();
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, "localStorage", descriptor);
+      else Reflect.deleteProperty(globalThis, "localStorage");
+    }
+  });
+
   it("persists and reloads independent channel volumes", () => {
     const values = new Map<string, string>();
     const storage = {

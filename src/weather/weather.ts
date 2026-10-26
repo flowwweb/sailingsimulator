@@ -60,18 +60,19 @@ export class WeatherSystem {
       x: Math.sin(towardRadians) * windSpeed,
       y: Math.cos(towardRadians) * windSpeed,
     };
+    // Gusts change wind forces without replacing the lake's wave phase.
     const waveKey = JSON.stringify([
       this.config.seed,
       this.config.waves,
-      Math.round(windSpeed * 4) / 4,
-      Math.round(windDirectionFromDegrees),
+      this.config.wind.speed,
+      this.config.wind.directionFromDegrees,
     ]);
     if (waveKey !== this.waveKey) {
       this.waveKey = waveKey;
       this.waves = buildWaveComponents(
         this.config.waves,
-        windSpeed,
-        windDirectionFromDegrees,
+        this.config.wind.speed,
+        this.config.wind.directionFromDegrees,
         this.config.seed,
       );
     }

@@ -99,7 +99,8 @@
       </div>
     </div>
     <main class="game-shell is-welcome">
-      <canvas id="lake" aria-label="A sailboat on a large open lake"></canvas>
+      <canvas id="lake" tabindex="0" aria-label="Sailing view. Drag left or right to steer; release to center the helm."></canvas>
+      <p id="steering-hint" role="status" hidden>Drag left or right to steer · Release to center</p>
 
       <aside class="mini-map-hud" aria-label="Minimap">
         <canvas id="minimap" aria-label="Minimap showing the lake and current boat position"></canvas>
@@ -109,42 +110,55 @@
       <header class="topbar">
         <div class="top-actions">
           <button id="mute" class="quiet-button" type="button" aria-pressed="false" title="Mute (M)">
-            <span aria-hidden="true">◖))</span><span class="action-label">Sound</span>
+            <svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-sound" /></svg><span class="action-label">Sound</span>
           </button>
-          <button id="map-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="chart-panel" title="Nautical chart (N)">
-            <svg class="chart-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 5.5 5-2 7 2.5 5-2v14.5l-5 2-7-2.5-5 2V5.5Zm5-2V18m7-12v14.5" /></svg><span class="action-label">Chart</span>
+          <button id="map-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="chart-panel" title="Nautical chart (N)"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-map" /></svg><span class="action-label">Chart</span>
           </button>
-          <button id="conditions-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="conditions-panel">
-            <span aria-hidden="true">☰</span><span class="action-label">Settings</span>
+          <button id="conditions-toggle" class="quiet-button" type="button" aria-label="Settings" aria-expanded="false" aria-controls="conditions-panel">
+            <svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-settings" /></svg><span class="action-label">Settings</span>
           </button>
+        <details id="sail-actions" class="sail-actions">
+          <summary aria-label="Boat controls" title="Boat controls"><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-boat" /></svg></summary>
+          <div class="rig-controls" aria-label="Boat controls">
+        <div class="control-pair helm-controls">
+          <button type="button" data-control="port" aria-label="Turn helm to port"><span>Port</span><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-chevron-left" /></svg></button>
+          <button type="button" data-control="starboard" aria-label="Turn helm to starboard"><span>Starboard</span><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
+        </div>
+
+            <button id="reef-sail" type="button" data-sail-action="reef" aria-pressed="false" aria-label="Take in a reef"><span class="rig-action-label">Reef</span></button>
+            <button id="toggle-sails" type="button" data-sail-action="toggle" aria-pressed="false" aria-label="Lower sails"><span class="rig-action-label">Lower</span></button>
+          </div>
+        </details>
         </div>
       </header>
 
       <section class="sailing-hud" aria-label="Sailing instruments">
-        <article class="instrument wind-instrument">
-          <div class="wind-dial" aria-hidden="true">
-            <span class="boat-nose"></span>
-            <span id="wind-arrow" class="wind-arrow"></span>
-          </div>
-          <div class="instrument-copy">
-            <span class="label">Wind</span>
-            <strong id="wind-readout">14.6 kn · 90°</strong>
-            <span id="point-of-sail">Beam reach</span>
-          </div>
-        </article>
 
-        <article class="instrument speed-instrument">
+
+        <article class="instrument speed-instrument" aria-label="Boat speed">
+          <svg class="readout-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 2v17H3L11 2Zm2 5v12h8L13 7ZM2 21h20v1H2Z"/></svg>
           <span class="label">Speed</span>
           <strong><span id="speed">0.0</span><small>kn</small></strong>
           <span id="motion-readout">Heel 0° · Rudder centered</span>
         </article>
 
+        <div id="depth-panel" class="depth-readout" aria-label="Water depth">
+          <svg class="readout-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m-4-4 4 4 4-4M3 19h18M5 19l-2 3m7-3-2 3m7-3-2 3m7-3-2 3"/></svg>
+          <span class="label">Depth</span>
+          <strong><span id="depth-readout">36</span><small>m</small></strong>
+          <span id="depth-state" data-state="deep">Clear below</span>
+        </div>
+
         <article class="instrument trim-instrument">
+          <svg class="trim-boat-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 2v17H3L11 2Zm2 5v12h8L13 7ZM2 21h20v1H2Z"/></svg>
+          <span class="trim-in-label" aria-hidden="true">In</span>
           <div class="trim-heading">
             <div><span id="sail-plan-label" class="label">Mainsail</span><strong id="flow-state" data-state="luffing">Luffing</strong></div>
             <span id="coach">Sheet in gently</span>
           </div>
           <div class="trim-track" aria-label="Sheet position and useful trim target">
+            <input id="hud-sheet" class="hud-sheet" type="range" min="0" max="1" step="0.01" value="1" aria-label="Mainsheet: in to ease" />
+            <output id="trim-value" aria-label="Mainsheet position">100%</output>
             <span id="trim-target" class="trim-target" title="Useful trim"></span>
             <span id="trim-marker" class="trim-marker" title="Current sheet"></span>
           </div>
@@ -153,13 +167,13 @@
       </section>
 
       <section id="lesson-card" class="lesson-card ui-glass-surface ui-glass-surface--quiet" aria-live="polite">
+        <span class="objective-diamond" aria-hidden="true"></span>
         <div class="lesson-copy">
           <span id="lesson-eyebrow" class="label">1 · Feel the sail</span>
           <strong id="lesson-title">Trim until it draws</strong>
           <p id="lesson-instruction">Sheet in gently. Stop when the flutter settles and both telltales stream.</p>
         </div>
         <div class="lesson-progress" aria-hidden="true"><span id="lesson-progress"></span></div>
-        <button id="lesson-skip" class="text-button" type="button">Free Sail</button>
       </section>
 
       <aside id="destination" class="destination" aria-label="Active course">
@@ -171,9 +185,8 @@
         </span>
       </aside>
 
-      <aside class="navigation-hud" aria-label="Lake navigation">
+      <aside class="navigation-hud" aria-label="Boat heading">
         <div class="heading-readout">
-          <span class="label">Heading</span>
           <span class="heading-scale" aria-hidden="true">
             <span id="heading-tape" class="heading-tape"></span>
             <span class="heading-lubber"></span>
@@ -182,43 +195,22 @@
           <span class="heading-diamond" aria-hidden="true">◇</span>
           <span id="heading-cardinal" class="heading-cardinal">N</span>
         </div>
-        <div id="depth-panel" class="depth-readout">
-          <span class="label">Depth</span>
-          <strong><span id="depth-readout">36</span><small>m</small></strong>
-          <span id="depth-state" data-state="deep">Clear below</span>
-        </div>
         <div id="encounter-panel" class="encounter-readout" data-role="clear">
           <span class="label">Traffic</span>
           <strong id="encounter-advisory">Clear</strong>
         </div>
       </aside>
 
-      <footer class="controls" aria-label="Sailing controls">
-        <div class="control-pair helm-controls">
-          <button type="button" data-control="port" aria-label="Turn helm to port"><span>Port</span></button>
-          <button type="button" data-control="starboard" aria-label="Turn helm to starboard"><span>Starboard</span></button>
-        </div>
-        <div class="controls-caption">
-          <strong>Helm</strong><span>Turn through the wind to tack or gybe</span>
-          <div class="rig-controls" aria-label="Sail handling">
-            <button id="reef-sail" type="button" data-sail-action="reef" aria-pressed="false" aria-label="Take in a reef"><span class="rig-action-label">Reef</span></button>
-            <button id="toggle-sails" type="button" data-sail-action="toggle" aria-pressed="false" aria-label="Lower sails"><span class="rig-action-label">Lower</span></button>
-          </div>
-        </div>
-        <div class="control-pair sheet-controls">
-          <button type="button" data-control="sheet" aria-label="Sheet the mainsail in"><span>Sheet in</span></button>
-          <button type="button" data-control="ease" aria-label="Ease the mainsail"><span>Ease</span></button>
-        </div>
-      </footer>
 
-      <button id="reset" class="reset-button" type="button" title="Reset boat (R)">↺ <span>Reset boat</span></button>
+
+      <button id="reset" class="reset-button" type="button" title="Reset boat (R)"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-boat" /></svg><span>Reset boat</span></button>
 
       <div id="chart-backdrop" class="chart-backdrop ui-scrim" hidden></div>
       <aside id="chart-panel" class="chart-panel" aria-hidden="true" aria-labelledby="chart-title" aria-modal="true" role="dialog">
         <header class="chart-header">
           <div><span class="label">Fair Winds Basin · FW 01</span><h2 id="chart-title">Nautical chart</h2></div>
           <div class="chart-edition"><span>Training edition</span><strong>Soundings in metres</strong></div>
-          <button id="chart-close" class="icon-button ui-icon-button" type="button" aria-label="Close nautical chart">×</button>
+          <button id="chart-close" class="icon-button ui-icon-button" type="button" aria-label="Close nautical chart"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-close" /></svg></button>
         </header>
         <div class="chart-body">
           <figure class="chart-plot">
@@ -241,30 +233,42 @@
         </footer>
       </aside>
 
+      <section id="pause-screen" class="pause-screen" hidden>
+        <div id="pause-panel" class="pause-panel" role="dialog" aria-modal="true" aria-labelledby="pause-heading">
+          <h2 id="pause-heading">Paused</h2>
+          <div id="pause-menu" class="pause-actions">
+            <button id="pause-resume" class="pause-primary" type="button">Resume sailing</button>
+            <button id="pause-settings" type="button">Settings</button>
+            <button id="pause-logbook" type="button">Logbook</button>
+            <button id="pause-main-menu" type="button">Return to main menu</button>
+          </div>
+          <div id="pause-logbook-view" hidden><p id="pause-logbook-stats"></p><ul id="pause-logbook-lessons"></ul><button id="pause-logbook-back" type="button">Back to pause</button></div>
+        </div>
+        <p id="pause-hint" class="pause-hint"><kbd>Esc</kbd><span>Resume</span></p>
+      </section>
+
       <div id="conditions-backdrop" class="conditions-backdrop ui-scrim" hidden></div>
       <aside id="conditions-panel" class="conditions-panel ui-glass-surface ui-glass-surface--modal" data-settings-style="07" aria-hidden="true" aria-labelledby="settings-title" aria-modal="true" role="dialog">
         <header class="settings-header">
           <h2 id="settings-title">Settings</h2>
           <nav class="settings-tabs ui-tab-list" aria-label="Settings sections" role="tablist">
-            <button class="is-active ui-tab" type="button" data-ui-tab="boat" aria-controls="settings-boat" aria-selected="true" role="tab"><span class="settings-tab-icon" aria-hidden="true">△</span>Boat</button>
-            <button class="ui-tab" type="button" data-ui-tab="weather" aria-controls="settings-weather" aria-selected="false" role="tab"><span class="settings-tab-icon" aria-hidden="true">☁</span>Weather</button>
-            <button class="ui-tab" type="button" data-ui-tab="water" aria-controls="settings-water" aria-selected="false" role="tab"><span class="settings-tab-icon" aria-hidden="true">≋</span>Water</button>
-            <button class="ui-tab" type="button" data-ui-tab="sky" aria-controls="settings-sky" aria-selected="false" role="tab"><span class="settings-tab-icon" aria-hidden="true">☼</span>Sky</button>
-            <button class="ui-tab" type="button" data-ui-tab="sound" aria-controls="settings-sound" aria-selected="false" role="tab"><span class="settings-tab-icon settings-tab-icon--sound" aria-hidden="true">◖))</span>Sound</button>
-            <button class="ui-tab" type="button" data-ui-tab="controls" aria-controls="settings-controls" aria-selected="false" role="tab"><span class="settings-tab-icon" aria-hidden="true">⌨</span>Controls</button>
+            <button class="is-active ui-tab" type="button" data-ui-tab="boat" aria-controls="settings-boat" aria-selected="true" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-boat" /></svg>Boat</button>
+            <button class="ui-tab" type="button" data-ui-tab="weather" aria-controls="settings-weather" aria-selected="false" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-wind" /></svg>Weather</button>
+            <button class="ui-tab" type="button" data-ui-tab="water" aria-controls="settings-water" aria-selected="false" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-water" /></svg>Water</button>
+            <button class="ui-tab" type="button" data-ui-tab="sky" aria-controls="settings-sky" aria-selected="false" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-sky" /></svg>Sky</button>
+            <button class="ui-tab" type="button" data-ui-tab="sound" aria-controls="settings-sound" aria-selected="false" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-sound" /></svg>Sound</button>
+            <button class="ui-tab" type="button" data-ui-tab="controls" aria-controls="settings-controls" aria-selected="false" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-controls" /></svg>Controls</button>
           </nav>
-          <button id="conditions-close" class="icon-button ui-icon-button" type="button" aria-label="Close settings">×</button>
+          <button id="conditions-close" class="icon-button ui-icon-button" type="button" aria-label="Close settings"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-close" /></svg></button>
         </header>
         <div class="conditions-scroll settings-body">
           <section id="settings-boat" class="settings-section is-active" data-ui-panel="boat" role="tabpanel">
           <div class="section-rule"><span>Boat</span></div>
-          <div class="settings-section-copy"><h3>Choose how you meet the wind.</h3><p>Each monohull keeps the same controls while changing sail plan, inertia, draft, and response.</p></div>
+          <div class="settings-section-copy"><h3>Your sailing dinghy.</h3><p>One mainsail for learning the wind.</p></div>
           <label class="field">
-            <span>Active monohull</span>
+            <span>Training boat</span>
             <select id="boat-select">
-              <option value="harbor-20">Fair Winds Dinghy · mainsail trainer</option>
-              <option value="coastal-28">Coastal 28 · main + headsail</option>
-              <option value="lake-34">Lake 34 · cruising sloop</option>
+                <option value="harbor-20">Fair Winds Dinghy · mainsail trainer</option>
             </select>
           </label>
           <div class="ui-control-row settings-command-row">
@@ -274,29 +278,27 @@
           </section>
           <section id="settings-weather" class="settings-section" data-ui-panel="weather" role="tabpanel" hidden>
           <div class="section-rule"><span>Weather</span></div>
-          <div class="settings-section-copy"><h3>Set the air in motion.</h3><p>Start with a familiar pattern, then tune the wind without hiding what drives the sail.</p></div>
           <label class="field">
             <span>Preset</span>
             <select id="weather-preset">
               <option>Fair winds</option><option>Light air</option><option>Fresh breeze</option><option>Passing shower</option>
+              <option value="custom" disabled>Custom</option>
             </select>
           </label>
+          <label class="range-field"><span><b>Wind speed</b><output id="wind-speed-output"></output></span><input id="wind-speed" type="range" min="1" max="14" step="0.1" /></label>
+          <label class="range-field"><span><b>Wind from</b><output id="wind-direction-output"></output></span><input id="wind-direction" type="range" min="0" max="359" step="1" /><span class="range-endpoints" aria-hidden="true"><span>0°</span><span>359°</span></span></label>
+          <details class="weather-details">
+          <summary>More weather</summary>
           <div class="field-row">
             <label class="field"><span>Weather</span><select id="weather-mode"><option value="manual">Manual</option><option value="evolving">Evolving</option></select></label>
             <label class="field"><span>Seed</span><input id="weather-seed" type="number" min="0" max="999999" step="1" /></label>
           </div>
-          <label class="range-field"><span><b>Wind speed</b><output id="wind-speed-output"></output></span><input id="wind-speed" type="range" min="1" max="14" step="0.1" /></label>
-          <label class="range-field"><span><b>Wind from</b><output id="wind-direction-output"></output></span><input id="wind-direction" type="range" min="0" max="359" step="1" /></label>
           <label class="range-field"><span><b>Gusts</b><output id="gust-output"></output></span><input id="gust" type="range" min="0" max="0.5" step="0.01" /></label>
-          <div class="forecast-card ui-inset-surface" aria-live="polite">
-            <span class="label">Five-minute outlook</span>
-            <strong id="forecast-summary">Wind holding steady</strong>
-            <span id="forecast-advice">Full sail remains appropriate.</span>
-          </div>
           <div class="settings-inline-actions">
             <button id="copy-weather" class="secondary-button ui-action" type="button">Copy config</button>
             <button id="restart-weather" class="secondary-button ui-action" type="button">Restart weather</button>
           </div>
+          </details>
           </section>
           <section id="settings-water" class="settings-section" data-ui-panel="water" role="tabpanel" hidden>
           <div class="section-rule"><span>Water</span></div>
@@ -324,12 +326,12 @@
             <div class="music-now-playing">
               <span class="label">Lake soundtrack</span>
               <strong id="music-track-name">Fair Winds</strong>
-              <span id="music-playback-status" aria-live="polite">Starts after Set Sail</span>
+              <span id="music-playback-status" aria-live="polite">Starts when sailing begins</span>
             </div>
             <div class="music-transport">
-              <button id="music-previous" type="button" aria-label="Previous music track">‹</button>
+              <button id="music-previous" type="button" aria-label="Previous music track"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-left" /></svg></button>
               <button id="music-toggle" class="music-toggle" type="button" aria-label="Play music" aria-pressed="false">Play</button>
-              <button id="music-next" type="button" aria-label="Next music track">›</button>
+              <button id="music-next" type="button" aria-label="Next music track"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
             </div>
           </div>
           <label class="field">
@@ -346,15 +348,13 @@
           <section id="settings-controls" class="settings-section" data-ui-panel="controls" role="tabpanel" hidden>
           <div class="section-rule"><span>Controls</span></div>
           <div class="settings-section-copy"><h3>Keep the lake clear.</h3><p>Control references live here instead of competing with the sailing view.</p></div>
+          <p>Drag the lake left or right to steer. Release to center the helm. Use the sail slider to trim; open Boat controls for steering buttons and sail handling.</p>
           <div class="control-binding-list" aria-label="Keyboard controls">
             <div class="ui-control-row control-binding"><span><b>Helm</b><small>Port / starboard</small></span><span class="key-pair"><kbd>A</kbd><kbd>D</kbd></span></div>
             <div class="ui-control-row control-binding"><span><b>Mainsheet</b><small>Ease / sheet in</small></span><span class="key-pair"><kbd>W</kbd><kbd>S</kbd></span></div>
             <div class="ui-control-row control-binding"><span><b>Sail handling</b><small>Reef / lower sails</small></span><span class="key-pair"><kbd>Q</kbd><kbd>X</kbd></span></div>
             <div class="ui-control-row control-binding"><span><b>Panels</b><small>Chart / settings</small></span><span class="key-pair"><kbd>N</kbd><kbd>C</kbd></span></div>
-            <label class="ui-control-row control-toggle" for="touch-controls-enabled">
-              <span><b>On-screen controls</b><small>Show helm and sail controls over the lake</small></span>
-              <input id="touch-controls-enabled" type="checkbox" role="switch" />
-            </label>
+
             <label class="ui-control-row control-toggle" for="high-contrast-enabled">
               <span><b>High contrast</b><small>Strengthen instrument edges and focus cues</small></span>
               <input id="high-contrast-enabled" type="checkbox" role="switch" />
@@ -367,12 +367,9 @@
           </section>
         </div>
         <footer class="settings-footer">
-          <div class="settings-state settings-brand" aria-label="Fair Winds">
-            <img class="settings-brand-icon" src="/brand/fairwinds-icon.svg" alt="" aria-hidden="true" />
-            <img class="settings-brand-wordmark" src="/brand/fairwinds-wordmark.svg" alt="" aria-hidden="true" />
-          </div>
+          <button id="pause-toggle" class="secondary-button ui-action" type="button" aria-expanded="false" aria-controls="pause-panel" hidden>Pause sailing</button>
           <button id="settings-main-menu" class="secondary-button ui-action" type="button">Main menu</button>
-          <button id="settings-resume" class="primary-button ui-action ui-action--primary" type="button"><span aria-hidden="true">△</span>Resume sailing</button>
+          <button id="settings-resume" class="primary-button ui-action ui-action--primary" type="button"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-play" /></svg><span data-label>Resume sailing</span></button>
         </footer>
       </aside>
 
@@ -400,11 +397,37 @@
             aria-hidden="true"
           />
           <nav class="title-menu" aria-label="Main menu">
-            <button id="set-sail" class="title-menu-item is-selected" type="button">Continue</button>
-            <button id="new-journey" class="title-menu-item" type="button">New journey</button>
-            <button id="title-settings" class="title-menu-item" type="button">Settings</button>
+            <div id="returning-copy" class="returning-copy" hidden><p>Welcome back</p><h2 id="returning-lesson">Catch the wind</h2><p id="returning-target" class="returning-target"></p></div>
+            <button id="continue-lesson" class="title-menu-item title-primary" type="button" hidden>Continue lesson<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
+            <button id="set-sail" class="title-menu-item title-primary is-selected" type="button">Learn to sail<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
+            <button id="new-journey" class="title-menu-item" type="button" hidden>Choose lesson<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
+            <button id="title-free-sail" class="title-menu-item" type="button">Free sail<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
+            <div class="title-secondary">
+              <button id="title-logbook" class="title-secondary-item" type="button"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-logbook" /></svg>Logbook</button>
+              <button id="title-settings" class="title-secondary-item" type="button"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-settings" /></svg>Settings</button>
+            </div>
           </nav>
         </div>
+        <section id="lesson-chooser" class="lesson-chooser" role="dialog" aria-modal="true" aria-labelledby="lesson-chooser-title" hidden>
+          <div class="lesson-chooser-header">
+          <button id="lesson-chooser-close" class="menu-back" type="button" aria-label="Back to main menu"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-left" /></svg></button>
+          <h2 id="lesson-chooser-title">Three lessons. Your own pace.</h2>
+          </div>
+          <div class="lesson-chooser-body">
+          <div class="lesson-choices" aria-label="Lessons">
+            <button class="lesson-choice is-selected" data-lesson="0" type="button" aria-pressed="true"><span class="lesson-image lesson-image-1" aria-hidden="true"></span><span class="lesson-name"><b>01</b> Catch the wind</span><span class="lesson-targets">Trim · Stall · Recover</span></button>
+            <button class="lesson-choice" data-lesson="1" type="button" aria-pressed="false"><span class="lesson-image lesson-image-2" aria-hidden="true"></span><span class="lesson-name"><b>02</b> Find your course</span><span class="lesson-targets">Close-hauled · Beam reach · Broad reach</span></button>
+            <button class="lesson-choice" data-lesson="2" type="button" aria-pressed="false"><span class="lesson-image lesson-image-3" aria-hidden="true"></span><span class="lesson-name"><b>03</b> Sail with confidence</span><span class="lesson-targets">Tack · Gybe · Reef</span></button>
+          </div>
+          <button id="start-lesson" class="title-menu-item title-primary" type="button">Start lesson<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
+          <details class="lesson-detail"><summary><span>Proposed lesson targets</span><svg class="fw-icon disclosure-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></summary><ol id="chosen-lesson-targets"></ol></details>
+          </div>
+        </section>
+        <section id="title-logbook-panel" class="title-logbook-panel" role="dialog" aria-modal="true" aria-labelledby="title-logbook-heading" hidden>
+          <button id="title-logbook-close" class="menu-back" type="button" aria-label="Close logbook"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-left" /></svg></button>
+          <h2 id="title-logbook-heading">Logbook</h2><p id="title-logbook-stats"></p><ul id="title-logbook-lessons"></ul>
+          <a href="/credits.html" target="_blank" rel="noopener">Asset credits</a>
+        </section>
       </section>
 
       <section id="incident" class="incident-screen" aria-labelledby="incident-title" hidden>
@@ -423,9 +446,38 @@
         </div>
       </section>
 
-      <p id="status" class="sr-only" aria-live="polite"></p>
-      <div id="fatal-error" class="fatal-error" hidden></div>
+      <section class="sailing-status" aria-label="Sailing status">
+        <button id="status-toggle" type="button" aria-expanded="false" aria-controls="status-details"><span id="status" aria-live="polite">Ready to sail</span><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
+        <span id="status-lesson-progress" class="status-lesson-progress"></span>
+        <div id="status-pips" class="status-pips" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div id="status-details" hidden>
+          <button id="status-close" type="button" aria-label="Close sailing status"><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-close" /></svg></button>
+          <div id="status-scroll" tabindex="0" aria-label="Sailing status details"><p id="status-message"></p>
+          <p id="status-objective-detail"></p>
+          <button id="lesson-skip" class="text-button" type="button">Free sail</button>
+          <article class="instrument wind-instrument" aria-label="Apparent wind: wind felt on the moving boat" title="Wind felt on the moving boat">
+          <div class="wind-dial" aria-hidden="true">
+            <span class="boat-nose"></span>
+            <span id="wind-arrow" class="wind-arrow"></span>
+          </div>
+          <div class="instrument-copy">
+            <span class="label">Apparent wind</span>
+            <strong id="wind-readout">14.6 kn · 90°</strong>
+            <span id="point-of-sail">Beam reach</span>
+          </div>
+        </article>
+          <p id="status-cue"></p>
+          </div>
+        </div>
+      </section>
     </main>
+    <div id="fatal-error" class="fatal-error" role="alert" hidden></div>
+    <section class="orientation-gate" role="status" aria-label="Landscape orientation required">
+      <img src="/brand/fairwinds-full.svg" alt="Fair Winds" />
+      <svg class="fw-icon rotation-cue" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-rotate" /></svg>
+      <h2>Turn to landscape</h2>
+      <p>Your voyage awaits.</p>
+    </section>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

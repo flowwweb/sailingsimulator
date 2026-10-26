@@ -211,6 +211,25 @@ describe("sailing physics teaching contracts", () => {
     expect(result.state.yawRate).toBeCloseTo(0, 8);
   });
 
+  it("turns the bow with the helm ahead and reverses the response astern", () => {
+    for (const boat of [HARBOR_20, COASTAL_28, LAKE_34]) {
+      for (const speed of [-2, 2]) {
+        for (const rudder of [-1, 1]) {
+          let state = createInitialState();
+          state.velocity = { x: 0, y: speed };
+          state.sailsRaised = false;
+          state.sailDeployment = 0;
+          for (let frame = 0; frame < 60; frame += 1) {
+            state = stepBoat(state, { rudder, sheetRate: 0 },
+              { trueWind: { x: 0, y: 0 }, boat }, 1 / 60).state;
+          }
+          expect(state.heading * rudder * Math.sign(speed)).toBeGreaterThan(degrees(1));
+          expect(state.yawRate * rudder * Math.sign(speed)).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
   it("backs out of irons in either direction when the player holds a recovery turn", () => {
     const headwind: Environment = { trueWind: { x: 0, y: -8 } };
     for (const rudder of [-1, 1]) {
@@ -230,6 +249,7 @@ describe("sailing physics teaching contracts", () => {
 
       const recovered = computeSailAerodynamics(state, headwind);
       expect(peakRecoveryTorque).toBeGreaterThan(0);
+      expect(state.heading * rudder).toBeGreaterThan(0);
       expect(Math.abs(recovered.apparentWindAngle)).toBeGreaterThan(degrees(42));
     }
   });

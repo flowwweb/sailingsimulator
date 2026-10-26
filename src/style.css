@@ -14,7 +14,7 @@
   --shadow: 0 22px 70px rgba(4, 24, 30, 0.24);
 }
 
-/* Compact live chart in the upper-left; the full nautical chart remains on N. */
+/* Compact live chart; the full nautical chart remains on N. */
 .mini-map-hud {
   position: fixed;
   z-index: 5;
@@ -96,6 +96,22 @@ select {
 
 button {
   color: inherit;
+  white-space: nowrap;
+}
+
+.fw-icon { display: inline-block; width: 24px; height: 24px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; }
+.fw-icon use { vector-effect: non-scaling-stroke; }
+.icon-button, .menu-back, .music-transport button { display: inline-flex; align-items: center; justify-content: center; }
+.reset-button { display: inline-flex; align-items: center; gap: 10px; }
+
+.orientation-gate { display: none; }
+@media (orientation: portrait) {
+  .game-shell > :not(#lake) { visibility: hidden !important; }
+  .orientation-gate { position: fixed; z-index: 90; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: max(24px,env(safe-area-inset-top)) 20px max(24px,env(safe-area-inset-bottom)); background: linear-gradient(180deg,rgba(8,44,74,.24),rgba(8,44,74,.18) 35%,rgba(8,44,74,.8) 90%); color: #fef7db; text-align: center; }
+  .orientation-gate img { position: absolute; top: max(8%,env(safe-area-inset-top)); width: min(240px, 56vw); }
+  .orientation-gate .rotation-cue { width: min(46vw,190px); height: min(46vw,190px); margin-top: 24vh; color: #fdc353; }
+  .orientation-gate h2 { margin: 0; font-size: clamp(24px,7vw,32px); white-space: nowrap; }
+  .orientation-gate p { margin: 0; font-size: 18px; line-height: 1.6; color: #fef7db; }
 }
 
 button:focus-visible,
@@ -2099,12 +2115,15 @@ input:disabled {
   display: grid;
   min-height: 0;
   grid-template-columns: minmax(440px, 1fr) minmax(290px, 340px);
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .chart-plot {
   position: relative;
   display: grid;
   min-width: 0;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   margin: 0;
   padding: 22px;
@@ -2113,7 +2132,10 @@ input:disabled {
 
 #lake-chart {
   display: block;
-  width: min(100%, 650px);
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 650px;
   aspect-ratio: 1;
   background: #e5f0ec;
   box-shadow: 0 5px 22px rgba(42, 68, 73, 0.12);
@@ -3340,24 +3362,27 @@ input:disabled {
   color: #f3c77d;
 }
 
-/* Production settings surface: smoked rain glass with instrument-like rules. */
+/* Settings: category rail, paired values, and one scrolling content region. */
 #conditions-panel {
-  --settings-bg: rgba(12, 27, 34, 0.46);
-  --settings-rail: rgba(4, 19, 26, 0.14);
+  --settings-bg: rgba(4, 39, 63, 0.96);
+  --settings-rail: rgba(2, 25, 44, 0.22);
   --settings-field: rgba(2, 16, 22, 0.16);
   --settings-line: rgba(247, 248, 243, 0.18);
   --settings-text: #f7f8f3;
   --settings-muted: rgba(247, 248, 243, 0.58);
-  --settings-accent: #f17451;
+  --settings-accent: #f6bd53;
+  --settings-label: clamp(16px, 2.15vw, 36px);
+  --settings-value: clamp(24px, 3.11vw, 52px);
+  --settings-control: clamp(44px, 4.3vw, 72px);
   top: 50%;
   left: 50%;
-  width: min(930px, calc(100vw - 64px));
-  height: min(600px, calc(100svh - 64px));
-  grid-template-columns: 220px minmax(0, 1fr);
-  grid-template-rows: 80px minmax(0, 1fr) 88px;
-  border-color: rgba(247, 248, 243, 0.32);
-  border-radius: 5px;
-  background: rgba(12, 27, 34, 0.46);
+  width: min(1432px, calc(100vw - 48px), 85.65vw);
+  height: min(837px, 89svh);
+  grid-template-columns: clamp(160px, 19.5vw, 326px) minmax(0, 1fr);
+  grid-template-rows: clamp(60px, 6vw, 100px) minmax(0, 1fr) clamp(68px, 7.2vw, 120px);
+  border-color: rgba(247, 248, 243, 0.85);
+  border-radius: 12px;
+  background: var(--settings-bg);
   box-shadow: 0 38px 120px rgba(1, 12, 18, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   color: var(--settings-text);
   backdrop-filter: blur(28px) saturate(0.74);
@@ -3365,7 +3390,7 @@ input:disabled {
 
 #conditions-panel::before {
   position: absolute;
-  top: 79px;
+  top: clamp(59px, calc(6vw - 1px), 99px);
   right: 34px;
   left: 34px;
   height: 1px;
@@ -3385,9 +3410,12 @@ input:disabled {
   margin: 0;
   padding-left: 35px;
   color: var(--settings-text);
-  font: 500 1.18rem/1 "Manrope", sans-serif;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-family: inherit;
+  font-size: clamp(28px, 3.35vw, 56px);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 #conditions-panel .settings-header .ui-icon-button {
@@ -3409,7 +3437,7 @@ input:disabled {
   flex-direction: column;
   align-self: stretch;
   gap: 0;
-  padding: 15px 22px 18px 30px;
+  padding: 15px 13px 18px;
   overflow-y: auto;
   border-right: 1px solid var(--settings-line);
   background: var(--settings-rail);
@@ -3419,8 +3447,8 @@ input:disabled {
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 64px;
-  grid-template-columns: 27px 1fr;
+  min-height: clamp(48px, 5.65vw, 94px);
+  grid-template-columns: clamp(24px, 3.1vw, 52px) 1fr;
   align-items: center;
   gap: 11px;
   padding: 0 8px;
@@ -3445,17 +3473,20 @@ input:disabled {
 }
 
 #conditions-panel .settings-tabs .ui-tab.is-active {
-  color: var(--settings-accent);
+  font-weight: 600;
+  color: #071f30;
+  background: var(--settings-accent);
+  border-radius: 12px;
 }
 
 #conditions-panel .settings-tabs .ui-tab.is-active::after {
-  opacity: 1;
+  opacity: 0;
 }
 
 .settings-tab-icon {
   display: inline-grid;
-  width: 24px;
-  height: 24px;
+  width: clamp(24px, 3.1vw, 52px);
+  height: clamp(24px, 3.1vw, 52px);
   place-items: center;
   color: currentColor;
   font: 500 1.15rem/1 "DM Sans", sans-serif;
@@ -3470,7 +3501,7 @@ input:disabled {
   grid-column: 2;
   min-width: 0;
   min-height: 0;
-  padding: 17px 34px 24px;
+  padding: 16px clamp(18px, 2.7vw, 45px);
   overflow: auto;
 }
 
@@ -3493,41 +3524,50 @@ input:disabled {
 #conditions-panel .settings-section > .range-field,
 #conditions-panel .settings-command-row {
   display: grid;
-  min-height: 64px;
+  min-height: clamp(64px, 6.2vw, 104px);
   align-items: center;
   gap: 22px;
   margin: 0;
-  padding: 10px 0;
+  padding: clamp(10px, 1.3vw, 22px) 0;
   border-bottom: 1px solid var(--settings-line);
   color: var(--settings-text);
 }
 
 #conditions-panel .settings-section > .field {
-  grid-template-columns: minmax(170px, 0.9fr) minmax(270px, 1.35fr);
+  grid-template-columns: minmax(100px, 0.59fr) minmax(0, 1.41fr);
 }
 
 #conditions-panel .settings-section > .range-field {
-  grid-template-columns: minmax(170px, 0.9fr) minmax(210px, 1fr) 48px;
+  grid-template-columns: 1fr;
+  gap: 0;
 }
 
 #conditions-panel .settings-section > .range-field > span {
-  display: contents;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
 }
 
 #conditions-panel .settings-section > .range-field b {
   grid-column: 1;
   font-weight: 500;
+  font-size: var(--settings-label);
 }
 
 #conditions-panel .settings-section > .range-field input {
-  grid-row: 1;
-  grid-column: 2;
+  grid-row: 2;
+  grid-column: 1;
 }
 
 #conditions-panel .settings-section > .range-field output {
   grid-row: 1;
-  grid-column: 3;
+  grid-column: 1;
   color: var(--settings-text);
+  font-size: var(--settings-value);
+  line-height: 1.2;
+  font-weight: 600;
+  white-space: nowrap;
   text-align: right;
 }
 
@@ -3535,6 +3575,7 @@ input:disabled {
 #conditions-panel .settings-command-row b {
   color: var(--settings-text);
   font-weight: 500;
+  font-size: var(--settings-label);
 }
 
 #conditions-panel .settings-command-row {
@@ -3553,20 +3594,49 @@ input:disabled {
 
 #conditions-panel select,
 #conditions-panel input[type="number"] {
-  height: 40px;
+  height: var(--settings-control);
+  font-size: var(--settings-label);
   border-color: rgba(247, 248, 243, 0.28);
   background: rgba(3, 17, 23, 0.22);
 }
 
 #conditions-panel input[type="range"] {
-  height: 2px;
-  background: rgba(247, 248, 243, 0.34);
+  height: var(--settings-control); width: 100%; margin: 5px 0; padding: 0; background: transparent;
 }
+#conditions-panel input[type="range"]::-webkit-slider-runnable-track { height: clamp(6px, .72vw, 12px); border-radius: 8px; background: linear-gradient(to right, #f6bd53 var(--range-fill, 0%), #496f8c var(--range-fill, 0%)); }
+#conditions-panel input[type="range"]::-webkit-slider-thumb { width: clamp(24px, 2.4vw, 40px); height: clamp(24px, 2.4vw, 40px); margin-top: clamp(-14px, -.84vw, -9px); border: 2px solid #fffbe8; }
+#conditions-panel input[type="range"]::-moz-range-track { height: clamp(6px, .72vw, 12px); border-radius: 8px; background: #496f8c; }
+#conditions-panel input[type="range"]::-moz-range-progress { height: clamp(6px, .72vw, 12px); border-radius: 8px; background: #f6bd53; }
+#conditions-panel input[type="range"]::-moz-range-thumb { width: clamp(24px, 2.4vw, 40px); height: clamp(24px, 2.4vw, 40px); border: 2px solid #fffbe8; background: #f6bd53; }
+#conditions-panel :focus-visible { outline: 2px solid #fffbe8; outline-offset: 3px; }
+#conditions-panel input[type="range"]:focus-visible { outline-offset: 1px; }
+#conditions-panel .settings-tabs .ui-tab::before { content: none; }
+#conditions-panel .weather-details summary { min-height: var(--settings-control); display: flex; align-items: center; cursor: pointer; }
+#conditions-panel .weather-details summary { gap: 24px; font-size: var(--settings-label); }
+#conditions-panel .weather-details summary::before { content: ''; width: .55em; height: .55em; border-right: 3px solid; border-bottom: 3px solid; transform: rotate(45deg) translateY(-.2em); }
+#conditions-panel .weather-details[open] summary::before { transform: rotate(225deg); }
+#conditions-panel .weather-details .range-field > span { display: flex; justify-content: space-between; }
+#conditions-panel .weather-details .field > span,
+#conditions-panel .weather-details .range-field b { color: var(--settings-text); font-size: var(--settings-label); font-weight: 500; }
+#conditions-panel .weather-details .range-field output { color: var(--settings-text); font-size: var(--settings-value); line-height: 1.2; }
+#conditions-panel .settings-section .range-endpoints { grid-row: 3; color: var(--settings-text); font-size: clamp(14px, 1.67vw, 28px); line-height: 1; }
+#conditions-panel .settings-tabs .ui-tab { font-size: clamp(16px, 1.91vw, 32px); font-weight: 400; border-bottom: 0; }
+#conditions-panel .settings-tabs .ui-tab.is-active { font-weight: 600; }
+#conditions-panel .settings-tabs .ui-tab:not(.is-active) { color: #f7f8f3; }
+#conditions-panel .settings-tab-icon, #conditions-panel #conditions-close svg { filter: drop-shadow(.35px 0 currentColor) drop-shadow(-.35px 0 currentColor); }
+#conditions-panel .settings-footer button { white-space: nowrap; }
+
 
 #conditions-panel input[type="range"]::-webkit-slider-thumb {
-  border-color: rgba(7, 24, 31, 0.82);
-  background: #eebd72;
+  border-color: #fffbe8;
+  background: #f6bd53;
 }
+
+#conditions-panel .music-transport button,
+#conditions-panel .settings-command-row button { min-height: 44px; font-size: 16px; text-transform: none; letter-spacing: 0; }
+#conditions-panel .music-transport { grid-template-columns: 44px 1fr 44px; }
+#conditions-panel .settings-header .ui-icon-button { width: clamp(44px, 4.3vw, 72px); height: clamp(44px, 4.3vw, 72px); }
+#conditions-panel .settings-header .ui-icon-button svg { width: clamp(24px, 3.1vw, 52px); height: clamp(24px, 3.1vw, 52px); }
 
 #conditions-panel .field-row {
   display: grid;
@@ -3578,7 +3648,7 @@ input:disabled {
 
 #conditions-panel .field-row .field {
   margin: 0;
-  padding: 10px 0;
+  padding: clamp(10px, 1.3vw, 22px) 0;
 }
 
 #conditions-panel .settings-inline-actions {
@@ -3587,6 +3657,7 @@ input:disabled {
   gap: 9px;
   padding-top: 18px;
 }
+#conditions-panel .settings-inline-actions button { font-size: var(--settings-label); }
 
 #conditions-panel .music-player {
   margin: 0 0 4px;
@@ -3610,37 +3681,22 @@ input:disabled {
   color: rgba(247, 248, 243, 0.46);
 }
 
-#conditions-panel .settings-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.settings-brand-icon {
-  width: 19px;
-  height: 19px;
-  object-fit: contain;
-}
-
-.settings-brand-wordmark {
-  width: 102px;
-  height: auto;
-  opacity: 0.58;
-}
-
 #conditions-panel #settings-resume {
   display: inline-flex;
-  min-width: 212px;
+  min-width: clamp(150px, 17.1vw, 286px);
+  min-height: var(--settings-control);
+  padding: 0 24px;
   align-items: center;
   justify-content: center;
   gap: 11px;
-  border: 1px solid #e2ad62;
-  background: rgba(102, 70, 42, 0.2);
-  color: #efbf76;
+  border: 1px solid #ffd36d;
+  border-radius: 10px;
+  background: var(--settings-accent);
+  color: #071f30;
 }
 
 #conditions-panel #settings-resume > span {
-  font-size: 1rem;
+  font-size: clamp(16px, 1.9vw, 32px);
 }
 
 .lesson-card.ui-glass-surface--quiet {
@@ -3663,23 +3719,6 @@ input:disabled {
   font-size: 0.62rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.forecast-card {
-  display: grid;
-  gap: 5px;
-  padding: 14px 16px;
-}
-
-.forecast-card strong {
-  color: var(--settings-ink);
-  font-size: 0.9rem;
-}
-
-.forecast-card > span:last-child {
-  color: var(--settings-muted);
-  font-size: 0.76rem;
-  line-height: 1.45;
 }
 
 .encounter-readout {
@@ -3762,132 +3801,25 @@ input:disabled {
   }
 }
 
-@media (max-width: 760px) {
+@media (orientation: landscape) and (max-height: 600px) {
   #conditions-panel {
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100svh;
-    grid-template-columns: 1fr;
-    grid-template-rows: 66px 54px minmax(0, 1fr) auto;
-    border: 0;
-    border-radius: 0;
-    transform: translateY(2%);
+    --settings-label: 16px; --settings-value: 24px; --settings-control: 44px;
+    top: 8px; left: 12px; width: calc(100vw - 24px); height: calc(100svh - 16px);
+    grid-template-columns: 140px minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr) 52px;
+    transform: none; border-radius: 8px;
   }
-
-  #conditions-panel.is-open {
-    transform: translateY(0);
-  }
-
-  #conditions-panel::before {
-    top: 65px;
-    right: 18px;
-    left: 18px;
-  }
-
-  #settings-title {
-    grid-row: 1;
-    grid-column: 1;
-    padding-left: 18px;
-    font-size: 1rem;
-  }
-
-  #conditions-panel .settings-header .ui-icon-button {
-    grid-row: 1;
-    grid-column: 1;
-    margin-right: 7px;
-  }
-
-  #conditions-panel .settings-tabs {
-    grid-row: 2;
-    grid-column: 1;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(64px, 1fr));
-    padding: 0 10px;
-    overflow-x: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--settings-line);
-  }
-
-  #conditions-panel .settings-tabs .ui-tab {
-    min-height: 53px;
-    grid-template-columns: 1fr;
-    place-items: center;
-    gap: 0;
-    border-bottom: 0;
-    font-size: 0.6rem;
-    text-align: center;
-  }
-
-  #conditions-panel .settings-tabs .ui-tab::after {
-    top: auto;
-    right: 18px;
-    bottom: 0;
-    left: 18px;
-    width: auto;
-    height: 2px;
-  }
-
-  .settings-tab-icon {
-    display: none;
-  }
-
-  #conditions-panel .settings-body {
-    grid-row: 3;
-    grid-column: 1;
-    padding: 10px 18px 22px;
-  }
-
-  #conditions-panel .settings-section > .field,
-  #conditions-panel .settings-section > .range-field,
-  #conditions-panel .settings-command-row {
-    min-height: 74px;
-    grid-template-columns: 1fr auto;
-    gap: 8px 14px;
-  }
-
-  #conditions-panel .settings-section > .field select {
-    grid-column: 1 / -1;
-  }
-
-  #conditions-panel .settings-section > .range-field b {
-    grid-row: 1;
-    grid-column: 1;
-  }
-
-  #conditions-panel .settings-section > .range-field output {
-    grid-row: 1;
-    grid-column: 2;
-  }
-
-  #conditions-panel .settings-section > .range-field input {
-    grid-row: 2;
-    grid-column: 1 / -1;
-  }
-
-  #conditions-panel .settings-command-row .ui-action {
-    min-width: 88px;
-  }
-
-  #conditions-panel .field-row {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  #conditions-panel .settings-footer {
-    grid-row: 4;
-    grid-column: 1;
-    padding: 12px 14px max(14px, env(safe-area-inset-bottom));
-  }
-
-  #conditions-panel .settings-state {
-    display: none;
-  }
-
-  #conditions-panel #settings-resume {
-    width: 100%;
-    min-width: 0;
-  }
+  #conditions-panel.is-open { transform: none; }
+  #conditions-panel::before { top: 43px; right: 12px; left: 12px; }
+  #conditions-panel #settings-title { padding-left: 16px; font-size: 20px; }
+  #conditions-panel .settings-header .ui-icon-button { margin-right: 4px; }
+  #conditions-panel .settings-tabs { padding: 4px 8px; }
+  #conditions-panel .settings-tabs .ui-tab { min-height: 44px; font-size: 16px; gap: 8px; }
+  #conditions-panel .settings-tab-icon { width: 24px; height: 24px; }
+  #conditions-panel .settings-body { padding: 4px 16px; }
+  #conditions-panel .settings-section > .field { min-height: 44px; padding: 0; }
+  #conditions-panel .settings-section > .range-field { gap: 0; padding: 0; }
+  #conditions-panel .settings-footer { padding: 4px 12px; }
+  #conditions-panel #settings-resume { width: auto; min-width: 150px; }
 }
 
 /* Keep sail handling interactive after the final reduced-HUD rules. */
@@ -3955,19 +3887,19 @@ input:disabled {
 }
 
 .game-shell.show-on-screen-controls:not(.is-welcome) .controls {
-  display: grid !important;
+  display: flex !important;
 }
 
 #conditions-panel .settings-tabs {
-  grid-auto-rows: minmax(54px, 1fr);
+  overflow-y: auto;
 }
 
 #conditions-panel .settings-tabs .ui-tab {
-  min-height: 54px;
+  flex-shrink: 0;
 }
 
 #conditions-panel .settings-footer {
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
 }
 
 #settings-main-menu {
@@ -4050,22 +3982,6 @@ input:disabled {
 #touch-controls-enabled:checked::after {
   background: #fff8ec;
   transform: translateX(20px);
-}
-
-@media (max-width: 760px) {
-  #conditions-panel .settings-tabs {
-    grid-template-columns: repeat(6, minmax(64px, 1fr));
-  }
-
-  #conditions-panel .settings-footer {
-    grid-template-columns: 1fr 1.5fr;
-  }
-
-  #settings-main-menu,
-  #conditions-panel #settings-resume {
-    width: 100%;
-    min-width: 0;
-  }
 }
 
 /* Layer the quiet HUD over the lake without turning it into a wall of cards. */
@@ -4410,4 +4326,415 @@ input:disabled {
   .game-shell.show-on-screen-controls .speed-instrument {
     bottom: calc(max(8px, env(safe-area-inset-bottom)) + 116px);
   }
+}
+
+.game-shell.is-welcome #settings-resume {
+  grid-column: 2;
+}
+
+.game-shell.is-settings-open .welcome {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .welcome {
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .welcome-lockup {
+    width: min(34vw, 260px);
+    transform: none;
+  }
+
+  .title-menu {
+    margin-top: 16px;
+    gap: 0;
+    transform: none;
+  }
+
+  .title-menu-item {
+    min-height: 44px;
+    font-size: 0.85rem;
+  }
+}
+
+/* Accepted landscape instrument positions and readable contextual coaching. */
+@media (orientation: landscape) {
+  .mini-map-hud { right: 18px; left: auto; width: 90px; height: 90px; }
+  .topbar { top: 18px; right: auto; left: 18px; }
+  .wind-instrument { top: 18px; right: auto; left: 18px; width: 214px; justify-content: flex-start; }
+  #wind-readout { white-space: nowrap; font-size: 0.95rem; }
+  .destination { display: none; }
+  .lesson-card { top: auto; bottom: 18px; right: 18px; left: auto; width: 220px; padding: 12px; background: rgba(6, 30, 42, 0.72); }
+  .lesson-copy p { display: block; font-size: 0.68rem; line-height: 1.4; }
+  #lesson-eyebrow { font-size: 0.51rem; letter-spacing: 0.08em; }
+  .speed-instrument { left: 18px; right: auto; bottom: 18px; width: 90px; height: 90px; }
+  .speed-instrument strong { font-size: 1.5rem; }
+  .depth-readout { display: grid; position: fixed; left: 18px; right: auto; bottom: 124px; width: 90px; opacity: 1; }
+  .navigation-hud, .game-shell.show-on-screen-controls .navigation-hud { top: auto; left: 50%; bottom: 18px; width: 260px; transform: translateX(-50%); }
+  .heading-readout { width: 100%; height: 82px; }
+  .heading-readout strong { top: 22px; font-size: 1.7rem; }
+  .heading-scale { top: 42px; }
+  .heading-diamond { bottom: 3px; }
+  .heading-cardinal { bottom: 6px; }
+  .trim-instrument, .game-shell.show-on-screen-controls .trim-instrument { top: 122px; left: auto; right: 18px; bottom: auto; width: 90px; text-align: center; }
+  .trim-heading { display: block; }
+  .trim-heading strong { display: block; font-size: 0.7rem; }
+  .trim-track { width: 3px; height: 76px; margin: 8px auto; }
+  .trim-marker, .trim-target { left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); }
+  .trim-target { width: 22px; height: 2px; }
+  .trim-marker { width: 10px; height: 10px; }
+  .trim-scale { display: none; }
+  .controls { left: 126px; right: auto; bottom: 18px; transform: none; }
+  .encounter-readout[data-role="clear"] { display: none; }
+  .game-shell.show-on-screen-controls .controls > .control-pair { display: flex; }
+  .game-shell.show-on-screen-controls:not(.is-welcome) .controls { left: 18px; right: auto; bottom: 18px; width: 160px; align-items: center; gap: 12px; }
+  .helm-controls { grid-area: helm; }
+  .control-pair { gap: 4px; }
+  .control-pair button { min-width: 44px; min-height: 44px; flex: 1; padding: 3px; font-size: 14px; }
+  .controls button span { display: inline; }
+  .controls button { border-radius: 8px; text-transform: none; letter-spacing: 0; background: #06243aaa; white-space: nowrap; }
+  .helm-controls button svg { width: 28px; height: 28px; }
+}
+
+/* The title is composed over the animated game camera. */
+.welcome { isolation: isolate; background: linear-gradient(90deg, rgba(4, 34, 53, .2), transparent 50%); }
+
+/* Owner-approved arrival and lesson screens. Controls remain live HTML. */
+.welcome { place-items: start; padding: 7vh 6.5vw; }
+.welcome [hidden] { display: none !important; }
+.welcome-lockup { width: min(34vw, 570px); transform: none; text-align: left; }
+.welcome-brand { filter: none; }
+.title-audio-toggle { display: none; }
+.title-menu { position: absolute; top: 52.5%; left: 11.4%; width: 25.8%; margin: 0; gap: clamp(8px, 1.33vw, 22px); transform: none; }
+.title-menu-item,
+.title-menu-item:hover,
+.title-menu-item:focus-visible,
+.title-menu-item.is-selected {
+  display: flex; align-items: center; justify-content: space-between; min-height: clamp(44px, 5.085vw, 84px);
+  padding: 0 2.5vw; border: 1px solid rgba(255,255,255,.88); border-radius: 8px;
+  background: rgba(5,45,70,.28); color: #fff; font-family: inherit; font-weight: 600; line-height: 1.2;
+  font-size: clamp(14px,1.7vw,28px); letter-spacing: 0; text-transform: none; text-shadow: none; white-space: nowrap;
+  box-shadow: none; transition: background 140ms ease;
+}
+.title-menu-item::before, .title-menu-item::after { content: none; }
+.title-menu-item > span { font-size: 1.8em; line-height: 1; font-weight: 400; }
+.title-menu-item:hover { background: rgba(14,62,83,.65); }
+.title-menu-item.title-primary { min-height: clamp(46px, 5.57vw, 92px); background: #ffc64f; color: #071f30; border-color: #ffd36d; font-weight: 700; }
+.title-menu-item.title-primary:hover { background: #ffd577; }
+.welcome button:focus-visible, .welcome summary:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+.title-secondary { display: grid; margin-top: 0; gap: 0; }
+.title-secondary-item { display: flex; align-items: center; gap: 20px; width: max-content; min-height: 54px; padding: 0 6px; border: none; background: none; box-shadow: none; color: #fff; font-size: clamp(14px,1.55vw,25px); text-align: left; }
+.title-secondary-item:hover { background: rgba(5,45,70,.32); }
+.title-secondary-item svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.returning-copy p, .returning-copy h2 { margin: 0; color: #fff; }
+.returning-copy p { font-size: clamp(16px,2vw,30px); line-height: 1.4; }
+.returning-copy h2 { font-size: clamp(26px,2.8vw,44px); line-height: 1.3; font-weight: 600; }
+.returning-copy .returning-target { margin-top: 10px; color: #ffd27b; font-size: clamp(14px,1.5vw,24px); }
+.welcome[data-returning="true"] .welcome-lockup { width: min(22vw,360px); }
+.welcome[data-returning="true"] .welcome-brand { width: min(17vw,280px); }
+.welcome[data-returning="true"] .title-menu { top: clamp(156px, 17.5vw, 290px); left: 5.3%; width: 27%; margin: 0; gap: clamp(8px, 1.33vw, 22px); }
+.welcome[data-returning="true"] .title-menu-item { min-height: clamp(44px, 5.57vw, 92px); }
+.welcome[data-returning="true"] .returning-copy { margin-bottom: 20px; }
+.welcome[data-returning="true"] .title-secondary { display: flex; gap: 26px; }
+.welcome[data-returning="true"] .title-secondary-item { font-size: 16px; gap: 8px; }
+.welcome[data-returning="true"] .title-secondary-item svg { width: 22px; height: 22px; }
+.lesson-chooser, .title-logbook-panel { position: absolute; inset: 10% 5.4% 6% 6.2%; padding: 3.1% 2.2% 1.5%; overflow: auto; border: 1px solid rgba(219,238,249,.55); border-radius: 16px; background: rgba(4,39,63,.9); box-shadow: 0 24px 60px rgba(0,19,35,.15); backdrop-filter: blur(8px); }
+.lesson-chooser h2, .title-logbook-panel h2 { margin: 0 0 34px; text-align: center; font-size: clamp(20px,2.7vw,44px); font-weight: 600; color: #fff; }
+.menu-back { position: absolute; top: 12px; left: 12px; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: #fff; font-size: 36px; box-shadow: none; }
+.lesson-chooser:not([hidden]) { display: flex; flex-direction: column; overflow: hidden; }
+.lesson-chooser-header { position: relative; flex-shrink: 0; display: flow-root; padding-top: 8px; }
+.lesson-chooser-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.lesson-chooser-header h2 { padding-inline: 44px; }
+.lesson-chooser .menu-back { display: flex; position: absolute; top: 0; left: 0; z-index: 2; margin: 0; border-radius: 6px; background: #06273f; }
+.lesson-choices { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 30px; }
+.lesson-choice { display: block; overflow: hidden; padding: 0 0 24px; border: 1px solid rgba(222,238,247,.25); border-radius: 10px; background: rgba(4,34,54,.45); color: #fff; text-align: left; box-shadow: none; }
+.lesson-choice.is-selected { border: 2px solid #ffcb52; }
+.lesson-choice:hover { background: rgba(16,66,90,.55); }
+.lesson-image { display: block; width: 100%; aspect-ratio: 218 / 128; background-image: url('/brand/fairwinds-approved-menu-board.png'); background-size: 767% 735.16%; }
+.lesson-image-1 { background-position: 62.72% 15.76%; }
+.lesson-image-2 { background-position: 78.93% 15.76%; }
+.lesson-image-3 { background-position: 95.18% 15.76%; }
+.lesson-name, .lesson-targets { display: block; padding: 0 20px; }
+.lesson-name { margin-top: 18px; font-size: clamp(12px,1.65vw,27px); line-height: 1.4; font-weight: 500; white-space: nowrap; }
+.lesson-name b { margin-right: 8px; }
+.lesson-choice.is-selected .lesson-name b { color: #ffd058; }
+.lesson-targets { margin-top: 10px; font-size: clamp(9px,1.2vw,20px); line-height: 1.4; white-space: nowrap; }
+#start-lesson { width: min(30%,420px); margin: 30px auto 0; min-height: clamp(44px, 4.9vw, 76px); }
+.lesson-detail { margin: 16px auto 0; width: 50%; max-width: 100%; color: #fff; font-size: 16px; }
+.lesson-detail summary { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; cursor: pointer; white-space: nowrap; list-style: none; }
+.lesson-detail summary::-webkit-details-marker { display: none; }
+.lesson-detail summary::before, .lesson-detail summary::after { content: ""; height: 1px; flex: 1; background: rgba(255,255,255,.18); }
+.lesson-detail .disclosure-icon { width: 16px; height: 16px; transform: rotate(90deg); }
+.lesson-detail[open] .disclosure-icon { transform: rotate(-90deg); }
+.lesson-detail ol { margin-top: 0; line-height: 1.6; }
+.title-logbook-panel { inset: 18% 22%; padding: 6%; color: #fff; }
+.title-logbook-panel p { color: #fff; font-size: 18px; }
+.title-logbook-panel li { margin: 18px 0; line-height: 1.5; }
+@media (orientation: landscape) and (min-height: 601px) and (max-aspect-ratio: 1.65) {
+  .lesson-chooser { top: 50%; bottom: auto; max-height: calc(100svh - 64px); padding-bottom: 24px; transform: translateY(-50%); }
+}
+@media (max-height: 600px) and (orientation: landscape) {
+  .welcome { padding: max(6.7vh,env(safe-area-inset-top)) max(6.3vw,env(safe-area-inset-left)); }
+  .welcome-lockup { width: min(34vw,280px); }
+  .title-menu { top: min(52.5vh, calc(100svh - 204px)); left: 11.4%; width: 25.8%; margin: 0; gap: 11px; }
+  .title-menu-item, .title-menu-item:hover, .title-menu-item.is-selected, .title-menu-item:focus-visible { min-height: 44px; padding: 0 20px; font-size: 16px; border-radius: 6px; }
+  .title-menu-item.title-primary { min-height: 46px; }
+  .title-secondary { gap: 0; margin-top: 0; }
+  .title-secondary-item { min-height: 44px; font-size: 14px; gap: 14px; }
+  .title-secondary-item svg { width: 20px; height: 20px; }
+  .welcome[data-returning="true"] { padding: max(16px,env(safe-area-inset-top)) max(38px,env(safe-area-inset-left)); }
+  .welcome[data-returning="true"] .welcome-lockup { width: 30vw; }
+  .welcome[data-returning="true"] .welcome-brand { width: 150px; }
+  .welcome[data-returning="true"] .title-menu { top: min(36.7vh, calc(100svh - 260px)); width: 27%; margin-top: 0; gap: 0; }
+  .welcome[data-returning="true"] .title-menu-item { min-height: 44px; }
+  .welcome[data-returning="true"] .returning-copy { margin-bottom: 6px; }
+  .returning-copy p { font-size: 15px; }
+  .returning-copy h2 { font-size: 24px; }
+  .returning-copy .returning-target { font-size: 13px; margin-top: 4px; }
+  .welcome[data-returning="true"] .title-secondary { gap: 20px; }
+  .welcome[data-returning="true"] .title-secondary-item { font-size: 13px; }
+  .lesson-chooser { inset: 7% 5% 8px; padding: 16px 16px 8px; }
+  .lesson-chooser h2 { font-size: 24px; margin-bottom: 39px; }
+  .lesson-choices { gap: 14px; }
+  .lesson-choice { padding-bottom: 8px; }
+  .lesson-image { max-height: 128px; }
+  .lesson-name, .lesson-targets { padding: 0 10px; }
+  .lesson-name { font-size: clamp(11px,1.75vw,15px); margin-top: 6px; }
+  .lesson-targets { font-size: clamp(8px,1.23vw,11px); margin-top: 2px; }
+  #start-lesson { width: 220px; min-height: 44px; margin-top: 24px; }
+  .lesson-detail { margin-top: 0; font-size: 12px; }
+  .title-logbook-panel { inset: 8% 12%; padding: 26px 50px; }
+}
+
+@media (max-height: 410px) and (orientation: landscape) {
+  .lesson-chooser { padding: 12px; }
+  .lesson-chooser h2 { margin-bottom: 16px; }
+  .lesson-image { max-height: 105px; }
+  .lesson-chooser:has(.lesson-detail[open]) .lesson-image { height: 60px; background-size: 767% 1286.5%; background-position-y: 14.76%; }
+  #start-lesson { margin-top: 12px; }
+}
+
+.game-shell[data-academy-stage="free-sail"] .lesson-card { width: auto; max-width: 220px; padding: 8px 12px; }
+.game-shell[data-academy-stage="free-sail"] #lesson-eyebrow,
+.game-shell[data-academy-stage="free-sail"] #lesson-instruction,
+.game-shell[data-academy-stage="free-sail"] .lesson-progress { display: none; }
+.game-shell[data-academy-stage="free-sail"] #lesson-title { font-size: 16px; margin: 0 0 4px; }
+.game-shell[data-academy-stage="free-sail"] #lesson-skip { min-height: 44px; }
+
+.sailing-status { position: fixed; z-index: 12; top: 18px; left: 50%; width: min(380px, calc(100vw - 330px)); transform: translateX(-50%); color: #f7f8f3; }
+#status-toggle { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 8px 14px; border: 1px solid #ffffff55; border-radius: 8px; background: #06243acc; color: inherit; font: inherit; font-size: 14px; text-align: left; }
+#status { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#status-toggle > svg { width: 16px; height: 16px; transform: rotate(90deg); }
+#status-toggle[aria-expanded="true"] > svg { transform: rotate(-90deg); }
+#status-message { margin: 0 28px 12px 0; font-size: 14px; line-height: 1.4; }
+#status-details { position: relative; margin-top: 6px; border: 1px solid #ffffff55; border-radius: 8px; background: #06243af5; }
+#status-scroll { max-height: calc(100svh - 242px); overflow-y: auto; overscroll-behavior: contain; padding: 16px; }
+#status-details[hidden] { display: none; }
+#status-close { position: absolute; z-index: 2; top: 0; right: 0; width: 44px; height: 44px; padding: 0; color: white; border: 0; background: transparent; font-size: 24px; }
+#status-details .wind-instrument { position: static; display: flex; width: auto; padding: 0 30px 0 0; background: transparent; border: 0; box-shadow: none; transform: none; }
+#status-details .wind-instrument::before { content: none; }
+#status-details .instrument-copy { display: grid; gap: 4px; }
+#status-cue { margin: 12px 0 0; color: #eef5fa; font-size: 14px; line-height: 1.45; }
+.sailing-status :focus-visible { outline: 2px solid #ffd36d; outline-offset: 3px; }
+.game-shell.is-welcome .sailing-status, .game-shell.is-settings-open .sailing-status, .game-shell.is-chart-open .sailing-status, .game-shell.has-incident .sailing-status { display: none; }
+.trim-instrument #coach, .trim-instrument #flow-state { display: none; }
+.trim-instrument #sail-plan-label { font-size: 12px; white-space: nowrap; letter-spacing: 0; text-transform: none; }
+#trim-value { position: absolute; top: 50%; left: 14px; transform: translateY(-50%); color: #fff; font-size: 12px; white-space: nowrap; }
+.speed-instrument #motion-readout { display: none; }
+.depth-readout { display: grid; grid-template-columns: 1fr; justify-items: center; padding: 8px; }
+.depth-readout strong { font-size: 24px; }
+.depth-readout #depth-state { display: none; }
+.lesson-card { grid-template-columns: 1fr; gap: 6px; }
+.lesson-card #lesson-skip { justify-self: end; min-height: 44px; }
+@media (orientation: landscape) and (max-height: 600px) {
+  .sailing-status { top: 12px; width: min(340px, calc(100vw - 330px)); }
+  .trim-instrument, .game-shell.show-on-screen-controls .trim-instrument { top: 118px; }
+  .trim-track { height: 46px; margin: 4px auto; }
+  .navigation-hud, .game-shell.show-on-screen-controls .navigation-hud { width: 220px; }
+  .lesson-card { width: 206px; }
+  .lesson-copy p { font-size: 12px; }
+  .depth-readout { bottom: 116px; }
+}
+
+/* Verified Slack final-HUD-r2 gameplay surfaces. */
+.sail-actions { position: relative; flex: 0 0 44px; }
+.sail-actions summary { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; list-style: none; color: white; border: 1px solid #ffffff55; border-radius: 8px; background: #03456966; cursor: pointer; pointer-events: auto; }
+.sail-actions summary::-webkit-details-marker { display: none; }
+.sail-actions summary .fw-icon { width: 26px; height: 26px; }
+.sail-actions summary:focus-visible { outline: 2px solid #ffbd00; outline-offset: 3px; }
+.sail-actions[open] summary { background: #034669; }
+.sail-actions .rig-controls { position: absolute; z-index: 20; left: calc(100% + 12px); top: 54px; display: grid; grid-template-columns: 1fr; grid-template-areas: none; gap: 6px; min-width: 208px; padding: 8px; border: 1px solid #ffffff55; border-radius: 10px; background: #063950ee; }
+.sail-actions:not([open]) .rig-controls { display: none; }
+.sail-actions .rig-controls button { min-width: 0; min-height: 44px; height: auto; width: 100%; padding: 8px 12px; border: 1px solid #ffffff55; border-radius: 8px; background: #034569; color: white; text-transform: none; letter-spacing: normal; }
+.sail-actions .rig-action-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; clip-path: none; font-size: 14px; }
+.top-actions .sail-actions summary { border-radius: 50%; background: #03456955; }
+.topbar:has(.sail-actions[open]) { z-index: 14; }
+.sail-actions .helm-controls { grid-area: auto; grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: auto; }
+.sail-actions .helm-controls button { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.sail-actions .helm-controls button span { display: block; }
+.sail-actions .helm-controls .fw-icon { width: 20px; height: 20px; }
+.game-shell.has-incident .sail-actions { visibility: hidden; pointer-events: none; }
+#lake { touch-action: none; }
+#lake:focus-visible { outline: 2px solid #ffbd00; outline-offset: -3px; }
+#steering-hint { position: fixed; z-index: 6; top: 50%; left: 50%; max-width: calc(100vw - 48px); margin: 0; padding: 9px 14px; transform: translate(-50%, -50%); border-radius: 10px; background: #034569cc; color: white; text-align: center; font-size: 14px; pointer-events: none; }
+#lesson-card[hidden] { display: none; }
+@media (orientation: landscape) {
+  .speed-instrument, .depth-readout { position: fixed; left: 2.87vw; right: auto; bottom: auto; width: 149px; height: 54px; display: flex; align-items: center; gap: 14px; padding: 9px 14px; border: 1px solid #ffffff35; border-radius: 16px; background: #063950a8; box-shadow: none; backdrop-filter: blur(4px); }
+  .speed-instrument, .game-shell.show-on-screen-controls .speed-instrument { top: 7.86vh; bottom: auto; width: 149px; height: 54px; }
+  .depth-readout { top: calc(7.86vh + 60px); opacity: 1; }
+  .depth-readout.is-visible { display: flex; }
+  .speed-instrument::before, .speed-instrument::after { display: none; }
+  .speed-instrument > .label, .depth-readout > .label { display: none; }
+  .speed-instrument strong, .depth-readout strong { position: static; transform: none; font-size: 27px; font-weight: 400; white-space: nowrap; }
+  .speed-instrument strong small, .depth-readout strong small { font-size: 22px; margin-left: 5px; }
+  .readout-icon { width: 30px; height: 34px; flex-shrink: 0; color: white; }
+  .mini-map-hud { top: 22px; right: 25px; width: 232px; height: 232px; padding: 0; border: 2px solid white; border-radius: 50%; overflow: hidden; background: #034669; box-shadow: none; }
+  .mini-map-hud canvas { width: 100%; height: 100%; border-radius: 50%; }
+  .mini-map-hud .north-mark { top: 22px; right: 44px; left: auto; font-size: 16px; color: white; }
+  .trim-instrument, .game-shell.show-on-screen-controls .trim-instrument { top: 41.7vh; right: 35px; width: 66px; padding: 0; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+  .trim-instrument::before, .trim-heading, #trim-value, #trim-target, #boom-readout { display: none; }
+  .trim-boat-icon { display: block; width: 30px; height: 34px; margin: 0 auto 10px; color: white; }
+  .trim-in-label { display: block; font-size: 19px; color: white; }
+  .trim-track { width: 5px; height: 180px; margin: 14px auto; background: linear-gradient(to bottom, white 0 var(--sheet-position,50%), #ffbd00 var(--sheet-position,50%) 100%); border-radius: 3px; }
+  .trim-track input.hud-sheet { position: absolute; top: 0; left: 50%; width: 44px; min-width: 44px; height: 100%; margin: 0; padding: 0; opacity: 0; transform: translateX(-50%); writing-mode: vertical-lr; direction: ltr; cursor: ns-resize; pointer-events: auto; z-index: 3; }
+  .trim-track:focus-within { outline: 2px solid #ffbd00; outline-offset: 6px; }
+  .trim-marker { width: 20px; height: 20px; border-radius: 50%; background: white; border: 1px solid #a5c2cf; box-shadow: 0 2px 5px #00203455; }
+  .trim-scale, .trim-instrument .trim-scale span:last-child { display: block; color: white; font-size: 19px; }
+  .trim-scale > :first-child { display: none; }
+  .navigation-hud, .game-shell.show-on-screen-controls .navigation-hud { width: 38.3vw; max-width: 640px; bottom: 35px; filter: none; }
+  .heading-readout { height: 72px; border: 0; border-radius: 14px; background: #03456999; box-shadow: none; }
+  .heading-readout strong { left: 50%; top: 22px; transform: translateX(-50%); font-size: 27px; padding: 0 12px; background: transparent; }
+  .heading-scale { top: 26px; right: 24px; left: 24px; height: 22px; mask-image: linear-gradient(90deg, transparent, #000 5%, #000 calc(50% - 48px), transparent calc(50% - 48px), transparent calc(50% + 48px), #000 calc(50% + 48px), #000 95%, transparent); }
+  .heading-tick-label { font-size: 18px; bottom: -2px; background: transparent; padding: 0 5px; color: white; }
+  .heading-tick.is-cardinal { background: transparent; }
+  .heading-tick[data-intercardinal] .heading-tick-label { display: none; }
+  .heading-cardinal, .heading-lubber { display: none; }
+  .heading-diamond { left: 50%; transform: translateX(-50%); color: #ffbd00; bottom: -11px; font-size: 28px; line-height: 1; }
+  .heading-diamond[hidden] { display: none; }
+  .lesson-card, .game-shell[data-academy-stage="free-sail"] .lesson-card { bottom: 33px; right: 25px; width: auto; max-width: 310px; min-height: 64px; padding: 14px 18px; display: flex; align-items: center; gap: 18px; border: 1px solid #ffffff70; border-radius: 20px; background: #034569b0; box-shadow: none; }
+  .lesson-card::before, #lesson-eyebrow, .lesson-copy p, .lesson-progress, .lesson-card #lesson-skip { display: none; }
+  .lesson-copy strong { font-size: 20px; line-height: 1.3; font-weight: 400; }
+  .objective-diamond { width: 27px; height: 27px; flex-shrink: 0; border: 4px solid #ffbd00; transform: rotate(45deg); }
+  .sailing-status { top: 22px; width: 483px; }
+  #status-toggle { font-size: 23px; min-height: 44px; border: 0; border-radius: 16px; background: #034569a6; padding: 10px 18px; }
+  #status-toggle::before { content: ''; width: 15px; height: 15px; border: 3px solid #ffbd00; transform: rotate(45deg); flex-shrink: 0; }
+  .status-lesson-progress { display: block; padding: 0 0 12px; margin-top: -4px; background: #034569a6; text-align: center; font-size: 17px; color: #bdd5e3; border-radius: 0 0 16px 16px; }
+  .status-pips { display: flex; justify-content: center; gap: 18px; margin-top: -6px; }
+  .status-pips span { width: 20px; height: 20px; border: 2px solid white; border-radius: 50%; background: #03456980; }
+  .status-pips .is-earned { background: white; }
+  .status-pips .is-earned::after { content: '✓'; display: block; color: #034569; font-size: 14px; text-align: center; }
+  .status-pips .is-current { background: #ffbd00; border-color: #ffbd00; }
+  .status-lesson-progress[hidden], .status-pips[hidden] { display: none; }
+  .topbar { top: 14px; left: 2.87vw; }
+  .top-actions { gap: 5px; }
+  .top-actions button { background: #03456955; border-color: #ffffff40; }
+  #status-objective-detail { font-size: 14px; line-height: 1.4; }
+  #status-scroll #lesson-skip { min-height: 44px; padding: 8px 14px; color: white; border: 1px solid #ffffff60; border-radius: 8px; }
+  .game-shell.is-learning #status-toggle { border-radius: 16px 16px 0 0; }
+  .game-shell.is-learning #status-toggle::before { display: none; }
+  .game-shell.show-on-screen-controls:not(.is-welcome) .controls { left: 18px; width: 160px; bottom: 18px; }
+  .helm-controls { width: 104px; flex: 0 0 104px; }
+  .controls button { background: #03456966; border: 1px solid #ffffff55; }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  .speed-instrument, .game-shell.show-on-screen-controls .speed-instrument, .depth-readout { left: 18px; width: 126px; height: 44px; padding: 6px 10px; gap: 9px; }
+  .speed-instrument, .game-shell.show-on-screen-controls .speed-instrument { top: 66px; }
+  .depth-readout { top: 116px; }
+  .speed-instrument strong, .depth-readout strong { font-size: 21px; }
+  .speed-instrument strong small, .depth-readout strong small { font-size: 17px; }
+  .readout-icon { width: 25px; height: 29px; }
+  .mini-map-hud { top: 18px; right: 18px; width: 116px; height: 116px; }
+  .mini-map-hud .north-mark { top: 12px; right: 22px; font-size: 12px; }
+  .trim-instrument, .game-shell.show-on-screen-controls .trim-instrument { top: 144px; right: 42px; width: 66px; }
+  .trim-boat-icon { width: 24px; height: 25px; margin-bottom: 4px; }
+  .trim-in-label, .trim-scale, .trim-instrument .trim-scale span:last-child { font-size: 14px; }
+  .trim-track { height: 90px; margin: 8px auto; }
+  .trim-marker { width: 16px; height: 16px; }
+  .navigation-hud, .game-shell.show-on-screen-controls .navigation-hud { width: 280px; bottom: 18px; }
+  .heading-readout { height: 44px; border-radius: 10px; }
+  .heading-readout strong { top: 10px; font-size: 20px; }
+  .heading-scale { top: 12px; right: 12px; left: 12px; mask-image: linear-gradient(90deg, transparent, #000 5%, #000 calc(50% - 35px), transparent calc(50% - 35px), transparent calc(50% + 35px), #000 calc(50% + 35px), #000 95%, transparent); }
+  .heading-tick-label { font-size: 13px; }
+  .heading-diamond { font-size: 20px; bottom: -9px; }
+  .lesson-card, .game-shell[data-academy-stage="free-sail"] .lesson-card { max-width: calc((100vw - 280px) / 2 - 128px); min-height: 50px; bottom: 18px; right: 116px; padding: 10px 12px; gap: 12px; border-radius: 14px; }
+  .lesson-copy strong { font-size: 15px; }
+  .objective-diamond { width: 18px; height: 18px; border-width: 3px; }
+  .sailing-status { top: 12px; width: min(340px,calc(100vw - 330px)); }
+  #status-toggle { font-size: 14px; padding: 8px 12px; }
+  #status-toggle::before { width: 11px; height: 11px; border-width: 2px; }
+  .status-lesson-progress { font-size: 12px; padding-bottom: 5px; }
+  .status-pips { gap: 12px; }
+  .status-pips span { width: 14px; height: 14px; }
+  #status-scroll { max-height: calc(100svh - 292px); }
+}
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 740px) {
+  .lesson-card, .game-shell[data-academy-stage="free-sail"] .lesson-card { bottom: 78px; max-width: min(206px, calc(100vw - 336px)); }
+  .lesson-copy { min-width: 0; overflow-wrap: anywhere; }
+}
+@media (orientation: landscape) and (min-height: 601px) and (max-aspect-ratio: 1.65) {
+  .mini-map-hud { width: 156px; height: 156px; }
+  .mini-map-hud .north-mark { right: 28px; top: 16px; font-size: 13px; }
+  .sailing-status { width: min(340px,calc(100vw - 380px)); }
+  #status-toggle { font-size: 17px; }
+  .status-lesson-progress { font-size: 13px; }
+  .trim-instrument, .game-shell.show-on-screen-controls .trim-instrument { right: 70px; top: 240px; }
+  .lesson-card, .game-shell[data-academy-stage="free-sail"] .lesson-card { max-width: min(245px,calc((100vw - 38.3vw) / 2 - 37px)); }
+  .lesson-copy strong { font-size: 17px; }
+}
+
+.pause-screen {
+  position: fixed;
+  z-index: 27;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(ellipse at center, #09252f59 20%, #071e2a8c 100%);
+  backdrop-filter: blur(3px) saturate(0.92);
+}
+#conditions-panel .settings-footer:has(#pause-toggle:not([hidden])) { grid-template-columns: 1fr auto auto; }
+#conditions-panel .settings-footer:has(#pause-toggle:not([hidden])) #settings-resume { grid-column: auto; grid-row: auto; }
+#conditions-panel .settings-footer .secondary-button { font-size: var(--settings-label); }
+.pause-screen[hidden], .pause-actions[hidden], #pause-logbook-view[hidden] { display: none; }
+.pause-panel {
+  width: min(360px, 100%);
+  color: #f4f3eb;
+  text-shadow: 0 2px 12px #071e2a;
+}
+.pause-panel h2 { margin: 0 0 32px; text-align: center; font: 400 32px/1.2 "Manrope", sans-serif; letter-spacing: 0.04em; }
+.pause-actions { display: grid; gap: 8px; }
+.pause-panel button {
+  position: relative;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 16px;
+  color: #e1e8e7;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font: 400 19px/1.2 "Manrope", sans-serif;
+  text-shadow: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pause-panel button:hover { color: #fff; text-decoration: underline; text-underline-offset: 7px; }
+.pause-panel button:focus-visible { outline: 0; color: #fff4d7; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 8px; }
+.pause-panel .pause-primary { margin-bottom: 12px; color: #fff4d7; font-size: 24px; font-weight: 600; }
+.pause-hint { position: absolute; bottom: 28px; display: flex; align-items: center; gap: 10px; margin: 0; color: #dae4e4; font-size: 13px; }
+.pause-hint kbd { display: inline; height: auto; padding: 0; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; }
+#pause-logbook-view p { margin: 0 0 18px; }
+#pause-logbook-view ul { margin: 0 0 24px; padding-left: 22px; line-height: 1.6; }
+.game-shell.is-paused > :is(.topbar, .sailing-hud, .mini-map-hud, .lesson-card, .destination, .navigation-hud, .controls, .reset-button, .sailing-status, .incident-screen) { visibility: hidden; pointer-events: none; }
+.game-shell.is-paused .conditions-backdrop { backdrop-filter: blur(3px) saturate(0.92); background: #071e2a66; }
+@media (max-height: 600px) {
+  .pause-screen { padding: 16px; }
+  .pause-panel h2 { margin-bottom: 14px; font-size: 24px; }
+  .pause-actions { gap: 4px; }
+  .pause-panel button { min-height: 44px; padding: 10px 16px; font-size: 17px; }
+  .pause-panel .pause-primary { margin-bottom: 6px; font-size: 21px; }
+  .pause-hint { display: none; }
+  #pause-logbook-view { font-size: 14px; }
+  #pause-logbook-view ul { margin-bottom: 16px; }
 }

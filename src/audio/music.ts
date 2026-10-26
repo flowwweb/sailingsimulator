@@ -5,6 +5,11 @@ export interface MusicTrack {
   source: string;
 }
 
+export type MusicPlaybackError =
+  | "gesture-required"
+  | "track-unavailable"
+  | "audio-unavailable";
+
 export const MUSIC_TRACKS: readonly MusicTrack[] = [
   {
     id: "fair-winds",
@@ -53,9 +58,13 @@ export function musicPlaybackStatus(
   isPlaying: boolean,
   isReady: boolean,
   isEnabled: boolean,
+  error?: MusicPlaybackError,
 ): string {
+  if (error === "gesture-required") return `${track.setting} · Tap Play to resume`;
+  if (error === "track-unavailable") return `${track.setting} · Track unavailable`;
+  if (error === "audio-unavailable") return `${track.setting} · Audio unavailable`;
   if (isPlaying) return `${track.setting} · Playing`;
   if (!isEnabled) return `${track.setting} · Music paused`;
   if (isReady) return `${track.setting} · Paused`;
-  return `${track.setting} · Starts after Set Sail`;
+  return `${track.setting} · Starts when sailing begins`;
 }

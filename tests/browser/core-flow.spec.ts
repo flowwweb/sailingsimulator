@@ -3,7 +3,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const visualQaDirectory = resolve(".artifacts/visual-qa");
-const externalBrowserRun = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+const externalBrowserRun = Boolean(process.env.PLAYWRIGHT_BASE_URL &&
+  !['127.0.0.1', 'localhost'].includes(new URL(process.env.PLAYWRIGHT_BASE_URL).hostname));
 
 function collectRuntimeErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -16,9 +17,11 @@ function collectRuntimeErrors(page: Page): string[] {
 
 async function beginLesson(page: Page): Promise<void> {
   await page.goto("/");
+  await expect(page.locator("#boot-loader")).toHaveCount(0);
   await expect(page.locator("#welcome")).toBeVisible();
   await expect(page.locator("#set-sail")).toBeVisible();
   await page.locator("#set-sail").click();
+  await page.locator("#start-lesson").click();
   await expect(page.locator(".game-shell")).not.toHaveClass(/is-welcome/);
   await expect(page.locator("#welcome")).toBeHidden();
   await expect(page.locator("#flow-state")).toBeVisible();
@@ -33,6 +36,12 @@ async function setRange(page: Page, selector: string, value: string): Promise<vo
 }
 
 test.beforeAll(() => mkdirSync(visualQaDirectory, { recursive: true }));
+test.beforeEach(async ({ page }, info) => {
+  if (info.project.name === "mobile-chrome") await page.setViewportSize({ width: 844, height: 390 });
+});
+test.afterEach(async ({ page }, info) => {
+  if (info.status !== info.expectedStatus) await page.screenshot({path: resolve(visualQaDirectory, `failed-${info.project.name}-${info.title.replace(/[^a-z0-9]+/gi, '-')}.png`)});
+});
 
 test("styled loading screen covers the app until its first rendered frame", async ({
   context,
@@ -201,7 +210,7 @@ test("live minimap stays visible while sailing", async ({ page }) => {
   await expect(page.locator("#minimap")).toBeVisible();
 });
 
-test("academy, live activity coaching, and forecast form one learning loop", async ({
+test("academy, live activity coaching, and weather controls form one learning loop", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chrome");
@@ -223,8 +232,9 @@ test("academy, live activity coaching, and forecast form one learning loop", asy
 
   await page.locator("#conditions-toggle").click();
   await page.locator('[data-ui-tab="weather"]').click();
-  await expect(page.locator("#forecast-summary")).toContainText("Wind");
-  await expect(page.locator("#forecast-advice")).not.toBeEmpty();
+  await expect(page.locator("#wind-speed")).toBeVisible();
+  await expect(page.locator("#wind-direction")).toBeVisible();
+  await expect(page.locator("#forecast-summary")).toHaveCount(0);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -264,24 +274,18 @@ test("cinematic title scene uses the supplied identity and remains animated", as
     "complete",
     true,
   );
-  await expect(page.locator(".title-menu-item")).toHaveCount(3);
+  await expect(page.locator(".title-menu button:visible")).toHaveCount(4);
   await expect(page.locator("#set-sail")).toHaveClass(/is-selected/);
   await expect(page.locator(".title-audio-note")).toHaveCount(0);
   const titleMute = page.locator("#title-mute");
-  await expect(titleMute).toBeVisible();
+  await expect(titleMute).toBeHidden();
   await expect(titleMute).toHaveAttribute("aria-label", "Mute sound");
-  await titleMute.click();
+  await page.keyboard.press("KeyM");
   await expect(titleMute).toHaveAttribute("aria-pressed", "true");
   await expect(titleMute).toHaveAttribute("aria-label", "Unmute sound");
-  await titleMute.click();
+  await page.keyboard.press("KeyM");
   await expect(titleMute).toHaveAttribute("aria-pressed", "false");
-  const selectedFontSize = await page.locator("#set-sail").evaluate(
-    (element) => Number.parseFloat(getComputedStyle(element).fontSize),
-  );
-  const idleFontSize = await page.locator("#new-journey").evaluate(
-    (element) => Number.parseFloat(getComputedStyle(element).fontSize),
-  );
-  expect(selectedFontSize).toBeGreaterThan(idleFontSize);
+  await expect(page.locator("#set-sail")).toHaveCSS("background-color", "rgb(255, 198, 79)");
 
   const firstFrame = await page.locator("#lake").screenshot();
   await page.waitForTimeout(850);
@@ -307,17 +311,17 @@ test("cinematic title scene uses the supplied identity and remains animated", as
     path: resolve(
       visualQaDirectory,
       mobile
-        ? "browser-title-mobile-390x844.png"
+        ? "browser-title-mobile-844x390.png"
         : "browser-title-desktop-1440x900.png",
     ),
   });
 
   await page.locator("#set-sail").focus();
   await page.keyboard.press("ArrowDown");
-  await expect(page.locator("#new-journey")).toHaveClass(/is-selected/);
-  await expect(page.locator("#new-journey")).toHaveCSS(
+  await expect(page.locator("#title-free-sail")).toHaveClass(/is-selected/);
+  await expect(page.locator("#title-free-sail")).toHaveCSS(
     "outline-style",
-    "none",
+    "solid",
   );
   await page.keyboard.press("ArrowUp");
   await expect(page.locator("#set-sail")).toHaveClass(/is-selected/);
@@ -337,6 +341,7 @@ test("starter dinghy presents as a coherent open mainsail trainer", async ({
   }
   await page.locator("#conditions-toggle").click();
   await page.locator('[data-ui-tab="weather"]').click();
+  await page.locator(".weather-details summary").click();
   await page.locator("#weather-mode").selectOption("manual");
   await page.locator('[data-ui-tab="sky"]').click();
   await setRange(page, "#time-of-day", "15.5");
@@ -349,7 +354,7 @@ test("starter dinghy presents as a coherent open mainsail trainer", async ({
     path: resolve(
       visualQaDirectory,
       mobile
-        ? "browser-dinghy-mobile-390x844.png"
+        ? "browser-dinghy-mobile-844x390.png"
         : "browser-dinghy-desktop-1440x900.png",
     ),
   });
@@ -479,7 +484,7 @@ test("North Light and its trees meet the headland terrain", async ({
   expect(runtimeErrors).toEqual([]);
 });
 
-test("desktop launch, sail controls, settings, boats, and persistence stay coherent", async ({
+test("desktop launch, sail controls, training boat, and weather persistence stay coherent", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chrome");
@@ -487,9 +492,9 @@ test("desktop launch, sail controls, settings, boats, and persistence stay coher
   await beginLesson(page);
 
   const initialBoom = await page.locator("#boom-readout").textContent();
-  await page.keyboard.down("KeyW");
+  await page.keyboard.down("KeyS");
   await page.waitForTimeout(550);
-  await page.keyboard.up("KeyW");
+  await page.keyboard.up("KeyS");
   await expect(page.locator("#boom-readout")).not.toHaveText(initialBoom ?? "");
 
   await page.keyboard.press("KeyC");
@@ -511,10 +516,10 @@ test("desktop launch, sail controls, settings, boats, and persistence stay coher
     pausedAt ?? "",
   );
 
-  await page.locator("#boat-select").selectOption("coastal-28");
-  await expect(page.locator("#sail-plan-label")).toContainText("Main + jib", {
-    ignoreCase: true,
-  });
+  await expect(page.locator("#boat-select option")).toHaveCount(1);
+  await expect(page.locator("#boat-select")).toHaveValue("harbor-20");
+  await expect(page.locator("#sail-plan-label")).toHaveText("Mainsail");
+
   await page.locator('[data-ui-tab="water"]').click();
   await page.locator("#sea-state").selectOption("rough");
   await page.locator("#conditions-close").click();
@@ -530,11 +535,10 @@ test("desktop launch, sail controls, settings, boats, and persistence stay coher
   );
 
   await page.reload();
-  await expect(page.locator("#boat-select")).toHaveValue("coastal-28");
-  await expect(page.locator("#sail-plan-label")).toContainText("Main + jib", {
-    ignoreCase: true,
-  });
-  await page.locator("#set-sail").click();
+  await expect(page.locator("#boat-select")).toHaveValue("harbor-20");
+  await expect(page.locator("#sail-plan-label")).toHaveText("Mainsail");
+  await expect(page.locator("#sea-state")).toHaveValue("rough");
+  await page.locator("#continue-lesson").click();
   await expect(page.locator("#welcome")).toBeHidden();
   await expect(page.locator("#flow-state")).toBeVisible();
 
@@ -542,7 +546,7 @@ test("desktop launch, sail controls, settings, boats, and persistence stay coher
   await page.locator("#settings-main-menu").click();
   await expect(page.locator("#welcome")).toBeVisible();
   await expect(page.locator(".game-shell")).toHaveClass(/is-welcome/);
-  await page.locator("#set-sail").click();
+  await page.locator("#continue-lesson").click();
   await expect(page.locator("#welcome")).toBeHidden();
 
   await page.screenshot({
@@ -560,6 +564,7 @@ test("night, rain, and Storm conditions reach the rendered game", async ({
 
   await page.locator("#conditions-toggle").click();
   await page.locator('[data-ui-tab="weather"]').click();
+  await page.locator(".weather-details summary").click();
   await page.locator("#weather-mode").selectOption("manual");
   await setRange(page, "#wind-speed", "10.5");
   await setRange(page, "#wind-direction", "225");
@@ -572,8 +577,8 @@ test("night, rain, and Storm conditions reach the rendered game", async ({
   await setRange(page, "#cloud", "0.76");
   await expect(page.locator("#time-of-day-output")).toHaveText("22:00");
   await expect(page.locator("#rain-output")).toHaveText("72%");
-  await expect(page.locator("#wind-speed-output")).toHaveText("10.5 m/s");
-  await expect(page.locator("#wind-direction-output")).toHaveText("225°");
+  await expect(page.locator("#wind-speed-output")).toHaveText("20.4 kn");
+  await expect(page.locator("#wind-direction-output")).toHaveText("225° · Southwest");
   await page.locator("#conditions-close").click();
   await page.waitForTimeout(1_200);
 
@@ -617,8 +622,8 @@ test("mobile controls are available by default and drive the boat", async ({
   await expect(sailActions).toHaveCount(2);
   for (const action of await sailActions.all()) await expect(action).toBeVisible();
 
-  const ease = page.locator('[data-control="ease"]');
-  const box = await ease.boundingBox();
+  const sheetIn = page.locator('[data-control="sheet"]');
+  const box = await sheetIn.boundingBox();
   expect(box).not.toBeNull();
   const x = box!.x + box!.width / 2;
   const y = box!.y + box!.height / 2;
@@ -666,7 +671,7 @@ test("mobile controls are available by default and drive the boat", async ({
   await expect(page.locator("#reef-sail")).toHaveAttribute("aria-pressed", "false");
 
   await page.screenshot({
-    path: resolve(visualQaDirectory, "browser-mobile-390x844.png"),
+    path: resolve(visualQaDirectory, "browser-mobile-844x390.png"),
   });
   expect(runtimeErrors).toEqual([]);
 });
@@ -709,7 +714,7 @@ test("glass settings remain usable on mobile", async ({ page }, testInfo) => {
   await expect(page.locator("#settings-sound")).toBeVisible();
   await expect(page.locator("#settings-resume")).toBeVisible();
   await page.screenshot({
-    path: resolve(visualQaDirectory, "settings-production-mobile-390x844.png"),
+    path: resolve(visualQaDirectory, "settings-production-mobile-844x390.png"),
   });
 
   expect(runtimeErrors).toEqual([]);

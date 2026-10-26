@@ -1,4 +1,4 @@
-const CACHE_VERSION = "fair-winds-shell-v1";
+const CACHE_VERSION = "fair-winds-shell-v2";
 const CORE_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -33,7 +33,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== CACHE_VERSION)
+            .filter((key) => key.startsWith("fair-winds-shell-") && key !== CACHE_VERSION)
             .map((key) => caches.delete(key)),
         ),
       )
