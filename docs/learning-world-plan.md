@@ -21,6 +21,19 @@ deterministic sailing model, and the approved quiet landscape interface.
 | 5. Leave the marina without traffic | Prepare a pilotage plan, manage clearance and speed, and travel through valid water to the exit. | Grounding, a shallow shortcut or reset is practice evidence, not mastery credit. Traffic must actually be disabled for this scenario. |
 | 6. Return with scripted traffic | Observe the authored encounter, choose and verify an appropriate response, return safely and complete the scenario's arrival actions. | Preserve unsafe-event evidence. A contact must not teleport away to manufacture success; support recovery when another vessel does not cooperate. |
 
+Introductions 4–6 have capability gates of their own, before they can be offered
+or accepted: 4 requires the fixture's actual line-attachment/release actions and
+pier separation; 5 requires depth, valid-water and clearance checks with traffic
+disabled; 6 requires those checks, deterministic scripted traffic and witnessed
+arrival/securing actions. Review only capabilities required by the authored
+fixture; do not hide these gates in the later optional-scenario work.
+
+Each introduction must bind a versioned fixture to its ordered actions,
+completion/failure witnesses, reviewed numeric thresholds with units and
+rationale, and positive/negative tests. Cover no-input drift, selector/reset or
+reload credit, skipped/reversed geometry, unsafe contact and missing capability
+as applicable. No introduction is accepted from its title or a happy-path timer.
+
 Update scenario starts, completion, retry and persisted progress together with
 the chooser, returning-player view and logbook. Migrate old earned objectives
 explicitly: an old index must not accidentally become a completed new lesson.
@@ -45,11 +58,16 @@ Do not infer understanding from camera movement or success from a timer alone.
 | Practice | Repeat a known seed; allow requested hints and retries. | Practice completion with assistance and retry counts. |
 | Assessment | Brief the task and equipment; use an unfamiliar equivalent seed without tactical answer hints. | Independent result only when the required decisions and actions are witnessed. A hint converts the attempt to practice. |
 
-Pause and accessibility use alone must not reduce credit. A retry creates a new
-attempt and restores weather, traffic and boat state consistently. Reloading,
-changing mode or selecting a scenario cannot award completion. A long absence
-from a traffic encounter should offer a safe briefing/restart while retaining
-the log. Interrupted consecutive-action evidence must be earned again.
+| Event | Retained credit and history | Active state and chooser/logbook outcome |
+|---|---|---|
+| Pause | Keep earned outcomes, input trace and assistance history; pause/accessibility use alone earns no penalty. | Freeze simulated time and world/attempt state. Resume that consistent state without counting paused time toward a witness; chooser/logbook show an in-progress attempt, not completion. |
+| Reload | Keep earned versioned outcomes and the prior attempt record. | Validate the saved scenario/seed/state. Restart interrupted continuous witnesses; if state cannot safely resume, brief a fresh linked attempt. Chooser/logbook reflect only earned credit. |
+| Retry | Keep prior earned outcomes, failure evidence and retry parent. | Create a new attempt at its declared decision point; restore boat/weather/traffic together and clear unearned witnesses. Show the retry, never manufacture a completed lesson. |
+| Mode change or hint | Keep prior outcomes and record the change/assistance. | An assisted assessment continues only as practice. Entering assessment starts a new eligible unassisted attempt; practice witnesses cannot become assessment credit. Chooser/logbook name the actual mode. |
+
+Selecting a scenario cannot award completion. After a long absence from a
+traffic encounter, offer a safe briefing/restart while retaining the log.
+Reload or retry sequences must re-earn any invalidated ordered-action evidence.
 
 Debrief with a short timeline answering what the learner noticed, chose and
 observed, then suggest one useful next attempt. Separate a decision error from
