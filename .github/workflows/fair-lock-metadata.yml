@@ -1,0 +1,202 @@
+# PROPOSAL: independently review this source before publishing/enabling it.
+# The required public input commit is not yet supplied; current public refs fail the pair hashes.
+name: Fair Winds metadata lock repair
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Public commit containing the reviewed .github/fair-lock-inputs/*.before fixtures
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: fair-metadata-lock-repair
+  cancel-in-progress: false
+jobs:
+  resolve:
+    if: github.repository == 'flowwweb/sailingsimulator' && github.event.repository.private == false && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Resolve reviewed metadata in a restricted disposable container
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          work=$(mktemp -d)
+          cid=''
+          cleanup() {
+            primary_status=$?
+            trap - EXIT
+            set +e
+            removal_status=0
+            removal_outcome=not_created
+            if [[ -n "$cid" ]]; then
+              timeout --signal=KILL 15s docker rm -f "$cid"
+              removal_status=$?
+              removal_outcome=removed
+              if [[ "$removal_status" != 0 ]]; then removal_outcome=failed; fi
+            fi
+            timeout --signal=KILL 10s rm -rf -- "$work"
+            temp_status=$?
+            printf 'FAIR_CLOSURE primary=%s container=%s container_status=%s temp_status=%s\n' "$primary_status" "$removal_outcome" "$removal_status" "$temp_status"
+            printf 'Closure: primary=%s; container=%s (status %s); temporary directory removal status=%s.\n' "$primary_status" "$removal_outcome" "$removal_status" "$temp_status" >> "$GITHUB_STEP_SUMMARY"
+            summary_status=$?
+            if [[ "$primary_status" != 0 ]]; then exit "$primary_status"; fi
+            if [[ "$removal_status" != 0 || "$temp_status" != 0 || "$summary_status" != 0 ]]; then exit 1; fi
+          }
+          trap cleanup EXIT
+          export DOCKER_CONFIG="$work/docker-config"
+          mkdir "$DOCKER_CONFIG"
+          unset DOCKER_HOST DOCKER_CONTEXT DOCKER_AUTH_CONFIG
+          get_public() {
+            curl -q --noproxy '*' --proto '=https' --tlsv1.2 --fail --silent --show-error --max-time 30 --max-redirs 0 "$1"
+          }
+          get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
+          jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
+          for file in package.json package-lock.json; do
+            get_public "https://raw.githubusercontent.com/flowwweb/sailingsimulator/$SOURCE_COMMIT/.github/fair-lock-inputs/$file.before" > "$work/$file"
+          done
+          cd "$work"
+          printf '%s  %s\n' \
+            17e402dc87c57db6c4b1492c258d62a32167ac14e8d5bd09cd125c72b5cde209 package.json \
+            e1a6e4806cad68bbdca99ba22d64235a5b92544cf69b9358912ec3d390d286ae package-lock.json | sha256sum --check --strict
+          cat > repair.cjs <<'JS'
+          'use strict';
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const { createHash } = require('node:crypto');
+          const { spawnSync } = require('node:child_process');
+          const hash = b => createHash('sha256').update(b).digest('hex');
+          const originalPackage = fs.readFileSync('package.json');
+          const originalLock = fs.readFileSync('package-lock.json');
+          assert.equal(hash(originalPackage), '17e402dc87c57db6c4b1492c258d62a32167ac14e8d5bd09cd125c72b5cde209');
+          assert.equal(hash(originalLock), 'e1a6e4806cad68bbdca99ba22d64235a5b92544cf69b9358912ec3d390d286ae');
+          assert.equal(process.version, 'v24.22.1');
+          const npmRoot = '/usr/local/lib/node_modules/npm';
+          assert.equal(JSON.parse(fs.readFileSync(npmRoot + '/package.json', 'utf8')).version, '11.19.1');
+          assert.equal(process.getuid(), 1000);
+          for (const key of Object.keys(process.env)) assert.ok(['PATH', 'HOME', 'PWD'].includes(key), 'Unexpected environment key: ' + key);
+          for (const path of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(path), 'Forbidden runtime path');
+          assert.ok(!fs.existsSync('node_modules'));
+          const before = JSON.parse(originalLock);
+          const pkg = JSON.parse(originalPackage);
+          assert.equal(before.lockfileVersion, 3);
+          assert.equal(Object.keys(before.packages).filter(path => path !== '').length, 109);
+          assert.deepEqual(pkg.dependencies, before.packages[''].dependencies);
+          assert.deepEqual(pkg.devDependencies, before.packages[''].devDependencies);
+          for (const name of ['preinstall', 'install', 'postinstall', 'prepare', 'prepublish', 'prepublishOnly']) assert.ok(!pkg.scripts?.[name]);
+          assert.ok(!pkg.workspaces && !pkg.overrides);
+          const targets = {"node_modules/vite":{"version":"8.1.6","resolved":"https://registry.npmjs.org/vite/-/vite-8.1.6.tgz","integrity":"sha512-aRAHIxx5SW5zc1sMqFwJU/t5qaFfXb5Hj0J7W0VXihu/X99+346tz6080tO1T1xVIJORX/b3zVTXGFqUXh35uw=="},"node_modules/vitest":{"version":"4.1.12","resolved":"https://registry.npmjs.org/vitest/-/vitest-4.1.12.tgz","integrity":"sha512-5eWdz2yb3ajxWF3C8C4TjkXl7FGm3n2E/VlazALrQHzK7nYMSGFnCZto0bbPNl77AwkOZVLk0YnBAejUu0NiWA=="},"node_modules/@vitest/expect":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/expect/-/expect-4.1.12.tgz","integrity":"sha512-vFlTt+YEu9WBpNjdGayNmlMVzrWPi1+sv853/7t2FU7hpO5gAFBKHzQmkCq5Xjpr+evegF2994LQT3hF3mRlqQ=="},"node_modules/@vitest/mocker":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/mocker/-/mocker-4.1.12.tgz","integrity":"sha512-fKShNpKZzupWZuY0z7egydvL0sqW4INEZBEExMBMAa6izlENEVHwoXgdaTCaBZ5fwlr4xf2o1wXC83n9RpO+NA=="},"node_modules/@vitest/pretty-format":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/pretty-format/-/pretty-format-4.1.12.tgz","integrity":"sha512-XW9O8+Mxx4VpCtkYdMJLZQQwsVryP9wk7cPKDxtXFfwSak6yRh5+2fep/Y0XF/ElBvJHq8bcYdi6aeuai0opZA=="},"node_modules/@vitest/runner":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/runner/-/runner-4.1.12.tgz","integrity":"sha512-NKlVKCr5QnCe8jijdMnmkpHHU+WTqiLFR6G0pHji9uRjXK9xJl1k1nTw6F3pOOj2PDcsDt2GKQMI7wIsaT491w=="},"node_modules/@vitest/snapshot":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/snapshot/-/snapshot-4.1.12.tgz","integrity":"sha512-ko1y1Qgb/slzQ9mr+b89Cuqud8WG1TKtsPD8r7ZUBdvVOGt85Af2HwCqHujrhwJq95hs/9RM7fcAPg57o1vlzw=="},"node_modules/@vitest/spy":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/spy/-/spy-4.1.12.tgz","integrity":"sha512-RGq9x4JNGNTZHEJxvN0oSiJjeSCExm0n2gZKKJZHY9cX5AVA6M7VJILBT3ZJ/tJ/0J9uWT7fETV9/btoi//vSg=="},"node_modules/@vitest/utils":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/utils/-/utils-4.1.12.tgz","integrity":"sha512-Q3awXrwOfEV+qc3WmO5ONyE0yO7Q1gQ9/oyHxGLZ/pl7N3NO/ZztqQwKLuwMkV+CA1JYSIeO3gkHnRDIo4AVaA=="}};
+          function validateLock(lock) {
+            assert.equal(lock.lockfileVersion, 3);
+            for (const [path, entry] of Object.entries(lock.packages)) {
+              if (path !== '') {
+                assert.match(path, /^node_modules\/(?:@[a-z0-9._-]+\/)?[a-z0-9._-]+(?:\/node_modules\/(?:@[a-z0-9._-]+\/)?[a-z0-9._-]+)*$/);
+                assert.ok(!entry.link && !entry.inBundle);
+                assert.match(entry.version, /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
+                const url = new URL(entry.resolved);
+                assert.equal(url.origin, 'https://registry.npmjs.org');
+                assert.ok(!url.username && !url.password && !url.search && !url.hash);
+                assert.ok(url.pathname.endsWith('.tgz'));
+                assert.match(entry.integrity, /^sha512-[A-Za-z0-9+/]{86}==$/);
+              }
+              for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+                for (const spec of Object.values(entry[field] || {})) assert.match(spec, /^[v0-9*^~<>=][0-9A-Za-z.*+^~<>=| -]*$/, 'Non-registry dependency spec');
+              }
+            }
+          }
+          validateLock(before);
+          for (const [path, target] of Object.entries(targets)) assert.equal(before.packages[path].version, path === 'node_modules/vite' ? '8.1.4' : '4.1.11');
+          fs.copyFileSync('package-lock.json', 'package-lock.json.before');
+          const patched = originalPackage.toString('utf8').replace('"vite": "8.1.4"', '"vite": "8.1.6"').replace('"vitest": "4.1.11"', '"vitest": "4.1.12"');
+          assert.equal(hash(patched), '9a8ad7e3a6786130453628bf52581427e4ea573d341e2bede09c3d4e7495db11');
+          fs.writeFileSync('package.json', patched);
+          const userConfig = '/tmp/npm-user.npmrc';
+          const globalConfig = '/tmp/npm-global.npmrc';
+          assert.notEqual(userConfig, globalConfig);
+          for (const path of [userConfig, globalConfig]) {
+            fs.writeFileSync(path, '', { flag: 'wx', mode: 0o600 });
+            const stat = fs.statSync(path);
+            assert.ok(stat.isFile() && stat.size === 0 && stat.uid === process.getuid());
+          }
+          const env = { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: '/tmp', npm_config_userconfig: userConfig, npm_config_globalconfig: globalConfig, npm_config_cache: '/tmp/npm-cache' };
+          const registry = spawnSync(process.execPath, [npmRoot + '/bin/npm-cli.js', 'config', 'get', 'registry'], { env, encoding: 'utf8', timeout: 15000 });
+          assert.equal(registry.error, undefined);
+          assert.equal(registry.status, 0);
+          assert.equal(registry.stdout.trim(), 'https://registry.npmjs.org/');
+          const args = ['install', '--package-lock-only', '--ignore-scripts', '--registry=https://registry.npmjs.org/', '--audit=false', '--fund=false', '--update-notifier=false', '--fetch-retries=0', '--fetch-timeout=30000'];
+          const result = spawnSync(process.execPath, [npmRoot + '/bin/npm-cli.js', ...args], { env, encoding: 'utf8', timeout: 180000, maxBuffer: 1024 * 1024 });
+          const afterBytes = fs.readFileSync('package-lock.json');
+          const after = JSON.parse(afterBytes);
+          const changed = Object.keys(after.packages).filter(path => JSON.stringify(after.packages[path]) !== JSON.stringify(before.packages[path]));
+          // Emit candidate bytes even when the resolver or postchecks reject; this is review evidence only.
+          const report = Buffer.from(JSON.stringify({ node: process.version, npm: '11.19.1', args, status: result.status, error: result.error?.message, stdout: result.stdout, stderr: result.stderr, originalPackageSha256: hash(originalPackage), originalLockSha256: hash(originalLock), packageSha256: hash(fs.readFileSync('package.json')), lockSha256: hash(afterBytes), changedPaths: changed, packageBase64: fs.readFileSync('package.json').toString('base64'), originalLockBase64: originalLock.toString('base64'), lockBase64: afterBytes.toString('base64') })).toString('base64');
+          console.log('FAIR_HASHES=' + JSON.stringify({ packageSha256: hash(fs.readFileSync('package.json')), originalLockSha256: hash(originalLock), lockSha256: hash(afterBytes) }));
+          console.log('FAIR_RESULT_BASE64_BEGIN');
+          for (const line of report.match(/.{1,120}/g)) console.log(line);
+          console.log('FAIR_RESULT_BASE64_END');
+          assert.equal(result.error, undefined);
+          assert.equal(result.status, 0);
+          assert.equal(hash(fs.readFileSync('package-lock.json.before')), hash(originalLock));
+          assert.equal(hash(fs.readFileSync('package.json')), '9a8ad7e3a6786130453628bf52581427e4ea573d341e2bede09c3d4e7495db11');
+          assert.ok(!fs.existsSync('node_modules'));
+          validateLock(after);
+          assert.deepEqual(Object.keys(after.packages).sort(), Object.keys(before.packages).sort(), 'Unexpected package identity/path churn');
+          assert.deepEqual(after.packages[''], { ...before.packages[''], devDependencies: JSON.parse(patched).devDependencies });
+          for (const [path, entry] of Object.entries(after.packages)) {
+            if (path === '') continue;
+            if (targets[path]) {
+              for (const field of ['version', 'resolved', 'integrity']) assert.equal(entry[field], targets[path][field], 'Reviewed registry identity mismatch: ' + path);
+              assert.ok(!entry.hasInstallScript);
+            } else assert.deepEqual(entry, before.packages[path], 'Unexpected transitive change: ' + path);
+          }
+          console.log('FAIR_POSTCHECKS=PASS_METADATA_ONLY');
+          JS
+          image='docker.io/library/node@sha256:2dd9a4f758e173b65fee15388f7706af6fb01ef50cf7a2c0538711d67a6981ae'
+          timeout 120s docker pull --platform linux/amd64 "$image"
+          test "$(docker image inspect --format '{{.Id}}' "$image")" = 'sha256:dc1f22974dab4be31a8b56d58cb1f8fc218e83de83ccd831d885b3d7ac1223fb'
+          command='set -eu; test "$(id -u)" = 1000; test ! -e /var/run/docker.sock; cd /work; tar -xf -; exec node repair.cjs'
+          cid=$(docker create --platform linux/amd64 --interactive --user 1000:1000 \
+            --read-only --cap-drop ALL --security-opt no-new-privileges=true \
+            --pids-limit 64 --memory 512m --memory-swap 512m --cpus 1 \
+            --network bridge --ipc none --cgroupns private --ulimit nofile=256:256 \
+            --tmpfs /work:rw,noexec,nosuid,nodev,size=268435456,uid=1000,gid=1000,mode=0700 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=268435456,uid=1000,gid=1000,mode=0700 \
+            --log-driver local --log-opt max-size=1m --log-opt max-file=1 \
+            --entrypoint /usr/bin/env "$image" -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/tmp /bin/sh -c "$command")
+          docker inspect "$cid" > container-inspect.json
+          jq -e --arg image "$image" --arg command "$command" '
+            length == 1 and (.[0] |
+              .State.Status == "created" and .Config.Image == $image and
+              .Image == "sha256:dc1f22974dab4be31a8b56d58cb1f8fc218e83de83ccd831d885b3d7ac1223fb" and
+              .Config.User == "1000:1000" and .Config.Entrypoint == ["/usr/bin/env"] and
+              .Config.Cmd == ["-i","PATH=/usr/local/bin:/usr/bin:/bin","HOME=/tmp","/bin/sh","-c",$command] and
+              (.Config.Env | sort) == (["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","NODE_VERSION=24.22.1","YARN_VERSION=1.22.22"] | sort) and
+              (.Config.Volumes // {} | length) == 0 and
+              (.Mounts | all(.Type == "tmpfs" and (.Source // "") == "" and (.Destination == "/work" or .Destination == "/tmp"))) and
+              (.HostConfig | .Privileged == false and .ReadonlyRootfs == true and
+                (.Binds // [] | length) == 0 and (.Mounts // [] | length) == 0 and (.VolumesFrom // [] | length) == 0 and
+                .CapDrop == ["ALL"] and (.CapAdd // [] | length) == 0 and
+                .SecurityOpt == ["no-new-privileges=true"] and .PidsLimit == 64 and
+                .Memory == 536870912 and .MemorySwap == 536870912 and .NanoCpus == 1000000000 and
+                .NetworkMode == "bridge" and .IpcMode == "none" and .PidMode == "" and .CgroupnsMode == "private" and
+                (.Devices // [] | length) == 0 and (.DeviceRequests // [] | length) == 0 and
+                .Tmpfs == {"/work":"rw,noexec,nosuid,nodev,size=268435456,uid=1000,gid=1000,mode=0700","/tmp":"rw,noexec,nosuid,nodev,size=268435456,uid=1000,gid=1000,mode=0700"}))
+          ' container-inspect.json
+          cat container-inspect.json
+          sha256sum package.json package-lock.json repair.cjs container-inspect.json
+          guard=$(cat /proc/sys/kernel/random/uuid)
+          printf '::stop-commands::%s\n' "$guard"
+          set +e
+          tar -cf - package.json package-lock.json repair.cjs | timeout --signal=KILL 240s docker start --attach --interactive "$cid" | tee resolver-output.log
+          statuses=("${PIPESTATUS[@]}")
+          set -e
+          printf '::%s::\n' "$guard"
+          printf 'Metadata resolver only; inspect public logs between FAIR_RESULT_BASE64_BEGIN/END (wrapped base64 JSON with exact package, original lock, candidate lock and hashes). No dependency clearance.\n' >> "$GITHUB_STEP_SUMMARY"
+          printf 'Input public commit: `%s`\n' "$SOURCE_COMMIT" >> "$GITHUB_STEP_SUMMARY"
+          for status in "${statuses[@]}"; do test "$status" = 0; done
+          grep -qx 'FAIR_POSTCHECKS=PASS_METADATA_ONLY' resolver-output.log
