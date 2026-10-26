@@ -6,7 +6,7 @@ export class GameInput {
   private readonly active = new Set<ControlName>();
   private readonly keys = new Set<string>();
   private readonly buttonKeys = new Map<string, ControlName>();
-  private readonly clickControls = new Map<ControlName, number>();
+  private readonly clickControls = new Map<ControlName, { until: number; pending: boolean }>();
   private resetRequested = false;
   private muteRequested = false;
   private conditionsRequested = false;
@@ -58,7 +58,7 @@ export class GameInput {
         if (!this.canControl() || document.hidden) return;
         // Native/AT activation has no hold/release pair; use a bounded press.
         if (event.detail === 0 && !this.active.has(control) && ![...this.buttonKeys.values()].includes(control)) {
-          this.clickControls.set(control, performance.now() + 250);
+          this.clickControls.set(control, { until: performance.now() + 250, pending: true });
         }
       });
       element.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -75,7 +75,10 @@ export class GameInput {
   read(currentSheet = 0): Controls {
     if (!this.canControl() || document.hidden) { this.releaseAll(); return { rudder: 0, sheetRate: 0 }; }
     const now = performance.now();
-    for (const [control, until] of this.clickControls) if (until <= now) this.clickControls.delete(control);
+    for (const [control, pulse] of this.clickControls) {
+      if (!pulse.pending && pulse.until <= now) this.clickControls.delete(control);
+      else pulse.pending = false;
+    }
     const active = new Set([...this.active, ...this.buttonKeys.values(), ...this.clickControls.keys()]);
     const port = active.has("port") || this.keys.has("KeyA") || this.keys.has("ArrowLeft");
     const starboard = active.has("starboard") || this.keys.has("KeyD") || this.keys.has("ArrowRight");

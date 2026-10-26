@@ -224,6 +224,38 @@ describe("focused helm and sheet activation", () => {
     expect(input!.read()).toEqual({ rudder: -1, sheetRate: 1 });
     key("keyup", buttons.port!, "Enter"); input!.releaseAll(); expect(input!.read()).toEqual(neutral);
   });
+  it("consumes a delayed native/AT activation once without extending its original duration", () => {
+    const button = controls().starboard!;
+    button.dispatchEvent(event("click", { detail: 0 }));
+    clock = 1_000;
+    expect(input!.read()).toEqual({ rudder: 1, sheetRate: 0 });
+    expect(input!.read()).toEqual(neutral);
+    clock = 1_001; expect(input!.read()).toEqual(neutral);
+    button.dispatchEvent(event("click", { detail: 0 }));
+    expect(input!.read().rudder).toBe(1);
+    clock = 1_250; expect(input!.read().rudder).toBe(1);
+    clock = 1_251; expect(input!.read()).toEqual(neutral);
+  });
+  for (const cancel of ["window-blur", "button-blur", "hidden", "releaseAll", "pointerup", "pointercancel", "lostpointercapture"]) it(`discards an unread delayed native activation on ${cancel}`, () => {
+    const button = controls().starboard!;
+    button.dispatchEvent(event("click", { detail: 0 }));
+    clock = 1_000;
+    if (cancel === "window-blur") win.dispatchEvent(event("blur"));
+    else if (cancel === "hidden") { doc.hidden = true; doc.dispatchEvent(event("visibilitychange")); doc.hidden = false; }
+    else if (cancel === "releaseAll") input!.releaseAll();
+    else button.dispatchEvent(event(cancel === "button-blur" ? "blur" : cancel));
+    expect(input!.read()).toEqual(neutral);
+    expect(input!.read()).toEqual(neutral);
+  });
+  it("does not rearm an unread native activation after the modal input gate closes", () => {
+    const root = new Root(), button = new Button(); button.dataset.control = "starboard"; root.elements = [button];
+    let enabled = true;
+    input = new GameInput(root as unknown as ParentNode, () => enabled);
+    button.dispatchEvent(event("click", { detail: 0 }));
+    clock = 1_000; enabled = false;
+    expect(input.read()).toEqual(neutral);
+    enabled = true; expect(input.read()).toEqual(neutral);
+  });
   it("preserves sailing shortcuts and native sail-action buttons, while dialogs suppress game input", () => {
     const button = controls().port!; key("keydown", button, "KeyD"); expect(input!.read().rudder).toBe(1);
     key("keyup", button, "KeyD"); key("keydown", button, "KeyX"); expect(input!.consumeSails()).toBe(true);

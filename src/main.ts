@@ -936,7 +936,6 @@ function loop(now: number): void {
   if (portrait || document.hidden) interruptLessonAttempt();
   if (droppedFrame) {
     academy.interrupt();
-    input.releaseAll();
     accumulator = 0;
   }
   if (!portrait) presentationTime += frameDt;
