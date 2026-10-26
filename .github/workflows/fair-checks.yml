@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: d25e0406ce7ec01be168d1b17cbde8cdcc7a6925
+          SOURCE_COMMIT: 0052adbf9ef4a813db494a79bcab56b3d5f3e182
         run: |
           set -euo pipefail
           umask 077
@@ -52,12 +52,12 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "d25e0406ce7ec01be168d1b17cbde8cdcc7a6925" and .tree.sha == "3c85e981db7570c4c190ad7c22d337a27ebe2401"' "$work/commit.json"
+          jq -e '.sha == "0052adbf9ef4a813db494a79bcab56b3d5f3e182" and .tree.sha == "a04c0428d6fa8468d890f0044b8b61b91f026ef3"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "d25e0406ce7ec01be168d1b17cbde8cdcc7a6925",
-            "tree": "3c85e981db7570c4c190ad7c22d337a27ebe2401",
+            "commit": "0052adbf9ef4a813db494a79bcab56b3d5f3e182",
+            "tree": "a04c0428d6fa8468d890f0044b8b61b91f026ef3",
             "publishedChangesCovered": 77,
             "files": [
               {
@@ -74,15 +74,15 @@ jobs:
               },
               {
                 "path": "package-lock.json",
-                "bytes": 60879,
-                "sha256": "47a0282aeb1351f4628b2eda6b52290f6e04708ed027e66a076d4536309483a8",
-                "blobSha1": "5c9ce104ba994f4fe60a75198667a51a777e66b0"
+                "bytes": 61631,
+                "sha256": "a6313f305ea3e4df4ce4faebfec1dac85c2188b31ae70565bedb4b29572476b7",
+                "blobSha1": "dd48deb6aaa65be55083748c66e72942c7c448cf"
               },
               {
                 "path": "package.json",
-                "bytes": 1037,
-                "sha256": "9a8ad7e3a6786130453628bf52581427e4ea573d341e2bede09c3d4e7495db11",
-                "blobSha1": "c2185792acd68b57b8ed3ea72e3b935bd71c0007"
+                "bytes": 1068,
+                "sha256": "a476b115459e1b4bc6ee3d42f93eea611729f02f30fb72d690db5aff6b3eae59",
+                "blobSha1": "dc31aeafe173da5b2aa0571eb42a87549bbf25ee"
               },
               {
                 "path": "playwright.config.ts",
@@ -776,9 +776,9 @@ jobs:
               },
               {
                 "path": "tsconfig.json",
-                "bytes": 457,
-                "sha256": "8bc690b4f6a5352e89a8aa4ed975b28d8d2028376aaaa210deed6c16d10f5ce2",
-                "blobSha1": "ed48e421d04829cff875f98a502b0ef5116cd91c"
+                "bytes": 480,
+                "sha256": "3a322b47860174f0cc841bc6a41e4d4bce658457468209d3f499c64ed35f9370",
+                "blobSha1": "d88882895473e84a95770ba0e891251e7154eaa0"
               },
               {
                 "path": "vitest.config.ts",
@@ -791,7 +791,7 @@ jobs:
             "publicRawBytesIndependentlyHashed": true
           }
           SOURCE
-          jq -e '.commit == "d25e0406ce7ec01be168d1b17cbde8cdcc7a6925" and (.files | length) == 121' "$work/source-files.json"
+          jq -e '.commit == "0052adbf9ef4a813db494a79bcab56b3d5f3e182" and (.files | length) == 121' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -815,7 +815,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: 'd25e0406ce7ec01be168d1b17cbde8cdcc7a6925', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: '0052adbf9ef4a813db494a79bcab56b3d5f3e182', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -847,7 +847,7 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, '3c85e981db7570c4c190ad7c22d337a27ebe2401');
+            assert.equal(source.tree, 'a04c0428d6fa8468d890f0044b8b61b91f026ef3');
             assert.equal(source.files.length, 121);
             process.chdir('/work/project');
             function verifySource() {
@@ -863,10 +863,10 @@ jobs:
             assert.ok(!fs.existsSync('node_modules') && !fs.existsSync('dist'));
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-            assert.equal(hash(fs.readFileSync('package.json')), '9a8ad7e3a6786130453628bf52581427e4ea573d341e2bede09c3d4e7495db11');
-            assert.equal(hash(fs.readFileSync('package-lock.json')), '47a0282aeb1351f4628b2eda6b52290f6e04708ed027e66a076d4536309483a8');
+            assert.equal(hash(fs.readFileSync('package.json')), 'a476b115459e1b4bc6ee3d42f93eea611729f02f30fb72d690db5aff6b3eae59');
+            assert.equal(hash(fs.readFileSync('package-lock.json')), 'a6313f305ea3e4df4ce4faebfec1dac85c2188b31ae70565bedb4b29572476b7');
             assert.equal(lock.lockfileVersion, 3);
-            assert.equal(Object.keys(lock.packages).length, 110);
+            assert.equal(Object.keys(lock.packages).length, 112);
             assert.deepEqual(pkg.dependencies, lock.packages[''].dependencies);
             assert.deepEqual(pkg.devDependencies, lock.packages[''].devDependencies);
             assert.equal(pkg.scripts.test, 'vitest run');
