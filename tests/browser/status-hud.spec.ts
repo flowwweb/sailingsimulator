@@ -17,7 +17,7 @@ for (const [name, width, height] of [["desktop",1440,900],["phone",844,390]] as 
     const toggle = page.locator("#status-toggle");
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await page.locator("#conditions-toggle").click();
+    await page.locator(".top-actions").getByRole("button", { name: "Settings", exact: true }).click();
     await page.locator('[data-ui-tab="controls"]').click();
     await page.locator("#touch-controls-enabled").check();
     await page.locator("#settings-resume").click();
