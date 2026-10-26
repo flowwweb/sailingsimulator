@@ -1,13 +1,6 @@
-# PROPOSAL: independently review this source before publishing/enabling it.
-# The required public input commit is not yet supplied; current public refs fail the pair hashes.
-name: Fair Winds metadata lock repair
+name: Fair Winds Node 24 typing lock resolution
 on:
   workflow_dispatch:
-    inputs:
-      source_commit:
-        description: Public commit containing the reviewed .github/fair-lock-inputs/*.before fixtures
-        required: true
-        type: string
 permissions: {}
 concurrency:
   group: fair-metadata-lock-repair
@@ -18,10 +11,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
-      - name: Resolve reviewed metadata in a restricted disposable container
+      - name: Generate exact Node typings lock metadata in restricted container
         shell: bash
         env:
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SOURCE_COMMIT: d25e0406ce7ec01be168d1b17cbde8cdcc7a6925
         run: |
           set -euo pipefail
           umask 077
@@ -58,39 +51,39 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           for file in package.json package-lock.json; do
-            get_public "https://raw.githubusercontent.com/flowwweb/sailingsimulator/$SOURCE_COMMIT/.github/fair-lock-inputs/$file.before" > "$work/$file"
+            get_public "https://raw.githubusercontent.com/flowwweb/sailingsimulator/$SOURCE_COMMIT/$file" > "$work/$file"
           done
           cd "$work"
           printf '%s  %s\n' \
-            17e402dc87c57db6c4b1492c258d62a32167ac14e8d5bd09cd125c72b5cde209 package.json \
-            e1a6e4806cad68bbdca99ba22d64235a5b92544cf69b9358912ec3d390d286ae package-lock.json | sha256sum --check --strict
+            9a8ad7e3a6786130453628bf52581427e4ea573d341e2bede09c3d4e7495db11 package.json \
+            47a0282aeb1351f4628b2eda6b52290f6e04708ed027e66a076d4536309483a8 package-lock.json | sha256sum --check --strict
           cat > repair.cjs <<'JS'
           'use strict';
           const assert = require('node:assert/strict');
           const fs = require('node:fs');
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
-          const hash = b => createHash('sha256').update(b).digest('hex');
+          const hash = bytes => createHash('sha256').update(bytes).digest('hex');
           const originalPackage = fs.readFileSync('package.json');
           const originalLock = fs.readFileSync('package-lock.json');
-          assert.equal(hash(originalPackage), '17e402dc87c57db6c4b1492c258d62a32167ac14e8d5bd09cd125c72b5cde209');
-          assert.equal(hash(originalLock), 'e1a6e4806cad68bbdca99ba22d64235a5b92544cf69b9358912ec3d390d286ae');
+          assert.equal(hash(originalPackage), '9a8ad7e3a6786130453628bf52581427e4ea573d341e2bede09c3d4e7495db11');
+          assert.equal(hash(originalLock), '47a0282aeb1351f4628b2eda6b52290f6e04708ed027e66a076d4536309483a8');
           assert.equal(process.version, 'v24.22.1');
           const npmRoot = '/usr/local/lib/node_modules/npm';
           assert.equal(JSON.parse(fs.readFileSync(npmRoot + '/package.json', 'utf8')).version, '11.19.1');
           assert.equal(process.getuid(), 1000);
           for (const key of Object.keys(process.env)) assert.ok(['PATH', 'HOME', 'PWD'].includes(key), 'Unexpected environment key: ' + key);
-          for (const path of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(path), 'Forbidden runtime path');
+          for (const path of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(path));
           assert.ok(!fs.existsSync('node_modules'));
           const before = JSON.parse(originalLock);
           const pkg = JSON.parse(originalPackage);
           assert.equal(before.lockfileVersion, 3);
-          assert.equal(Object.keys(before.packages).filter(path => path !== '').length, 109);
+          assert.equal(Object.keys(before.packages).length, 110);
           assert.deepEqual(pkg.dependencies, before.packages[''].dependencies);
           assert.deepEqual(pkg.devDependencies, before.packages[''].devDependencies);
           for (const name of ['preinstall', 'install', 'postinstall', 'prepare', 'prepublish', 'prepublishOnly']) assert.ok(!pkg.scripts?.[name]);
-          assert.ok(!pkg.workspaces && !pkg.overrides);
-          const targets = {"node_modules/vite":{"version":"8.1.6","resolved":"https://registry.npmjs.org/vite/-/vite-8.1.6.tgz","integrity":"sha512-aRAHIxx5SW5zc1sMqFwJU/t5qaFfXb5Hj0J7W0VXihu/X99+346tz6080tO1T1xVIJORX/b3zVTXGFqUXh35uw=="},"node_modules/vitest":{"version":"4.1.12","resolved":"https://registry.npmjs.org/vitest/-/vitest-4.1.12.tgz","integrity":"sha512-5eWdz2yb3ajxWF3C8C4TjkXl7FGm3n2E/VlazALrQHzK7nYMSGFnCZto0bbPNl77AwkOZVLk0YnBAejUu0NiWA=="},"node_modules/@vitest/expect":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/expect/-/expect-4.1.12.tgz","integrity":"sha512-vFlTt+YEu9WBpNjdGayNmlMVzrWPi1+sv853/7t2FU7hpO5gAFBKHzQmkCq5Xjpr+evegF2994LQT3hF3mRlqQ=="},"node_modules/@vitest/mocker":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/mocker/-/mocker-4.1.12.tgz","integrity":"sha512-fKShNpKZzupWZuY0z7egydvL0sqW4INEZBEExMBMAa6izlENEVHwoXgdaTCaBZ5fwlr4xf2o1wXC83n9RpO+NA=="},"node_modules/@vitest/pretty-format":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/pretty-format/-/pretty-format-4.1.12.tgz","integrity":"sha512-XW9O8+Mxx4VpCtkYdMJLZQQwsVryP9wk7cPKDxtXFfwSak6yRh5+2fep/Y0XF/ElBvJHq8bcYdi6aeuai0opZA=="},"node_modules/@vitest/runner":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/runner/-/runner-4.1.12.tgz","integrity":"sha512-NKlVKCr5QnCe8jijdMnmkpHHU+WTqiLFR6G0pHji9uRjXK9xJl1k1nTw6F3pOOj2PDcsDt2GKQMI7wIsaT491w=="},"node_modules/@vitest/snapshot":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/snapshot/-/snapshot-4.1.12.tgz","integrity":"sha512-ko1y1Qgb/slzQ9mr+b89Cuqud8WG1TKtsPD8r7ZUBdvVOGt85Af2HwCqHujrhwJq95hs/9RM7fcAPg57o1vlzw=="},"node_modules/@vitest/spy":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/spy/-/spy-4.1.12.tgz","integrity":"sha512-RGq9x4JNGNTZHEJxvN0oSiJjeSCExm0n2gZKKJZHY9cX5AVA6M7VJILBT3ZJ/tJ/0J9uWT7fETV9/btoi//vSg=="},"node_modules/@vitest/utils":{"version":"4.1.12","resolved":"https://registry.npmjs.org/@vitest/utils/-/utils-4.1.12.tgz","integrity":"sha512-Q3awXrwOfEV+qc3WmO5ONyE0yO7Q1gQ9/oyHxGLZ/pl7N3NO/ZztqQwKLuwMkV+CA1JYSIeO3gkHnRDIo4AVaA=="}};
+          assert.ok(!pkg.workspaces && !pkg.overrides && !pkg.devDependencies['@types/node']);
+          const targets = {"node_modules/@types/node":{"version":"24.19.2","resolved":"https://registry.npmjs.org/@types/node/-/node-24.19.2.tgz","integrity":"sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==","dependencies":{"undici-types":">=7.24.0 <7.24.7"}},"node_modules/undici-types":{"version":"7.24.6","resolved":"https://registry.npmjs.org/undici-types/-/undici-types-7.24.6.tgz","integrity":"sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==","dependencies":{}}};
           function validateLock(lock) {
             assert.equal(lock.lockfileVersion, 3);
             for (const [path, entry] of Object.entries(lock.packages)) {
@@ -100,20 +93,19 @@ jobs:
                 assert.match(entry.version, /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
                 const url = new URL(entry.resolved);
                 assert.equal(url.origin, 'https://registry.npmjs.org');
-                assert.ok(!url.username && !url.password && !url.search && !url.hash);
-                assert.ok(url.pathname.endsWith('.tgz'));
+                assert.ok(!url.username && !url.password && !url.search && !url.hash && url.pathname.endsWith('.tgz'));
                 assert.match(entry.integrity, /^sha512-[A-Za-z0-9+/]{86}==$/);
               }
               for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
-                for (const spec of Object.values(entry[field] || {})) assert.match(spec, /^[v0-9*^~<>=][0-9A-Za-z.*+^~<>=| -]*$/, 'Non-registry dependency spec');
+                for (const spec of Object.values(entry[field] || {})) assert.match(spec, /^[v0-9*^~<>=][0-9A-Za-z.*+^~<>=| -]*$/);
               }
             }
           }
           validateLock(before);
-          for (const [path, target] of Object.entries(targets)) assert.equal(before.packages[path].version, path === 'node_modules/vite' ? '8.1.4' : '4.1.11');
+          for (const path of Object.keys(targets)) assert.ok(!before.packages[path], 'Unexpected existing typing package');
           fs.copyFileSync('package-lock.json', 'package-lock.json.before');
-          const patched = originalPackage.toString('utf8').replace('"vite": "8.1.4"', '"vite": "8.1.6"').replace('"vitest": "4.1.11"', '"vitest": "4.1.12"');
-          assert.equal(hash(patched), '9a8ad7e3a6786130453628bf52581427e4ea573d341e2bede09c3d4e7495db11');
+          const patched = originalPackage.toString('utf8').replace('    "@types/three":', '    "@types/node": "24.19.2",\r\n    "@types/three":');
+          assert.equal(hash(patched), 'a476b115459e1b4bc6ee3d42f93eea611729f02f30fb72d690db5aff6b3eae59');
           fs.writeFileSync('package.json', patched);
           const userConfig = '/tmp/npm-user.npmrc';
           const globalConfig = '/tmp/npm-global.npmrc';
@@ -125,34 +117,32 @@ jobs:
           }
           const env = { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: '/tmp', npm_config_userconfig: userConfig, npm_config_globalconfig: globalConfig, npm_config_cache: '/tmp/npm-cache' };
           const registry = spawnSync(process.execPath, [npmRoot + '/bin/npm-cli.js', 'config', 'get', 'registry'], { env, encoding: 'utf8', timeout: 15000 });
-          assert.equal(registry.error, undefined);
-          assert.equal(registry.status, 0);
-          assert.equal(registry.stdout.trim(), 'https://registry.npmjs.org/');
+          assert.equal(registry.error, undefined); assert.equal(registry.status, 0); assert.equal(registry.stdout.trim(), 'https://registry.npmjs.org/');
           const args = ['install', '--package-lock-only', '--ignore-scripts', '--registry=https://registry.npmjs.org/', '--audit=false', '--fund=false', '--update-notifier=false', '--fetch-retries=0', '--fetch-timeout=30000'];
           const result = spawnSync(process.execPath, [npmRoot + '/bin/npm-cli.js', ...args], { env, encoding: 'utf8', timeout: 180000, maxBuffer: 1024 * 1024 });
           const afterBytes = fs.readFileSync('package-lock.json');
           const after = JSON.parse(afterBytes);
           const changed = Object.keys(after.packages).filter(path => JSON.stringify(after.packages[path]) !== JSON.stringify(before.packages[path]));
-          // Emit candidate bytes even when the resolver or postchecks reject; this is review evidence only.
-          const report = Buffer.from(JSON.stringify({ node: process.version, npm: '11.19.1', args, status: result.status, error: result.error?.message, stdout: result.stdout, stderr: result.stderr, originalPackageSha256: hash(originalPackage), originalLockSha256: hash(originalLock), packageSha256: hash(fs.readFileSync('package.json')), lockSha256: hash(afterBytes), changedPaths: changed, packageBase64: fs.readFileSync('package.json').toString('base64'), originalLockBase64: originalLock.toString('base64'), lockBase64: afterBytes.toString('base64') })).toString('base64');
-          console.log('FAIR_HASHES=' + JSON.stringify({ packageSha256: hash(fs.readFileSync('package.json')), originalLockSha256: hash(originalLock), lockSha256: hash(afterBytes) }));
+          const report = { node: process.version, npm: '11.19.1', args, status: result.status, error: result.error?.message, stdout: result.stdout, stderr: result.stderr, originalPackageSha256: hash(originalPackage), originalLockSha256: hash(originalLock), packageSha256: hash(fs.readFileSync('package.json')), lockSha256: hash(afterBytes), changedPaths: changed, packageBase64: fs.readFileSync('package.json').toString('base64'), originalLockBase64: originalLock.toString('base64'), lockBase64: afterBytes.toString('base64') };
+          console.log('FAIR_HASHES=' + JSON.stringify({ packageSha256: report.packageSha256, originalLockSha256: report.originalLockSha256, lockSha256: report.lockSha256 }));
           console.log('FAIR_RESULT_BASE64_BEGIN');
-          for (const line of report.match(/.{1,120}/g)) console.log(line);
+          const encoded = Buffer.from(JSON.stringify(report)).toString('base64');
+          for (let start = 0; start < encoded.length; start += 120) console.log(encoded.slice(start, start + 120));
           console.log('FAIR_RESULT_BASE64_END');
-          assert.equal(result.error, undefined);
-          assert.equal(result.status, 0);
+          assert.equal(result.error, undefined); assert.equal(result.status, 0);
           assert.equal(hash(fs.readFileSync('package-lock.json.before')), hash(originalLock));
-          assert.equal(hash(fs.readFileSync('package.json')), '9a8ad7e3a6786130453628bf52581427e4ea573d341e2bede09c3d4e7495db11');
+          assert.equal(hash(fs.readFileSync('package.json')), 'a476b115459e1b4bc6ee3d42f93eea611729f02f30fb72d690db5aff6b3eae59');
           assert.ok(!fs.existsSync('node_modules'));
           validateLock(after);
-          assert.deepEqual(Object.keys(after.packages).sort(), Object.keys(before.packages).sort(), 'Unexpected package identity/path churn');
+          assert.deepEqual(Object.keys(after.packages).sort(), [...Object.keys(before.packages), ...Object.keys(targets)].sort(), 'Unexpected package identity/path churn');
           assert.deepEqual(after.packages[''], { ...before.packages[''], devDependencies: JSON.parse(patched).devDependencies });
-          for (const [path, entry] of Object.entries(after.packages)) {
-            if (path === '') continue;
-            if (targets[path]) {
-              for (const field of ['version', 'resolved', 'integrity']) assert.equal(entry[field], targets[path][field], 'Reviewed registry identity mismatch: ' + path);
-              assert.ok(!entry.hasInstallScript);
-            } else assert.deepEqual(entry, before.packages[path], 'Unexpected transitive change: ' + path);
+          for (const [path, entry] of Object.entries(before.packages)) if (path !== '') assert.deepEqual(after.packages[path], entry, 'Unexpected existing package change: ' + path);
+          for (const [path, target] of Object.entries(targets)) {
+            const entry = after.packages[path];
+            for (const field of ['version', 'resolved', 'integrity']) assert.equal(entry[field], target[field], 'Reviewed registry identity mismatch: ' + path);
+            assert.equal(entry.dev, true);
+            assert.ok(!entry.hasInstallScript && !entry.optional && !entry.link);
+            assert.deepEqual(entry.dependencies || {}, target.dependencies);
           }
           console.log('FAIR_POSTCHECKS=PASS_METADATA_ONLY');
           JS
