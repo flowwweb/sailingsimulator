@@ -5,6 +5,7 @@ import { computeAudioMixTargets, type AudioMixTargets } from "./mix";
 import {
   MUSIC_TRACKS,
   findMusicTrack,
+  type MusicPlaybackError,
   type MusicTrack,
 } from "./music";
 import {
@@ -17,6 +18,18 @@ import {
 import type { SoundscapeSnapshot } from "./zones";
 
 const MASTER_OUTPUT_SCALE = 0.62;
+const AMBIENT_LOOPS = [
+  { id: "water", url: "/audio/water-hull.wav", channel: "boat" },
+  { id: "wind", url: "/audio/soft-sea-wind.wav", channel: "ambience" },
+  { id: "harbor", url: "/audio/distant-harbor.wav", channel: "ambience" },
+] as const;
+type AmbientLoopId = typeof AMBIENT_LOOPS[number]["id"];
+
+export function ambientLoopGains(mix: AudioMixTargets): Record<AmbientLoopId, number> {
+  // Source RMS differs by 12 dB; these scales keep quiet water and distant harbor balanced.
+  return { water: clamp(0.18 + mix.openWater * 28 + mix.hull * 12, 0.18, 0.7),
+    wind: clamp(mix.wind * 14, 0, 0.48), harbor: mix.dockActivity * 0.2 };
+}
 
 interface NoiseBusOptions {
   filterType: BiquadFilterType;
@@ -31,6 +44,7 @@ export interface MusicPlaybackState {
   isPlaying: boolean;
   isReady: boolean;
   isEnabled: boolean;
+  error?: MusicPlaybackError;
 }
 
 type MusicStateListener = (state: MusicPlaybackState) => void;
@@ -74,8 +88,11 @@ export class GameAudio {
   private oneShotNoise?: AudioBuffer;
   private songbirdSample?: AudioBuffer;
   private waterbirdSample?: AudioBuffer;
+  private readonly ambientLoops = new Map<AmbientLoopId, GainNode>();
+  private readonly loadingLoops = new Set<AmbientLoopId>();
   private settings: AudioSettings;
   private musicStateListener?: MusicStateListener;
+  private musicError?: MusicPlaybackError;
   private seed: number;
   private random: RandomSource;
   private nextBirdAt = 0;
@@ -113,9 +130,16 @@ export class GameAudio {
       track:
         findMusicTrack(this.settings.trackId) ??
         MUSIC_TRACKS[0]!,
-      isPlaying: Boolean(this.musicElement && !this.musicElement.paused),
+      isPlaying: Boolean(
+        this.context?.state === "running" &&
+        this.musicElement &&
+        !this.musicElement.paused &&
+        !this.musicElement.ended &&
+        this.musicElement.readyState >= 2,
+      ),
       isReady: Boolean(this.context && this.musicElement),
       isEnabled: this.settings.musicEnabled,
+      error: this.musicError,
     };
   }
 
@@ -125,10 +149,14 @@ export class GameAudio {
   }
 
   async start(): Promise<void> {
+    if (document.visibilityState === "hidden") return;
+    this.resetClosedContext();
     if (this.context) {
-      await this.context.resume();
+      void this.loadAmbientLoops();
       if (this.settings.musicEnabled && this.musicElement?.paused) {
         await this.playMusic();
+      } else {
+        await this.resumeContext(this.context);
       }
       return;
     }
@@ -152,6 +180,7 @@ export class GameAudio {
     musicBus.connect(master);
 
     this.context = context;
+    context.addEventListener("statechange", this.handleContextStateChange);
     this.master = master;
     this.ambienceBus = ambienceBus;
     this.boatBus = boatBus;
@@ -212,11 +241,13 @@ export class GameAudio {
       destination: weatherBus,
       stereo: true,
     });
+    void this.loadAmbientLoops();
     this.setupMusic();
     this.resetEventSchedule();
-    await context.resume();
     if (this.settings.musicEnabled) {
       await this.playMusic();
+    } else {
+      await this.resumeContext(context);
     }
     this.notifyMusicState();
   }
@@ -252,6 +283,7 @@ export class GameAudio {
   }
 
   async toggleMusicPlayback(): Promise<MusicPlaybackState> {
+    this.resetClosedContext();
     if (!this.context) {
       this.settings.musicEnabled = true;
       this.persistSettings();
@@ -274,13 +306,11 @@ export class GameAudio {
   async selectMusicTrack(trackId: string): Promise<MusicPlaybackState> {
     const track = findMusicTrack(trackId);
     if (!track) return this.getMusicState();
-    const wasPlaying = Boolean(
-      this.musicElement && !this.musicElement.paused,
-    );
+    const shouldPlay = Boolean(this.context && this.settings.musicEnabled);
     this.settings.trackId = track.id;
     this.persistSettings();
     this.loadSelectedTrack();
-    if (wasPlaying) await this.playMusic();
+    if (shouldPlay) await this.playMusic();
     this.notifyMusicState();
     return this.getMusicState();
   }
@@ -303,11 +333,13 @@ export class GameAudio {
     const now = this.context.currentTime;
     if (this.lastUpdateAt > 0 && now - this.lastUpdateAt < 1 / 30) return;
     const mix = computeAudioMixTargets(weather, state, sail, soundscape);
+    const loops = ambientLoopGains(mix);
+    for (const [id, gain] of this.ambientLoops) gain.gain.setTargetAtTime(loops[id], now, 1.2);
 
-    this.wind?.gain.setTargetAtTime(mix.wind, now, 1.15);
-    this.openWater?.gain.setTargetAtTime(mix.openWater, now, 2.8);
+    this.wind?.gain.setTargetAtTime(mix.wind * (this.ambientLoops.has("wind") ? 0.15 : 1), now, 1.15);
+    this.openWater?.gain.setTargetAtTime(mix.openWater * (this.ambientLoops.has("water") ? 0.2 : 1), now, 2.8);
     this.shore?.gain.setTargetAtTime(mix.shore, now, 4.2);
-    this.hull?.gain.setTargetAtTime(mix.hull, now, 0.65);
+    this.hull?.gain.setTargetAtTime(mix.hull * (this.ambientLoops.has("water") ? 0.25 : 1), now, 0.65);
     this.luff?.gain.setTargetAtTime(mix.luff, now, 0.075);
     this.stall?.gain.setTargetAtTime(mix.stall, now, 0.32);
     this.rain?.gain.setTargetAtTime(mix.rain, now, 0.9);
@@ -651,9 +683,16 @@ export class GameAudio {
     element.preload = "metadata";
     element.addEventListener("play", () => this.notifyMusicState());
     element.addEventListener("pause", () => this.notifyMusicState());
-    element.addEventListener("loadedmetadata", () =>
-      this.notifyMusicState(),
-    );
+    element.addEventListener("loadedmetadata", () => this.notifyMusicState());
+    element.addEventListener("canplay", () => this.notifyMusicState());
+    element.addEventListener("playing", () => {
+      this.musicError = undefined;
+      this.notifyMusicState();
+    });
+    element.addEventListener("error", () => {
+      this.musicError = "track-unavailable";
+      this.notifyMusicState();
+    });
     element.addEventListener("ended", () => {
       void this.stepMusicTrack(1, true);
     });
@@ -667,6 +706,7 @@ export class GameAudio {
   private loadSelectedTrack(): void {
     const element = this.musicElement;
     if (!element) return;
+    this.musicError = undefined;
     const track =
       findMusicTrack(this.settings.trackId) ??
       MUSIC_TRACKS[0]!;
@@ -674,19 +714,68 @@ export class GameAudio {
     element.load();
   }
 
+  private async resumeContext(context: AudioContext): Promise<boolean> {
+    if (context.state === "running") return true;
+    try {
+      await context.resume();
+    } catch (error) {
+      this.musicError = playbackError(error);
+      this.notifyMusicState();
+      return false;
+    }
+    if ((context.state as AudioContextState) !== "running") {
+      this.musicError = "audio-unavailable";
+      this.notifyMusicState();
+      return false;
+    }
+    if (
+      this.musicError === "audio-unavailable" ||
+      this.musicError === "gesture-required"
+    ) {
+      this.musicError = undefined;
+    }
+    this.notifyMusicState();
+    return true;
+  }
+
   private async playMusic(): Promise<boolean> {
     const context = this.context;
     const element = this.musicElement;
     if (!context || !element) return false;
+    const resume = this.resumeContext(context);
+    let play: Promise<void>;
     try {
-      await context.resume();
-      await element.play();
-      this.notifyMusicState();
-      return true;
-    } catch {
+      play = element.play();
+    } catch (error) {
+      this.musicError = element.error
+        ? "track-unavailable"
+        : playbackError(error);
       this.notifyMusicState();
       return false;
     }
+    const contextReady = await resume;
+    if (!contextReady) {
+      element.pause();
+      void play.catch(() => undefined);
+      return false;
+    }
+    try {
+      await play;
+    } catch (error) {
+      this.musicError = element.error
+        ? "track-unavailable"
+        : playbackError(error);
+      this.notifyMusicState();
+      return false;
+    }
+    if (context.state !== "running") {
+      this.musicError = "audio-unavailable";
+      this.notifyMusicState();
+      return false;
+    }
+    this.musicError = undefined;
+    this.notifyMusicState();
+    return true;
   }
 
   private async stepMusicTrack(
@@ -703,8 +792,7 @@ export class GameAudio {
       (currentIndex + offset + MUSIC_TRACKS.length) %
       MUSIC_TRACKS.length;
     const shouldPlay =
-      forcePlay ||
-      Boolean(this.musicElement && !this.musicElement.paused);
+      forcePlay || Boolean(this.context && this.settings.musicEnabled);
     this.settings.trackId = MUSIC_TRACKS[nextIndex]!.id;
     if (forcePlay) this.settings.musicEnabled = true;
     this.persistSettings();
@@ -759,10 +847,72 @@ export class GameAudio {
     this.musicStateListener?.(this.getMusicState());
   }
 
+  private resetClosedContext(): void {
+    const context = this.context;
+    if (!context || context.state !== "closed") return;
+    context.removeEventListener("statechange", this.handleContextStateChange);
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    this.musicElement?.pause();
+    this.context = undefined;
+    this.master = undefined;
+    this.ambienceBus = undefined;
+    this.boatBus = undefined;
+    this.weatherBus = undefined;
+    this.musicBus = undefined;
+    this.musicDucker = undefined;
+    this.musicElement = undefined;
+    this.wind = undefined;
+    this.openWater = undefined;
+    this.shore = undefined;
+    this.hull = undefined;
+    this.luff = undefined;
+    this.stall = undefined;
+    this.rain = undefined;
+    this.ambientNoise = undefined;
+    this.boatNoise = undefined;
+    this.oneShotNoise = undefined;
+    this.songbirdSample = undefined;
+    this.waterbirdSample = undefined;
+    this.ambientLoops.clear();
+    this.loadingLoops.clear();
+    this.musicError = undefined;
+  }
+
+  private readonly handleContextStateChange = (): void => {
+    const context = this.context;
+    if (!context) return;
+    if (context.state === "closed") {
+      this.musicError = "audio-unavailable";
+    } else if (
+      context.state === "running" &&
+      this.musicError === "audio-unavailable"
+    ) {
+      this.musicError = undefined;
+    }
+    this.notifyMusicState();
+    if (
+      context.state === "suspended" &&
+      document.visibilityState !== "hidden"
+    ) {
+      void this.start();
+    }
+  };
+
   private readonly handleVisibilityChange = (): void => {
+    const context = this.context;
+    if (!context) return;
     if (document.visibilityState === "hidden") {
       this.eventsSuppressed = true;
+      this.musicElement?.pause();
+      if (context.state === "running") {
+        void context.suspend().catch((error: unknown) => {
+          this.musicError = playbackError(error);
+          this.notifyMusicState();
+        });
+      }
+      return;
     }
+    if (context.state !== "running") void this.start();
   };
 
   private async loadNaturalSamples(): Promise<void> {
@@ -772,6 +922,30 @@ export class GameAudio {
     ]);
     this.songbirdSample = songbird;
     this.waterbirdSample = waterbird;
+  }
+
+  private async loadAmbientLoops(): Promise<void> {
+    const context = this.context;
+    if (!context) return;
+    await Promise.all(AMBIENT_LOOPS.map(async ({ id, url, channel }) => {
+      if (this.ambientLoops.has(id) || this.loadingLoops.has(id)) return;
+      this.loadingLoops.add(id);
+      try {
+        const buffer = await this.loadSample(url);
+        if (!buffer || this.context !== context || context.state === "closed") return;
+        const destination = channel === "boat" ? this.boatBus : this.ambienceBus;
+        if (!destination) return;
+        const source = context.createBufferSource(), gain = context.createGain();
+        source.buffer = buffer;
+        source.loop = true;
+        gain.gain.value = 0;
+        source.connect(gain).connect(destination);
+        source.start(0, this.random() * buffer.duration);
+        this.ambientLoops.set(id, gain);
+      } finally {
+        if (this.context === context) this.loadingLoops.delete(id);
+      }
+    }));
   }
 
   private async loadSample(url: string): Promise<AudioBuffer | undefined> {
@@ -805,6 +979,12 @@ function lerp(start: number, end: number, amount: number): number {
 function volumeGain(value: number): number {
   const normalized = clamp(value, 0, 1);
   return normalized * normalized;
+}
+
+function playbackError(error: unknown): MusicPlaybackError {
+  return error instanceof DOMException && error.name === "NotAllowedError"
+    ? "gesture-required"
+    : "audio-unavailable";
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

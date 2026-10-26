@@ -1,10 +1,36 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "../sim/model";
-import { COASTAL_28, HARBOR_20 } from "../sim/boats";
+import { BOAT_DEFINITIONS, COASTAL_28, HARBOR_20 } from "../sim/boats";
 import { evaluateIncident } from "./hazards";
 import { FAIR_WINDS_WORLD } from "./world-definition";
+import { LAKE_SHOALS } from "./bathymetry";
 
 describe("deterministic grounding and object hazards", () => {
+  it("grounds all five drafts at retained inland and outside-lake points at every supported tide", () => {
+    const permanentLand = { ...FAIR_WINDS_WORLD, objects: [] };
+    for (const [x, z] of [[1390, -520], [1240, -490], [2200, 0], ...LAKE_SHOALS.map(shoal => [shoal.x, shoal.z])]) {
+      for (const tide of [-3, -1.5, -0.6, 0.6, 1.5, 3]) for (const boat of Object.values(BOAT_DEFINITIONS)) {
+        const state = createInitialState(); state.position = { x: x!, y: z! };
+        const result = evaluateIncident(state, boat, permanentLand, tide);
+        expect(result.kind, `${x},${z} tide${tide} ${boat.id}`).toBe("grounding");
+        expect(result.depth).toBe(0);
+        expect(result.clearance).toBe(-boat.hull.draft);
+      }
+    }
+  });
+
+  it("preserves custom world depth and detects dry bow, center and stern contact at high tide", () => {
+    const state = createInitialState(); state.position = { x: 0, y: 0 }; state.heading = Math.PI / 2;
+    for (const sampleDepth of [(x: number) => x > 1 ? 0 : 4, (x: number) => x < -1 ? 0 : 4, (x: number) => Math.abs(x) < 0.5 ? 0 : 4]) {
+      const world = { ...FAIR_WINDS_WORLD, objects: [], sampleDepth };
+      expect(evaluateIncident(state, HARBOR_20, world, 1.5).depth).toBe(0);
+      expect(evaluateIncident(state, HARBOR_20, world, 1.5).kind).toBe("grounding");
+    }
+    const water = { ...FAIR_WINDS_WORLD, objects: [], sampleDepth: () => 1 };
+    expect(evaluateIncident(state, HARBOR_20, water, 1.5).kind).toBe("clear");
+    expect(evaluateIncident(state, HARBOR_20, water, -0.2).kind).toBe("grounding");
+    expect(evaluateIncident(state, HARBOR_20, water, -1.5).depth).toBe(0);
+  });
   it("keeps the training boat clear in deep school water", () => {
     const state = createInitialState();
     state.position = { x: 610, y: 400 };

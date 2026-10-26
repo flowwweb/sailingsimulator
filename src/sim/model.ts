@@ -44,6 +44,7 @@ export interface BoatState {
 export interface Controls {
   rudder: number;
   sheetRate: number;
+  sheetTarget?: number;
   headsailRate?: number;
 }
 
@@ -179,7 +180,7 @@ function starboardFor(heading: number): Vec2 {
   return { x: Math.cos(heading), y: -Math.sin(heading) };
 }
 
-function wrappedAngle(value: number): number {
+export function wrappedAngle(value: number): number {
   return Math.atan2(Math.sin(value), Math.cos(value));
 }
 
@@ -401,7 +402,7 @@ export function stepBoat(
       boat.rudder.responseRate,
       safeDt,
     ),
-    sheet: clamp(previous.sheet + controls.sheetRate * safeDt * 0.3, 0, 1),
+    sheet: clamp(Number.isFinite(controls.sheetTarget) ? controls.sheetTarget! : previous.sheet + controls.sheetRate * safeDt * 0.3, 0, 1),
     headsailSheet: clamp(
       previous.headsailSheet +
         (hasHeadsail ? headsailRate : 0) *
@@ -508,7 +509,8 @@ export function stepBoat(
     -Math.sign(apparent.angle) * inIrons * stalledAhead * lowSpeed *
     apparent.speed * apparent.speed * IRONS_WEATHERCOCK_TORQUE;
   const yawTorque =
-    rudderSideForce * boat.rudder.lever +
+    // The rudder acts aft: a portward stern force turns the bow starboard.
+    -rudderSideForce * boat.rudder.lever +
     ironsRecoveryTorque +
     ironsWeathercockTorque -
     combinedSideForce * 0.12 -
@@ -537,6 +539,33 @@ export function stepBoat(
     pitchVelocity: 0,
     rollVelocity: 0,
   };
+  Object.assign(state, advanceBoatWavePose(previous, wavePose, boat, safeDt));
+
+  return {
+    state,
+    sail: computeSailAerodynamics(state, environment),
+    headsail: computeHeadsailAerodynamics(state, environment),
+    hydro: {
+      forwardSpeed,
+      leewaySpeed,
+      hullDrag,
+      keelForce,
+      rudderForce,
+      rudderSideForce,
+      ironsRecoveryTorque,
+      yawTorque,
+      targetHeel,
+    },
+  };
+}
+
+export function advanceBoatWavePose(
+  previous: BoatState,
+  wavePose: WavePoseTarget,
+  boat: BoatDefinition,
+  dt: number,
+) {
+  const safeDt = clamp(dt, 0, 1 / 20);
   const heaveFrequency = clamp(
     5.8 - boat.hull.length * 0.2,
     3.3,
@@ -556,7 +585,7 @@ export function stepBoat(
     2.2,
     4.8,
   );
-  [state.heave, state.heaveVelocity] = springAxis(
+  const [heave, heaveVelocity] = springAxis(
     previous.heave,
     previous.heaveVelocity,
     wavePose.heave,
@@ -565,7 +594,7 @@ export function stepBoat(
     0.58,
     safeDt,
   );
-  [state.wavePitch, state.wavePitchVelocity] = springAxis(
+  const [wavePitch, wavePitchVelocity] = springAxis(
     previous.wavePitch,
     previous.wavePitchVelocity,
     wavePose.pitch,
@@ -574,7 +603,7 @@ export function stepBoat(
     0.5,
     safeDt,
   );
-  [state.waveRoll, state.waveRollVelocity] = springAxis(
+  const [waveRoll, waveRollVelocity] = springAxis(
     previous.waveRoll,
     previous.waveRollVelocity,
     wavePose.roll,
@@ -583,23 +612,7 @@ export function stepBoat(
     0.42,
     safeDt,
   );
-
-  return {
-    state,
-    sail: computeSailAerodynamics(state, environment),
-    headsail: computeHeadsailAerodynamics(state, environment),
-    hydro: {
-      forwardSpeed,
-      leewaySpeed,
-      hullDrag,
-      keelForce,
-      rudderForce,
-      rudderSideForce,
-      ironsRecoveryTorque,
-      yawTorque,
-      targetHeel,
-    },
-  };
+  return { heave, heaveVelocity, wavePitch, wavePitchVelocity, waveRoll, waveRollVelocity };
 }
 
 function springAxis(

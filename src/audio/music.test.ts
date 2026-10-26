@@ -27,7 +27,21 @@ describe("music playlist", () => {
       "Open-water theme · Music paused",
     );
     expect(musicPlaybackStatus(track, false, false, true)).toBe(
-      "Open-water theme · Starts after Set Sail",
+      "Open-water theme · Starts when sailing begins",
+    );
+  });
+
+  it("surfaces retryable playback and unavailable-audio states", () => {
+    const track = MUSIC_TRACKS[0]!;
+
+    expect(musicPlaybackStatus(track, false, true, true, "gesture-required")).toBe(
+      "Open-water theme · Tap Play to resume",
+    );
+    expect(musicPlaybackStatus(track, false, true, true, "track-unavailable")).toBe(
+      "Open-water theme · Track unavailable",
+    );
+    expect(musicPlaybackStatus(track, false, true, true, "audio-unavailable")).toBe(
+      "Open-water theme · Audio unavailable",
     );
   });
 });

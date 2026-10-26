@@ -58,7 +58,7 @@ describe("authored Fair Winds lake layout", () => {
 
   it("places permanent shoreline landmarks on dry terrain", () => {
     const permanentLandmarks = FAIR_WINDS_WORLD.objects.filter((object) =>
-      ["lighthouse", "cabin", "waypoint"].includes(object.kind),
+      ["lighthouse", "cabin", "town", "waypoint"].includes(object.kind),
     );
 
     for (const landmark of permanentLandmarks) {
@@ -68,5 +68,17 @@ describe("authored Fair Winds lake layout", () => {
         `${landmark.name} should be attached to land`,
       ).toBe(0);
     }
+  });
+
+  it("charts one grounded working fishing town beside the recovery harbor", () => {
+    const town = FAIR_WINDS_WORLD.objects.find((object) => object.kind === "town");
+    const dock = FAIR_WINDS_WORLD.objects.find(
+      (object) => object.id === "juniper-cove-dock",
+    );
+
+    expect(town?.name).toBe("Juniper Fishing Town");
+    expect(town?.landformId).toBe("juniper-cove");
+    expect(town?.navigation?.visibleRange).toBeGreaterThanOrEqual(1_000);
+    expect(dock?.docking).toBeDefined();
   });
 });

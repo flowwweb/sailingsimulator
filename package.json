@@ -23,8 +23,6 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "dotenv": "^8.2.0",
-    "node-fetch": "^3.3.2",
     "simplex-noise": "^4.0.3",
     "three": "0.185.1"
   },
@@ -32,7 +30,7 @@
     "@playwright/test": "1.61.1",
     "@types/three": "^0.185.0",
     "typescript": "7.0.2",
-    "vite": "8.1.4",
-    "vitest": "4.1.10"
+    "vite": "8.1.6",
+    "vitest": "4.1.12"
   }
 }

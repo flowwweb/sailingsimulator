@@ -2,9 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   isInsideLake,
   sampleLakeDepth,
+  depthAtTide,
 } from "./bathymetry";
 
 describe("lake bathymetry", () => {
+  it("keeps permanent land dry and adjusts only real water with tide", () => {
+    for (const tide of [-3, -1.5, -0.6, 0.6, 1.5, 3]) {
+      expect(depthAtTide(0, tide)).toBe(0);
+      expect(depthAtTide(-2, tide)).toBe(0);
+      expect(depthAtTide(4, tide)).toBe(4 + tide);
+    }
+    expect(depthAtTide(0.5, -1.5)).toBe(0);
+    expect(depthAtTide(0.001, 1.5)).toBe(1.501);
+  });
   it("is deepest in open water and shelves toward shore", () => {
     const center = sampleLakeDepth(0, 0);
     const nearShore = sampleLakeDepth(1_600, 0);

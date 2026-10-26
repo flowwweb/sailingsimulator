@@ -1,5 +1,5 @@
 import type { BoatDefinition } from "../sim/boats";
-import type { BoatState } from "../sim/model";
+import type { BoatState, Controls } from "../sim/model";
 import type {
   WorldDefinition,
   WorldObject,
@@ -12,14 +12,21 @@ export interface DockingResult {
   speed: number;
 }
 
+export function castOffRequested(controls: Controls, previous: Controls): boolean {
+  return (Number.isFinite(controls.sheetTarget) && Math.abs(controls.sheetRate) > 0.01)
+    || (Math.abs(controls.rudder) > 0.01 || Math.abs(controls.sheetRate) > 0.01)
+    && (controls.rudder !== previous.rudder || controls.sheetRate !== previous.sheetRate);
+}
+
 export function evaluateDocking(
   state: BoatState,
   _boat: BoatDefinition,
   world: WorldDefinition,
+  departingDock?: WorldObject,
 ): DockingResult | undefined {
   const speed = Math.hypot(state.velocity.x, state.velocity.y);
   for (const object of world.objects) {
-    if (!object.docking || speed > object.docking.maxSpeed) continue;
+    if (!object.docking || object.id === departingDock?.id || speed > object.docking.maxSpeed) continue;
     const point = dockingPoint(object);
     if (
       Math.hypot(
@@ -42,6 +49,16 @@ export function evaluateDocking(
     return { object, point, heading, speed };
   }
   return undefined;
+}
+
+export function retainDockDeparture(
+  state: BoatState,
+  dock: WorldObject | undefined,
+): WorldObject | undefined {
+  if (!dock?.docking) return undefined;
+  const point = dockingPoint(dock);
+  return Math.hypot(state.position.x - point.x, state.position.y - point.z) <= dock.docking.captureRadius
+    ? dock : undefined;
 }
 
 export function dockingPoint(

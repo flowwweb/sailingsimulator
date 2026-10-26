@@ -144,14 +144,17 @@ export class AmbientLife {
       [{ x: -420, z: -180 }, { x: -80, z: 420 }, { x: 430, z: 260 }, { x: 260, z: -360 }],
       [{ x: 610, z: -280 }, { x: 760, z: 260 }, { x: 280, z: 560 }, { x: 40, z: 60 }],
       [{ x: -720, z: 360 }, { x: -260, z: 720 }, { x: 220, z: 610 }, { x: -80, z: 120 }],
+      [{ x: 880, z: -420 }, { x: 620, z: -120 }, { x: 760, z: 310 }, { x: 1_020, z: 80 }],
+      [{ x: -940, z: -280 }, { x: -560, z: -610 }, { x: -80, z: -480 }, { x: -380, z: -120 }],
     ] as const;
     definitions.forEach((definition, index) => {
       const root = createNpcBoatModel(definition);
       const start = routes[index]![0];
       const next = routes[index]![1];
       const heading = Math.atan2(next.x - start.x, next.z - start.z);
-      const scale = definition.hull.length / 4.65;
-      root.scale.setScalar(scale);
+      const lengthScale = definition.hull.length / 4.65;
+      const beamScale = definition.hull.beam / 1.72;
+      root.scale.set(beamScale, lengthScale, lengthScale);
       this.boats.push({ root, definition, route: routes[index]!, waypoint: 1, x: start.x, z: start.z, heading, speed: 1.2 + index * 0.35 });
       this.root.add(root);
     });
@@ -208,9 +211,12 @@ function createNpcBoatModel(definition: BoatDefinition): THREE.Group {
   const deck = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.12, 3.55), trimMaterial);
   deck.position.y = 0.38;
   root.add(deck);
-  if (definition.id !== "harbor-20") {
+  if (definition.visual.profile !== "open") {
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.34, 1.05), sailMaterial);
     cabin.position.set(0, 0.62, 0.35);
+    if (definition.visual.profile === "daysailer") cabin.scale.set(0.86, 0.56, 0.72);
+    if (definition.visual.profile === "workboat") cabin.scale.set(1.12, 1.35, 0.9);
+    if (definition.visual.profile === "cruiser") cabin.scale.set(1.08, 1.12, 1.28);
     root.add(cabin);
   }
   const mastMaterial = new THREE.MeshStandardMaterial({ color: 0x6f5136, roughness: 0.72 });

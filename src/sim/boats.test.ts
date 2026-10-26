@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   BOAT_DEFINITIONS,
   COASTAL_28,
+  COVE_24,
   HARBOR_20,
   LAKE_34,
+  SOUND_30,
   getSailDefinition,
   referencePolarSpeed,
 } from "./boats";
@@ -23,7 +25,9 @@ describe("data-driven boat definitions", () => {
   });
 
   it("supports larger monohulls with optional headsails and deeper drafts", () => {
+    expect(getSailDefinition(COVE_24, "headsail")?.area).toBeGreaterThan(0);
     expect(getSailDefinition(COASTAL_28, "headsail")?.area).toBeGreaterThan(0);
+    expect(getSailDefinition(SOUND_30, "headsail")?.area).toBeGreaterThan(0);
     expect(getSailDefinition(LAKE_34, "headsail")?.area).toBeGreaterThan(0);
     expect(COASTAL_28.hull.draft).toBeGreaterThan(HARBOR_20.hull.draft);
     expect(LAKE_34.hull.draft).toBeGreaterThan(COASTAL_28.hull.draft);
@@ -34,6 +38,8 @@ describe("data-driven boat definitions", () => {
 
   it("uses unique ids and valid ordered polar references", () => {
     const definitions = Object.values(BOAT_DEFINITIONS);
+    expect(definitions).toHaveLength(5);
+    expect(new Set(definitions.map((boat) => boat.visual.profile)).size).toBe(5);
     expect(new Set(definitions.map((boat) => boat.id)).size).toBe(
       definitions.length,
     );

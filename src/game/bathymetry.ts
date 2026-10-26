@@ -162,6 +162,11 @@ export function sampleLakeDepth(x: number, z: number): number {
   return Math.max(0, depth);
 }
 
+export function depthAtTide(meanWaterDepth: number, waterLevel: number): number {
+  // Zero depth also marks permanent land; tide cannot invent inland water.
+  return meanWaterDepth > 0 ? Math.max(0, meanWaterDepth + waterLevel) : 0;
+}
+
 function organicDistance(
   x: number,
   z: number,

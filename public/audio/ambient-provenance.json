@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "fair-winds-audio-assets/v1",
+  "status": "audition_only_no_asset_approved",
+  "generatedModelOutputs": 3,
+  "localProcessedPreviews": 1,
+  "noFurtherModelGeneration": true,
+  "rightsReview": {
+    "reviewedAt": "2026-10-13T08:57:43Z",
+    "sources": [
+      "https://huggingface.co/stabilityai/stable-audio-3-small-sfx/blob/main/LICENSE.md",
+      "https://huggingface.co/spaces/stabilityai/stable-audio-3/blob/main/README.md"
+    ],
+    "observedFacts": [
+      "The Community License states that, as between the generator and Stability AI and to the extent allowed by law, the generator owns generated outputs.",
+      "The license definitions exclude outputs from Derivative Works.",
+      "Model/material use and distribution have separate terms, including commercial model-use registration and revenue limits; no model weights were downloaded or bundled."
+    ],
+    "scope": "Three explicitly authorized free public-demo audition outputs; no model/service redistribution, new terms accepted, registration, installation or payments.",
+    "releaseInterpretation": "Source-backed reading for these output-only audition files, not blanket legal or non-infringement clearance. Preserve provenance and review the intended release use."
+  },
+  "assets": [
+    {
+      "id": "water-hull",
+      "file": "water-hull-original.wav",
+      "role": "generated-original",
+      "bytes": 3528044,
+      "sha256": "2C937C48C78570EB28A513CCECEB0D29EFFA37A349140408F00ED5FD69AF4882",
+      "source": {
+        "provider": "Hugging Face Stable Audio 3 demo",
+        "model": "Small SFX — 0.6B, sound effects",
+        "outputUrl": "https://stabilityai-stable-audio-3.hf.space/gradio_api/file=/tmp/gradio/f22c7c5aefef11d9bf1b1ad6f828b19becfea8c46e21b4b85c80aacb0131f167/sa3.wav",
+        "prompt": "A quiet, close natural recording of small irregular waves lapping against the wooden hull of a moored sailing dinghy in a sheltered Mediterranean harbor. Soft water slaps, tiny bubbles and a little hollow wooden resonance; steady low energy with no dramatic swell. Make the texture continuous and suitable for a seamless loop, with no obvious start or finish. No voices, music, motors, splashing people, or foreground birds.",
+        "settings": {
+          "mode": "Simple",
+          "steps": 8,
+          "cfgScale": 1,
+          "sampler": "pingpong",
+          "seed": 0,
+          "durationSeconds": 20
+        },
+        "observedAtUtc": "2026-10-13T08:46:02Z"
+      },
+      "format": "20.0 s, RIFF/WAVE PCM16, stereo, 44.1 kHz",
+      "listening": "not independently performed",
+      "approvedForIntegration": false
+    },
+    {
+      "id": "soft-sea-wind",
+      "file": "soft-sea-wind-original.wav",
+      "role": "generated-original",
+      "bytes": 3528044,
+      "sha256": "684C8DBA2E96E74E158E3E5A9729C1329523A12C249D1B6B7830A25FFE55FF7C",
+      "source": {
+        "provider": "Hugging Face Stable Audio 3 demo",
+        "model": "Small SFX — 0.6B, sound effects",
+        "outputUrl": "https://stabilityai-stable-audio-3.hf.space/gradio_api/file=/tmp/gradio/d62319956e880f6c0c4dc819cd4134289ebebfac4bb3cd06770d937361895075/sa3.wav",
+        "prompt": "A soft, steady Mediterranean sea breeze moving around a small sailboat, heard from aboard: gentle broad airy rustle with subtle natural variation, calm and restrained. Continuous background texture suitable for a seamless loop, with no obvious start or finish. No whistle, howl, storm gust, voices, music, motors, flapping sail, or sharp transient.",
+        "settings": {
+          "mode": "Simple",
+          "steps": 8,
+          "cfgScale": 1,
+          "sampler": "pingpong",
+          "seed": 0,
+          "durationSeconds": 20
+        },
+        "observedAtUtc": "2026-10-13T08:59:06Z"
+      },
+      "format": "20.0 s, RIFF/WAVE PCM16, stereo, 44.1 kHz",
+      "listening": "not independently performed",
+      "approvedForIntegration": false
+    },
+    {
+      "id": "distant-harbor",
+      "file": "distant-harbor-original.wav",
+      "role": "generated-original",
+      "bytes": 3528044,
+      "sha256": "4EC50BAD625423A0560ED97802E04EA4F384BF2870CDCE1A404799F27EEB4137",
+      "source": {
+        "provider": "Hugging Face Stable Audio 3 demo",
+        "model": "Small SFX — 0.6B, sound effects",
+        "outputUrl": "https://stabilityai-stable-audio-3.hf.space/gradio_api/file=/tmp/gradio/5c1b4d26bb6e020834609706cdbfc7bd83deb59f7d35e434521e25b2992bfd83/sa3.wav",
+        "prompt": "Quiet distant Mediterranean harbor ambience heard from a small boat: soft water in the basin, faint dock-rope creaks and only rare, faraway seabirds. Spacious and calm, with low activity and no close foreground event; continuous texture suitable for a seamless loop, with no obvious start or finish. No intelligible voices, music, motors, horns, or loud/recurring gull calls.",
+        "settings": {
+          "mode": "Simple",
+          "steps": 8,
+          "cfgScale": 1,
+          "sampler": "pingpong",
+          "seed": 0,
+          "durationSeconds": 20
+        },
+        "observedAtUtc": "2026-10-13T09:00:12Z"
+      },
+      "format": "20.0 s, RIFF/WAVE PCM16, stereo, 44.1 kHz",
+      "listening": "not independently performed",
+      "approvedForIntegration": false
+    },
+    {
+      "id": "distant-harbor-xfade100ms-preview",
+      "file": "distant-harbor-xfade100ms-preview.wav",
+      "role": "local-loop-preview",
+      "bytes": 3510404,
+      "sha256": "43C73502EF98A1F6B3550C7864E24F01BD794DFAD0EAD2F8C03525329995F8DF",
+      "derivedFrom": "distant-harbor-original.wav",
+      "processing": "100 ms equal-power tail-to-head crossfade; 19.9 s",
+      "format": "19.9 s, RIFF/WAVE PCM16, stereo, 44.1 kHz",
+      "listening": "not independently performed",
+      "approvedForIntegration": false
+    }
+  ],
+  "releaseGate": "All assets remain audition-only pending human audio and mix review and release-specific rights review; this record is not blanket legal or non-infringement clearance."
+}
