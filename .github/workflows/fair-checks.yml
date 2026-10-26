@@ -916,13 +916,25 @@ jobs:
             report.installed = [];
             report.omitted = [];
             assert.ok(process.report.getReport().header.glibcVersionRuntime, 'Expected glibc image');
+            const wasmParent = 'node_modules/@rolldown/binding-wasm32-wasi';
+            const wasmParentEntry = lock.packages[wasmParent];
+            const absentIncompatibleWasmParent = !fs.existsSync(wasmParent + '/package.json') && wasmParentEntry.optional === true && wasmParentEntry.version === '1.1.5' && wasmParentEntry.cpu?.length === 1 && wasmParentEntry.cpu[0] === 'wasm32' && process.arch !== 'wasm32';
+            const omittedWasmClosure = {
+              'node_modules/@emnapi/core': '1.11.1',
+              'node_modules/@emnapi/runtime': '1.11.1',
+              'node_modules/@emnapi/wasi-threads': '1.2.2',
+              'node_modules/@napi-rs/wasm-runtime': '1.1.6',
+              'node_modules/@tybys/wasm-util': '0.10.3',
+              'node_modules/tslib': '2.8.1',
+            };
             for (const [location, entry] of Object.entries(lock.packages)) {
               if (!location) continue;
               const installedManifest = location + '/package.json';
               if (!fs.existsSync(installedManifest)) {
                 const incompatible = (entry.os && !entry.os.includes('linux')) || (entry.cpu && !entry.cpu.includes('x64')) || (entry.libc && !entry.libc.includes('glibc'));
-                report.omitted.push({ location, version: entry.version, optional: entry.optional, os: entry.os, cpu: entry.cpu, libc: entry.libc, reason: incompatible ? 'incompatible-platform' : 'unexpected-missing' });
-                assert.ok(entry.optional && incompatible, 'Unexplained install omission: ' + location);
+                const omittedWithWasmParent = entry.optional === true && absentIncompatibleWasmParent && omittedWasmClosure[location] === entry.version;
+                report.omitted.push({ location, version: entry.version, optional: entry.optional, os: entry.os, cpu: entry.cpu, libc: entry.libc, reason: incompatible ? 'incompatible-platform' : omittedWithWasmParent ? 'absent-incompatible-wasm32-parent' : 'unexpected-missing', parent: omittedWithWasmParent ? wasmParent : undefined, parentVersion: omittedWithWasmParent ? wasmParentEntry.version : undefined });
+                assert.ok(entry.optional && (incompatible || omittedWithWasmParent), 'Unexplained install omission: ' + location);
                 continue;
               }
               const installed = JSON.parse(fs.readFileSync(installedManifest, 'utf8'));
