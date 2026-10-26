@@ -1,0 +1,1064 @@
+# SOURCE PROPOSAL: new install/signature/native execution boundary requires Lab delta acceptance before publication.
+name: Fair Winds public checks and source build
+on:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: fair-public-checks
+  cancel-in-progress: false
+jobs:
+  checks:
+    if: github.repository == 'flowwweb/sailingsimulator' && github.event.repository.private == false && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check pinned public source in restricted disposable container
+        shell: bash
+        env:
+          SOURCE_COMMIT: f8627520fe1252f509b41f5cce608845ce7e6284
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          work=$(mktemp -d)
+          cid=''
+          cleanup() {
+            primary_status=$?
+            trap - EXIT
+            set +e
+            removal_status=0
+            removal_outcome=not_created
+            if [[ -n "$cid" ]]; then
+              timeout --signal=KILL 15s docker rm -f "$cid"
+              removal_status=$?
+              removal_outcome=removed
+              if [[ "$removal_status" != 0 ]]; then removal_outcome=failed; fi
+            fi
+            timeout --signal=KILL 10s rm -rf -- "$work"
+            temp_status=$?
+            printf 'FAIR_CLOSURE primary=%s container=%s container_status=%s temp_status=%s\n' "$primary_status" "$removal_outcome" "$removal_status" "$temp_status"
+            printf 'Closure: primary=%s; container=%s (status %s); temporary directory removal status=%s.\n' "$primary_status" "$removal_outcome" "$removal_status" "$temp_status" >> "$GITHUB_STEP_SUMMARY"
+            summary_status=$?
+            if [[ "$primary_status" != 0 ]]; then exit "$primary_status"; fi
+            if [[ "$removal_status" != 0 || "$temp_status" != 0 || "$summary_status" != 0 ]]; then exit 1; fi
+          }
+          trap cleanup EXIT
+          export DOCKER_CONFIG="$work/docker-config"
+          mkdir "$DOCKER_CONFIG"
+          unset DOCKER_HOST DOCKER_CONTEXT DOCKER_AUTH_CONFIG
+          get_public() {
+            curl -q --noproxy '*' --proto '=https' --tlsv1.2 --fail --silent --show-error --max-time 30 --max-redirs 0 --max-filesize 262144 "$1"
+          }
+          get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
+          jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
+          get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
+          jq -e '.sha == "f8627520fe1252f509b41f5cce608845ce7e6284" and .tree.sha == "931615956f327450bedf3796aff144ae30033ea7"' "$work/commit.json"
+          cat > "$work/source-files.json" <<'SOURCE'
+          {
+            "schema": 1,
+            "commit": "f8627520fe1252f509b41f5cce608845ce7e6284",
+            "tree": "931615956f327450bedf3796aff144ae30033ea7",
+            "publishedChangesCovered": 77,
+            "files": [
+              {
+                "path": "AGENTS.md",
+                "bytes": 1338,
+                "sha256": "3ce48392b881615a1df2ea96487815481102d4371b0bf47426fc2283d625dad3",
+                "blobSha1": "02e2be0f3f6b6addf5956f89ec12aa800cc47fdd"
+              },
+              {
+                "path": "index.html",
+                "bytes": 34958,
+                "sha256": "7b6b21b0436206fd114967f6b1b6fe62e24cd28c68a407afbab274c577142ea9",
+                "blobSha1": "c6ca0a31376da2c7b6c6a3691319d5bb6f1e8dea"
+              },
+              {
+                "path": "package-lock.json",
+                "bytes": 61631,
+                "sha256": "a6313f305ea3e4df4ce4faebfec1dac85c2188b31ae70565bedb4b29572476b7",
+                "blobSha1": "dd48deb6aaa65be55083748c66e72942c7c448cf"
+              },
+              {
+                "path": "package.json",
+                "bytes": 1068,
+                "sha256": "a476b115459e1b4bc6ee3d42f93eea611729f02f30fb72d690db5aff6b3eae59",
+                "blobSha1": "dc31aeafe173da5b2aa0571eb42a87549bbf25ee"
+              },
+              {
+                "path": "playwright.config.ts",
+                "bytes": 1081,
+                "sha256": "41ba694621474eeaca820f867235d29fee887dab6773d06e59c72ac2214dbd6b",
+                "blobSha1": "cadaa2afb3637f03f097f361787c4c901abe3e8f"
+              },
+              {
+                "path": "public/audio/ambient-provenance.json",
+                "bytes": 6106,
+                "sha256": "0f90d7b22d4c32d96cba660908815b6cb436c6494620853883c092b18450b46d",
+                "blobSha1": "5e4cbcbe9ead53ed8d6a8ad78bde54a5522b4140"
+              },
+              {
+                "path": "public/brand/fairwinds-app-icon.svg",
+                "bytes": 388,
+                "sha256": "82ee37e7131c3ffb0f3a0115ede97865afd12db51f58eff72d074a18c21db626",
+                "blobSha1": "270c677a20efd14cc6e3df9541bf42ec908ddba6"
+              },
+              {
+                "path": "public/brand/fairwinds-full.svg",
+                "bytes": 2419,
+                "sha256": "9f7e4c19d5a8a22ec7916bc6828aed0baaa97bdff517f718f9aa6fb057ceef58",
+                "blobSha1": "23eb723f6f29a39a98b893d220e80108bd75f91a"
+              },
+              {
+                "path": "public/brand/fairwinds-icon.svg",
+                "bytes": 282,
+                "sha256": "4a543c675f1fbca9102ac86c702e4f5397c5ce54900f1fe1e0add3b3adfbddf0",
+                "blobSha1": "d0a102e54fd524ffdfba4d7aab10cc2a21a5f714"
+              },
+              {
+                "path": "public/brand/fairwinds-icons.svg",
+                "bytes": 5490,
+                "sha256": "25b6531adad977e0502904251561ff848ee098da5c7af02dad4eef7489f69d05",
+                "blobSha1": "f301ce56072f0715359fcdd4abaae047dca7f012"
+              },
+              {
+                "path": "public/brand/fairwinds-wordmark.svg",
+                "bytes": 1876,
+                "sha256": "d35eb52895078d994db58007cc6b2749e82fa3c627f75cd4e9680ad731c40fca",
+                "blobSha1": "1d3d7ba1e367be7383085a954ac23a1a460772ae"
+              },
+              {
+                "path": "public/credits.html",
+                "bytes": 1935,
+                "sha256": "c678a97649818e5a84b0703b75475152d7e74c1846a2e5790e619e2dee533809",
+                "blobSha1": "da50aa70eaeb0385eb2d33007a2725d8502cc659"
+              },
+              {
+                "path": "public/favicon.svg",
+                "bytes": 314,
+                "sha256": "2823daae4aea26e7e783f1daf22b88b0166ba7d96aa55c29fc80cb3bf8713a93",
+                "blobSha1": "e39e48092370423596255a08cedd7aed1ff3d935"
+              },
+              {
+                "path": "public/manifest.webmanifest",
+                "bytes": 558,
+                "sha256": "57b460660c254f2b6e4b6b0b7e8de940d3ce4b25ae6863fd6b684a25caac1bc6",
+                "blobSha1": "07e2415afdb402b006686b6c5b20cf5db9d55899"
+              },
+              {
+                "path": "public/sw.js",
+                "bytes": 2224,
+                "sha256": "baded01f4368bf8d438599df381ea5caaec25b24e78949ab651930a85f3b1a25",
+                "blobSha1": "57cf97b6006349239cfc60ea69a33ecdb6c2546d"
+              },
+              {
+                "path": "src/audio/ambient-loops.test.ts",
+                "bytes": 721,
+                "sha256": "440501aba568584a9a464722d81edda5dcdb17bf0aa6d85ee392c382df8cba85",
+                "blobSha1": "8f99169cff2e825d47d6f8cb53156840a50aaefe"
+              },
+              {
+                "path": "src/audio/game-audio.test.ts",
+                "bytes": 642,
+                "sha256": "571934975414ec161ab71512b3c8a863de8fe24741611b692c1f468a2ac86dfb",
+                "blobSha1": "e504d1f35c1855aac129940306f4b75a7b50d074"
+              },
+              {
+                "path": "src/audio/game-audio.ts",
+                "bytes": 31611,
+                "sha256": "669a05cd437388039d0c8b67e76a7c0b86a8fd8df8f1367d91243c9d3efee2c4",
+                "blobSha1": "e815b4fe99d8a7f4cec43e665dd4ba610ff501b1"
+              },
+              {
+                "path": "src/audio/mix.test.ts",
+                "bytes": 3950,
+                "sha256": "8cb8f5b9175fe6411ebe5112ae4ba6c8b7c30516e59b37f1ba277bb96122cdfb",
+                "blobSha1": "71054635c48deb20f67e4b7a992a8e7c885364d4"
+              },
+              {
+                "path": "src/audio/mix.ts",
+                "bytes": 3575,
+                "sha256": "11ef7d573ee4210dd69eaa86d4fd7981d28fdfa59d71864cc21e11fb3201f535",
+                "blobSha1": "ee4ee7e56b862c366b8ab105a8cb29fc59092101"
+              },
+              {
+                "path": "src/audio/music.test.ts",
+                "bytes": 1678,
+                "sha256": "3bda192498d851ef3517d7b6501ba7ce9a0022726f01d5b7270360014e24b2fa",
+                "blobSha1": "b84d042431a1671fe63e688c7ddef5071b49598d"
+              },
+              {
+                "path": "src/audio/music.ts",
+                "bytes": 1930,
+                "sha256": "dd702d9b9534b029c5262ec2a91c26f18f1bedde7965a0d19858b24181eaafc5",
+                "blobSha1": "2e9cfb077dd959fc919e5fdeb0144d56ca3c0e16"
+              },
+              {
+                "path": "src/audio/settings.test.ts",
+                "bytes": 2288,
+                "sha256": "225f7e883ae5c250b5a3a575dbad4d29a23628accb066393e5316e9299b20f49",
+                "blobSha1": "adb3a69eb7844f5c627b07ff884af3b22d6f93a4"
+              },
+              {
+                "path": "src/audio/settings.ts",
+                "bytes": 3348,
+                "sha256": "e8065b324f80b980d8686a703d24c9fd64818bfb7c11801c505f1d594d124fe5",
+                "blobSha1": "544cf8aa531598e1c80a386fe85af4f2cc810da4"
+              },
+              {
+                "path": "src/audio/zones.test.ts",
+                "bytes": 1878,
+                "sha256": "dc6d387a4e312278e08b7ac8c08abe827204d1eeed24eca7469a066f97696958",
+                "blobSha1": "2456f4cde279df151949907920a3ee80c312d5c8"
+              },
+              {
+                "path": "src/audio/zones.ts",
+                "bytes": 3128,
+                "sha256": "2f100bd21e7e408dbb7dc852be1b3a7caf1f45aa38ab0606883ad3930dd7a162",
+                "blobSha1": "1067a9fa848976315700953cdd434b556d0ceb3a"
+              },
+              {
+                "path": "src/game/academy.test.ts",
+                "bytes": 8891,
+                "sha256": "cee44a501f2abadb4bce6b2a273c965fce0b7468350997d2bd88d1bea2c6aed9",
+                "blobSha1": "c0c6ae8c59fa52db00b023a9fa298a84c5e5074f"
+              },
+              {
+                "path": "src/game/academy.ts",
+                "bytes": 12444,
+                "sha256": "8c9c28e6803d5f04714a01b9a0f71a355bb1df3a59b51c8c691824fce2154d11",
+                "blobSha1": "0996ccc204bf18cee600ed314c03c3de2dd68c6a"
+              },
+              {
+                "path": "src/game/activity-session.test.ts",
+                "bytes": 1932,
+                "sha256": "4eb3cf2b1cbf31add96f7a1b9c9a7560255f9568d4c5bccb6630139d6aecf196",
+                "blobSha1": "3d9604d141287489d87db16b5fc4796a98a8fbbc"
+              },
+              {
+                "path": "src/game/activity-session.ts",
+                "bytes": 6280,
+                "sha256": "8da5e8dcb0348d587562d9b89a9ea5b62562fc4ba60dfd8236ec8ea3bdb8440d",
+                "blobSha1": "8fe6b8c9a84dd5eb40f14e07dc78ad7057938c74"
+              },
+              {
+                "path": "src/game/bathymetry.test.ts",
+                "bytes": 1858,
+                "sha256": "b355d540c3a3e080890faaaa4f61552acd1996a4bcb24ef3650fb42fc9f07d1f",
+                "blobSha1": "cb03cf1036848c96f9e9ceb0fbd90d34f587f8af"
+              },
+              {
+                "path": "src/game/bathymetry.ts",
+                "bytes": 4377,
+                "sha256": "f4a63a8ea5ffc8f25cb00579a5e889d6c31d40a7b2aa09268312aaaeb0793fd9",
+                "blobSha1": "8ccfdc56b45b75540d803d56aafc2a657255aa36"
+              },
+              {
+                "path": "src/game/compass-tape.test.ts",
+                "bytes": 1066,
+                "sha256": "618fb7a01a9a7692e776166bde86114ca722a9ea66871e5488a405981543db71",
+                "blobSha1": "44d41b88bfe2dfd41d936cb3f4b9997c37b76522"
+              },
+              {
+                "path": "src/game/compass-tape.ts",
+                "bytes": 1310,
+                "sha256": "522fa3745e991d2cbd9b5b1cc019af143df8f7770d2af6b72ec7af02da273931",
+                "blobSha1": "088197a3e84ef7681dd603501adb9712566f5e53"
+              },
+              {
+                "path": "src/game/course-navigation.test.ts",
+                "bytes": 947,
+                "sha256": "cc569a965697afcbe0be9645e6ba6428e870e8ea73b37406ec31595ec1a29535",
+                "blobSha1": "5295d726e89d12bff045e7b5e4300e979ae5985e"
+              },
+              {
+                "path": "src/game/course-navigation.ts",
+                "bytes": 1192,
+                "sha256": "accef129824e5b25bf00db348896ca4d910ddfb82c975dcb805061cd3b5737b3",
+                "blobSha1": "4417b00a9cec85e81dcc7c70a879aebb00177846"
+              },
+              {
+                "path": "src/game/docking.test.ts",
+                "bytes": 5361,
+                "sha256": "0f7cafef0b8bd958027d0e43fe7b809a139ddd18b8ef491c48913e8393d69f2c",
+                "blobSha1": "197538b6278d00ce6b2a70bec7112cff22b4747a"
+              },
+              {
+                "path": "src/game/docking.ts",
+                "bytes": 3104,
+                "sha256": "ff754056d083d7ae846f475169bb8efdf992c453f874ca71f79125031144141b",
+                "blobSha1": "29d8220d5e3b56dd746cb059bf1ba9447136789f"
+              },
+              {
+                "path": "src/game/hazards.test.ts",
+                "bytes": 5201,
+                "sha256": "fc8152842c72c8a6c289754a174f8b688476fcd67808493a235b206f8ad7dd9e",
+                "blobSha1": "03b03d573dc93dab1dee4c2948f9abd8b56da7d8"
+              },
+              {
+                "path": "src/game/hazards.ts",
+                "bytes": 11078,
+                "sha256": "33ab0c55b058e364059e6dde5c7c22be781f47ba9940206b147c85edeba60fae",
+                "blobSha1": "3da426e6296e4daea1e8cedcb136b1925c0c0822"
+              },
+              {
+                "path": "src/game/input.ts",
+                "bytes": 10048,
+                "sha256": "bc69c989283c712cf67e80382373e59ea2e437eb04ea50fbf6d336282b82baa3",
+                "blobSha1": "3cd501dde00f0414fd4a0c26047d1e5c02dda99e"
+              },
+              {
+                "path": "src/game/lesson-session.ts",
+                "bytes": 3270,
+                "sha256": "75da27e71d82e92ec08a82d90805de9167016f85bc6fe53b1ab05b89700c617e",
+                "blobSha1": "2f3ccc2c81fbd9a82486a11c398cc15afe9cd411"
+              },
+              {
+                "path": "src/game/minimap.ts",
+                "bytes": 15849,
+                "sha256": "cd5f976d8d9a0efdcc8cf5553582009b9e83c8ce69e45816e7558aa395187130",
+                "blobSha1": "6555d9110b9ba43777f01022cffda4f6e07d4d43"
+              },
+              {
+                "path": "src/game/progress.test.ts",
+                "bytes": 3999,
+                "sha256": "2f4725e6748220023bd97a5bb2ae55c9cf3b5f13eeb7a007473f3abb1ada949d",
+                "blobSha1": "85c25e4fd43569958efe9cc40f3e988a1c1767d9"
+              },
+              {
+                "path": "src/game/progress.ts",
+                "bytes": 4895,
+                "sha256": "cf3650b2cfb4e095c9a4224f56da29327ce5688c9863265b8305c3951e6ad062",
+                "blobSha1": "88a232a09465f5f51aceb08067bc55604c6abf5b"
+              },
+              {
+                "path": "src/game/quay-contact.test.ts",
+                "bytes": 4726,
+                "sha256": "10958a8c290e3cf22c4c3572446b5a96273d0c2f5d92818ccbf085903d7d3ccc",
+                "blobSha1": "595ad31fece94a147e4d477f454743070dc55fa1"
+              },
+              {
+                "path": "src/game/time-scale.test.ts",
+                "bytes": 450,
+                "sha256": "7fc221d509fe00655ea37fa018275ad81107a427d13d8a8396a9c170b27663cc",
+                "blobSha1": "d7f90eb1000771d8506bf4b3d6aec11b91e61154"
+              },
+              {
+                "path": "src/game/time-scale.ts",
+                "bytes": 220,
+                "sha256": "c0064611cce4c3d0f06305ef856d07fbd83483adeee5a0ceea763b55cb13e7ab",
+                "blobSha1": "4877ba07be868d3864154bdebbce4ad25ef23fa0"
+              },
+              {
+                "path": "src/game/town-solids.test.ts",
+                "bytes": 7136,
+                "sha256": "f95c944e7a8d5c39519e83f011d5a334a57cbe5d7c65759128c796034ad3125a",
+                "blobSha1": "6c22525fb5d3399df31806e024ce36024d6d4954"
+              },
+              {
+                "path": "src/game/town-solids.ts",
+                "bytes": 2106,
+                "sha256": "e535ffbae3e67519304504292c457a6b4367e50cd65129db69ccec99ff3d0470",
+                "blobSha1": "a6992a0ee5dcd1d912cad9a0bbdd595b2c558a30"
+              },
+              {
+                "path": "src/game/wave-pose.test.ts",
+                "bytes": 2689,
+                "sha256": "3f9f44e83031b2f525823eafe528f36bef2c840d327f618576d8a3c05cce1c5c",
+                "blobSha1": "85b640e95dea3b7f7e47ed4884f4154e2a87d500"
+              },
+              {
+                "path": "src/game/wave-pose.ts",
+                "bytes": 2048,
+                "sha256": "64c14edffc4ab0b48144ad5a6f4a51c570c1b907d38612800f0cc88640a1a86d",
+                "blobSha1": "0a386f51a3a2fb951ad13eb26549bbe641e7e715"
+              },
+              {
+                "path": "src/game/world-definition.test.ts",
+                "bytes": 3021,
+                "sha256": "5edfee38323cc3f1c0a2b7dcfa1992d1bf642df5e285f97ecbfbac71d08179b6",
+                "blobSha1": "c4ccc77a1790515f8b8c778ea6f7db2f69eb29ee"
+              },
+              {
+                "path": "src/game/world-definition.ts",
+                "bytes": 10926,
+                "sha256": "032ad67c874a98f94fa15e45396f47dbb069dffa613f2ce4935c0f19548d7e8b",
+                "blobSha1": "52764425a2edab1d262b53442b99b004434e0062"
+              },
+              {
+                "path": "src/main.ts",
+                "bytes": 84972,
+                "sha256": "00edb949163c2098a5d28e6630701d69a4662583688c41436f26777de19ca83a",
+                "blobSha1": "ed59d1774ed082cbb90d63294b05db5861715d35"
+              },
+              {
+                "path": "src/render/ambient-life.ts",
+                "bytes": 11152,
+                "sha256": "db0e383d33960c874a1f633e80418b2bff147b8a6f7ea26153a3617d16f49d9e",
+                "blobSha1": "f1c1f7d93b36bbb4fe12f2ef7fb2f05adff1b6d6"
+              },
+              {
+                "path": "src/render/buoy-visual.test.ts",
+                "bytes": 440,
+                "sha256": "b672fa9777646722314c3bfc61d0cd331d2d68f37fbdf718481d9b600d4a7a71",
+                "blobSha1": "d290419b2d163d52587c61edf2bcb1405fab95a8"
+              },
+              {
+                "path": "src/render/buoy-visual.ts",
+                "bytes": 553,
+                "sha256": "fd908d8fb9e129c855c12f5f9cfc51fa3311b76a7edad374470724a1d3f1a74f",
+                "blobSha1": "4642322b92b5b1a75e094754faa7b8f48451c06d"
+              },
+              {
+                "path": "src/render/camera.test.ts",
+                "bytes": 5000,
+                "sha256": "209049154268c5f332ac67b6f0c361da3cc94fefa7efccaa422a76f1456420fa",
+                "blobSha1": "fde282746a7adea64f15cab1b0eba9f0fb9f7f8d"
+              },
+              {
+                "path": "src/render/fishing-town.test.ts",
+                "bytes": 27330,
+                "sha256": "25968de6703d0a2d9508fe49eed54897ee934a74da353804ee681e6c2dade821",
+                "blobSha1": "afd0ee76bab77e32ab5c9ea2045ef814b1254dfc"
+              },
+              {
+                "path": "src/render/fishing-town.ts",
+                "bytes": 43265,
+                "sha256": "017a5f6a11f139b774add11a1ec5f4f3abab1ce8f4f695079e82ced4cd5bd281",
+                "blobSha1": "c81ff972678404ef167330a2984127e590ec7b29"
+              },
+              {
+                "path": "src/render/hull-water-mask.test.ts",
+                "bytes": 687,
+                "sha256": "9edd77e450550b14552d3455311671bb0f8b8e5ee0d49e4f8cadd5329dfb485a",
+                "blobSha1": "ab1b69d80c55d65e7174b526d9e4284a6e3145df"
+              },
+              {
+                "path": "src/render/hull-water-mask.ts",
+                "bytes": 991,
+                "sha256": "26a17321f12e8001812380607160778e29c0730f303dbb6e2a56104d85fabb3b",
+                "blobSha1": "f06fa253028e1e685547e35c2149b209e9de4c5a"
+              },
+              {
+                "path": "src/render/incident-pose.test.ts",
+                "bytes": 677,
+                "sha256": "91cde0cab3287f722b9d8770e9825fddeac39c57226c9fd07ab1ec1a7f620e42",
+                "blobSha1": "a19372e431e2f962d3b9e527fa7432a540f94497"
+              },
+              {
+                "path": "src/render/incident-pose.ts",
+                "bytes": 719,
+                "sha256": "a149cf03b9befc576806112a211ae1c40bf3a08c65610ab71d68819ab463881e",
+                "blobSha1": "5d7580af37fc49d398f750d5abe858beaca05d1e"
+              },
+              {
+                "path": "src/render/landmark-grounding.test.ts",
+                "bytes": 857,
+                "sha256": "5c3f2c3ab30e248cfc1daaa19f5088d778dfaf3620c27be18d5a49ab15ae26fd",
+                "blobSha1": "5a0f7b6feb7d5c3b600e329437dbafecdfb4cc1c"
+              },
+              {
+                "path": "src/render/landmark-grounding.ts",
+                "bytes": 686,
+                "sha256": "6a9d1fab135314a2f2f9cf33d5dac9a5f3eceee585dd5288a8a912281ff9e8ef",
+                "blobSha1": "4d7b016cac28a77684a94b23b8e4b079d72a83d1"
+              },
+              {
+                "path": "src/render/meshy-boat.test.ts",
+                "bytes": 5673,
+                "sha256": "60a3cb359a4d4396769a6a4840a1b83a79149f157543063747f51d169957a8d2",
+                "blobSha1": "ff2dfafaa58b7f0f414dfe50e47a498219be7fb2"
+              },
+              {
+                "path": "src/render/meshy-boat.ts",
+                "bytes": 9506,
+                "sha256": "fadcac9330cc3ed6f2f6d982be128a6d18e89d8020572dd6c35b488c57d9c3f7",
+                "blobSha1": "3b0b522d23607844f3ad9fc8e45db2b4ba1482f7"
+              },
+              {
+                "path": "src/render/scenery.test.ts",
+                "bytes": 13045,
+                "sha256": "b83f89c783a33a23c538801bec80e4a3f2ea32f503468cbce630ec14432d58ef",
+                "blobSha1": "51ad0d71bcf626637c4d01be3374ba732aa2a92b"
+              },
+              {
+                "path": "src/render/scenery.ts",
+                "bytes": 33879,
+                "sha256": "d71d76e7d363b74e6c6bdb962a57271ae796c0c36426caaf2987dd852f979992",
+                "blobSha1": "1eff72b3a22e59070d6c6a94f996058777b48d3a"
+              },
+              {
+                "path": "src/render/shoreline-contact.test.ts",
+                "bytes": 5634,
+                "sha256": "2d844d1244ae943d5f3426d934b2213f4b804bc74a5d2cb3eeb6ba3e6d1a0b58",
+                "blobSha1": "f454014552b5c2d450249a3ff4eed3dec75134af"
+              },
+              {
+                "path": "src/render/traffic-navigation.test.ts",
+                "bytes": 2046,
+                "sha256": "d8ed4d6fd075e76f24b092b5f26c5fa97e5ffcb05ba33c8831db2bc760f73637",
+                "blobSha1": "033801e65cb4b53ca1a7cf2077e93cd45afe03a9"
+              },
+              {
+                "path": "src/render/traffic-navigation.ts",
+                "bytes": 3863,
+                "sha256": "c40a8743bcd728f3550bfb96d77f663e18a00d86a12f14fea588b35465fa1ff8",
+                "blobSha1": "18d69af853125dc69225933dc58f0548044ec7a0"
+              },
+              {
+                "path": "src/render/wake-surface.test.ts",
+                "bytes": 1015,
+                "sha256": "abc40416ec8e541e6714a3ec4286113a562ae554ca8c9b8c60ad9e4a683e3548",
+                "blobSha1": "410be33b08136767894710bbb93f74372078bc36"
+              },
+              {
+                "path": "src/render/wake-surface.ts",
+                "bytes": 1193,
+                "sha256": "c7c16bc524c8eab5c4ba9f7169736f494bb42473f125fa0da3b2bf59c84604ce",
+                "blobSha1": "85297c4e17ed9cffdf4e148f21bf5a3de139f601"
+              },
+              {
+                "path": "src/render/water-surface.test.ts",
+                "bytes": 7684,
+                "sha256": "7b397277180fe42c31490bd61ac0bf50dd03ca4ab6cacfe3b83a19c4ad11f3b1",
+                "blobSha1": "9fd0c6a52a94ef61be3ec76e81c00ad30f0d64c1"
+              },
+              {
+                "path": "src/render/water-surface.ts",
+                "bytes": 21655,
+                "sha256": "39b8386c1f33747daa9958921ac97fcbab8052c68d9d07c12f16907ad61d26fe",
+                "blobSha1": "1d6fc0b4cf68e5771aef977c968bff8a0f1a1fa7"
+              },
+              {
+                "path": "src/render/wind-cues.test.ts",
+                "bytes": 4348,
+                "sha256": "85b591c155cdc5b64b00139d14e33c9971f6661aa917534381a9421d8f9f89c9",
+                "blobSha1": "256d44a8d1ed8bb22910603cd573f3377b218057"
+              },
+              {
+                "path": "src/render/wind-cues.ts",
+                "bytes": 7238,
+                "sha256": "385c830da87967231dd97e10e4a0fa583ec41e529dcb43e4bd8ccbc6efd96c6c",
+                "blobSha1": "04f7c15379b0ae77c1682c1dfc71388bcfc574a4"
+              },
+              {
+                "path": "src/render/world.ts",
+                "bytes": 82957,
+                "sha256": "b3f03b0bf3253847875169744935d109bf8dd556c02a8b34615eaa7841e589e8",
+                "blobSha1": "6f77f32f33d3e5db05ed40f7b3b0283ce57f03d5"
+              },
+              {
+                "path": "src/sim/boats.test.ts",
+                "bytes": 2833,
+                "sha256": "36e1dbce06b37f169eeff9d804006269f029772664483b9346f32b1899ef3d2e",
+                "blobSha1": "1150a167b43f49e25c6e90dc3def8fc0792fc1ab"
+              },
+              {
+                "path": "src/sim/boats.ts",
+                "bytes": 10775,
+                "sha256": "a280104e505feba5ec73d3d8ec3bf25d74fc95b75bed8b55a703e260c015b686",
+                "blobSha1": "aba567a3b6d8f0285647800ceeb5c5cf632ffff4"
+              },
+              {
+                "path": "src/sim/model.test.ts",
+                "bytes": 13549,
+                "sha256": "c0d8bb7381243bb33328c36b2e6ac44f99e19636d8d599948699980ffd431a2a",
+                "blobSha1": "ea5c14801ce7b69989e6db9600f949e337000b00"
+              },
+              {
+                "path": "src/sim/model.ts",
+                "bytes": 18352,
+                "sha256": "27473d3c17022a9a805f88f65ebcb3fa71d388ca8a1b471d1689e95993bdfe6e",
+                "blobSha1": "2e019e4dcfed1a553cb7c3d0c78ae988583a3938"
+              },
+              {
+                "path": "src/style.css",
+                "bytes": 120410,
+                "sha256": "c69938ff08e5467aa57ef942407ba904ec67051da23e9df1fade715af9958ed1",
+                "blobSha1": "953397a9be090a051f903d496bf127f41a46678a"
+              },
+              {
+                "path": "src/ui/controls-accessibility.test.ts",
+                "bytes": 19795,
+                "sha256": "f44914bcbe011a02ea8d6163144509c3f3ecfbcd82c760ae4736b3aed2c721d4",
+                "blobSha1": "982000d64896e65b531b6355f8c46d0793b1c51a"
+              },
+              {
+                "path": "src/ui/preferences.test.ts",
+                "bytes": 1416,
+                "sha256": "d22a14687068a1577c9ec44424bd6b29dfd0c7b841205e9c2d728bf39db19806",
+                "blobSha1": "c6a8d4e41e4de237bb46576af951fc861e6e7839"
+              },
+              {
+                "path": "src/ui/preferences.ts",
+                "bytes": 434,
+                "sha256": "0d0f375f908a322a0524c51a2396b3a4e631db3e6bdf610e605fe37a80a02790",
+                "blobSha1": "bb43994e38f2406e1adefa0bc02d6ff4f71dfae5"
+              },
+              {
+                "path": "src/ui/primitives.test.ts",
+                "bytes": 1639,
+                "sha256": "fcb744bf58bea2f19b5369b3a3e109feb9a87b3d6a99c5df1929631b5b9f293d",
+                "blobSha1": "78a1599445b940686fef8fe9af51475dafd038b1"
+              },
+              {
+                "path": "src/ui/primitives.ts",
+                "bytes": 2701,
+                "sha256": "5d52ffd91bbae27ae6335113f796fe384dcf124bb8ea7c64ea89956197c086ef",
+                "blobSha1": "42179bb4c820e341a4da51dc453dd9f897b94cce"
+              },
+              {
+                "path": "src/vite-env.d.ts",
+                "bytes": 38,
+                "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5",
+                "blobSha1": "11f02fe2a0061d6e6e1f271b21da95423b448b32"
+              },
+              {
+                "path": "src/weather/forecast.test.ts",
+                "bytes": 858,
+                "sha256": "b30588daf45eb67cd4fb39b068edcd5dde72bd14847c6ee59c64a76c051feab6",
+                "blobSha1": "7baec3aff0725a9db53d798ec678882120f94bcb"
+              },
+              {
+                "path": "src/weather/forecast.ts",
+                "bytes": 1573,
+                "sha256": "e18931aad1351f2de38e2a77b310832c6d4dd42209c26050c130086f6ca73db5",
+                "blobSha1": "5ac5f7953911b5f27c15df860b377914c2fa8440"
+              },
+              {
+                "path": "src/weather/prng.ts",
+                "bytes": 613,
+                "sha256": "354543535e9121fda127426569b82f904f133e2660e96acd1fad88c5f81152f9",
+                "blobSha1": "17b4b847cc78d81c128f17264513f6ef2b61d283"
+              },
+              {
+                "path": "src/weather/types.ts",
+                "bytes": 3987,
+                "sha256": "19b319bf2a971547c574ca70e31ded3e9bcd27e02200596d07316bd93b096a96",
+                "blobSha1": "becab51692543c42b77cfa49bcd0cddf73a409cb"
+              },
+              {
+                "path": "src/weather/waves.ts",
+                "bytes": 5170,
+                "sha256": "8e5da6058f809d250842faba83b1820f1c9c70b852f69f26f0ccc1248033e200",
+                "blobSha1": "09d9b842e2cfcc74ec85e306e3fc23b1f331301d"
+              },
+              {
+                "path": "src/weather/weather.test.ts",
+                "bytes": 10646,
+                "sha256": "289c6a0603783ef16dec3a53e80b3906ac8dab6b4b473c36454fab5d7a8ab82a",
+                "blobSha1": "9deab84a1572d9ab5f64f856d13e26480c834cfb"
+              },
+              {
+                "path": "src/weather/weather.ts",
+                "bytes": 3789,
+                "sha256": "ab2e6b25d350f99063d8874d7ebde0a063f6d951344d5fe82898d8e5c1c443b4",
+                "blobSha1": "faa946991d6a7a16cd2e8740c5e738b73bd24ac3"
+              },
+              {
+                "path": "tests/browser/approved-menus.spec.ts",
+                "bytes": 7352,
+                "sha256": "8470d7f7e3202474d67888c196112ea2f9df33f8500d1870422959dc0b641458",
+                "blobSha1": "cb0e68111a5614277ea7455d20748fec70ed98bd"
+              },
+              {
+                "path": "tests/browser/boat-asset.spec.ts",
+                "bytes": 1208,
+                "sha256": "3164dba9aca64ad8a436c49615fb533c6415f46fda854f6aaa94366cb4e7f764",
+                "blobSha1": "ae83811b557e182c163edb933e5b587036604eb0"
+              },
+              {
+                "path": "tests/browser/chooser-focus.spec.ts",
+                "bytes": 2141,
+                "sha256": "14ab7abb15c858b5c5a915923dab6d9f5bacab93cf9945bda6699f28ed0e80c1",
+                "blobSha1": "89943d76c9aa808303bbac20e89c2a27b1e9f05f"
+              },
+              {
+                "path": "tests/browser/core-flow.spec.ts",
+                "bytes": 27941,
+                "sha256": "9d77a069025b968a66554b4abc45ae3c6fb832a01ae8761e273205ee36594c61",
+                "blobSha1": "ede3d728b80c74833f955ec2957353190985f8b4"
+              },
+              {
+                "path": "tests/browser/dock-clearance.spec.ts",
+                "bytes": 4656,
+                "sha256": "38a852348b7c9f222ed7b84ef50674e645cb076e5e7c1b2bad3232b033ee0afc",
+                "blobSha1": "ed10b3c9fef9c44f630cbf7ddf88116b5751d4ad"
+              },
+              {
+                "path": "tests/browser/lesson-disclosure-focus.spec.ts",
+                "bytes": 1287,
+                "sha256": "fda95daf085804641a31c4bfd63d0aaf398ab8a0c82bffbf7c0b738a81b6a441",
+                "blobSha1": "880861154bcafbc15af175617db277d9519c646b"
+              },
+              {
+                "path": "tests/browser/lesson-flow.spec.ts",
+                "bytes": 5167,
+                "sha256": "8bca7082335fce0991d88d507fe75394a36c068a5d8713d611b097232606f3b3",
+                "blobSha1": "e27008bb31f081295cac0dd96a79ed911c72e06b"
+              },
+              {
+                "path": "tests/browser/lesson-harness.html",
+                "bytes": 1753,
+                "sha256": "aa3e7f67fe87e13a8332ba269427c267269e760da0643586e99bffbddebb6cf3",
+                "blobSha1": "c42788f382bb62b6921ac6b1e6b63a11f9f8c7c0"
+              },
+              {
+                "path": "tests/browser/lesson-harness.ts",
+                "bytes": 4860,
+                "sha256": "b2bfeab78b1f2f25a4b7794f747e257e5250ff68795d8d45218677b964811f19",
+                "blobSha1": "800b72d14d273934b6a92b265c5e905283d314a1"
+              },
+              {
+                "path": "tests/browser/lesson-mobile.spec.ts",
+                "bytes": 2091,
+                "sha256": "5a0ad1b47325e5670c6a51e8451a6d15d5996ec38313c29f755e8c3d60e72e0c",
+                "blobSha1": "f9add9a731248974e5fc0ff4ee88833b0116e161"
+              },
+              {
+                "path": "tests/browser/live-title.spec.ts",
+                "bytes": 7607,
+                "sha256": "096a2fd7016006447a5b9c13f91b04d7269fe857fead7dabfd3a5304ce1b53aa",
+                "blobSha1": "5eacddffe817d25315b34c30c2fe2e1e037f619e"
+              },
+              {
+                "path": "tests/browser/objective-layout.spec.ts",
+                "bytes": 1970,
+                "sha256": "b67081608a3628286e70f503508d22acb8d2308537b9c508fe65d0cc83e73741",
+                "blobSha1": "22b408942ef8befbda3b9d038d4b00d7253c3e99"
+              },
+              {
+                "path": "tests/browser/pause-menu.spec.ts",
+                "bytes": 7838,
+                "sha256": "558067d322e936b03df707d54e4aa3e023d35ff05b34b1eb7c51d30c8a3920fd",
+                "blobSha1": "af8912cfb5f3a690f074765d26b2ae35dd721e34"
+              },
+              {
+                "path": "tests/browser/progress-storage.spec.ts",
+                "bytes": 6175,
+                "sha256": "c4f70b3378f1abf7724fd8c299974faf2ba76b18f5688814d1b41826f488e3aa",
+                "blobSha1": "2062d8e9948fbe7ca0154fc20082ad1f4af4997e"
+              },
+              {
+                "path": "tests/browser/resume-sail-state.spec.ts",
+                "bytes": 1727,
+                "sha256": "76c7f846c19502fefc71618b06900e8ffe52de8b07a43ef49182ca5565da7acc",
+                "blobSha1": "240fbe808e649bb047b0fb4606406dc24d2ef1b1"
+              },
+              {
+                "path": "tests/browser/status-hud.spec.ts",
+                "bytes": 6701,
+                "sha256": "a9b0f4941aee2ca72c90449f4d952d63f0899d7452e42f4a42e356fcc38e7d47",
+                "blobSha1": "f8468580aaf6e2b0b9b1f6b6b781452e0388ffa2"
+              },
+              {
+                "path": "tests/browser/title-settings.spec.ts",
+                "bytes": 10315,
+                "sha256": "9e410ce4290dbfd810c8f7cbc2a78952cbf2ee3720ad7c8a82ebbc935b0102e3",
+                "blobSha1": "b5143ae7d545223e62cd8560182d8b92634a61eb"
+              },
+              {
+                "path": "tests/browser/title-tutorial.spec.ts",
+                "bytes": 8592,
+                "sha256": "1323456048bc9c9d2d8f1d317176d04ab318f3363566af63e59a98151887dc57",
+                "blobSha1": "d959191e6b75f4e725c501d375f62dcf78eaf326"
+              },
+              {
+                "path": "tests/browser/trim-pointer.spec.ts",
+                "bytes": 5355,
+                "sha256": "399e24f9958c3e27193f8d010f0dc51e7190d6ef450f231a8304478023c6f075",
+                "blobSha1": "f4d7e9f27221be267bc5dd9184b4f47c51fbc225"
+              },
+              {
+                "path": "tests/pwa-contract.test.ts",
+                "bytes": 1030,
+                "sha256": "4594cdc1077660ed4a713de7b8db7e82c6563716137e923916259c2b4a0b30e6",
+                "blobSha1": "d3b8af10a35aec70d7f8312348f9b0c25f622178"
+              },
+              {
+                "path": "tsconfig.json",
+                "bytes": 480,
+                "sha256": "3a322b47860174f0cc841bc6a41e4d4bce658457468209d3f499c64ed35f9370",
+                "blobSha1": "d88882895473e84a95770ba0e891251e7154eaa0"
+              },
+              {
+                "path": "vitest.config.ts",
+                "bytes": 131,
+                "sha256": "aa7858f05b2261348f1502fa076550b0930672e0df3f054a22e8a8d9b68fb32e",
+                "blobSha1": "ae847ff6d9cdd6c3e1300cfa6584201c8e3edfef"
+              }
+            ],
+            "excluded": "Inherited .env, hosting/editor/docs metadata and all binary media; explicit text-only build/test inputs from the same exact public commit",
+            "publicRawBytesIndependentlyHashed": true
+          }
+          SOURCE
+          jq -e '.commit == "f8627520fe1252f509b41f5cce608845ce7e6284" and (.files | length) == 121' "$work/source-files.json"
+          jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
+          mkdir "$work/project"
+          source_deadline=$((SECONDS + 150))
+          while IFS=$'\t' read -r file size sha blob; do
+            (( SECONDS < source_deadline ))
+            [[ "$file" =~ ^[A-Za-z0-9_./-]+$ && "$file" != /* && "/$file/" != */../* ]]
+            [[ ! "$file" =~ (^|/)\.env(\.|$) && ! "$file" =~ (^|/)\.npmrc$ ]]
+            mkdir -p -- "$work/project/$(dirname -- "$file")"
+            get_public "https://raw.githubusercontent.com/flowwweb/sailingsimulator/$SOURCE_COMMIT/$file" > "$work/project/$file"
+            test "$(wc -c < "$work/project/$file")" = "$size"
+            printf '%s  %s\n' "$sha" "$work/project/$file" | sha256sum --check --strict
+            actual_blob=$({ printf 'blob %s\0' "$size"; cat "$work/project/$file"; } | sha1sum | cut -d' ' -f1)
+            test "$actual_blob" = "$blob"
+          done < "$work/source-files.tsv"
+          cd "$work"
+          cat > check-build.cjs <<'JS'
+          'use strict';
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { createHash } = require('node:crypto');
+          const { spawnSync } = require('node:child_process');
+          const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+          const report = { sourceCommit: 'f8627520fe1252f509b41f5cce608845ce7e6284', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          let compressed;
+          function emit(label, bytes) {
+            console.log(label + '_BEGIN');
+            const encoded = bytes.toString('base64');
+            for (let start = 0; start < encoded.length; start += 120) console.log(encoded.slice(start, start + 120));
+            console.log(label + '_END');
+          }
+          function filesIn(root, ignored = []) {
+            const result = [];
+            function visit(relative) {
+              for (const name of fs.readdirSync(path.join(root, relative))) {
+                const next = relative ? relative + '/' + name : name;
+                if (ignored.includes(next)) continue;
+                const stat = fs.lstatSync(path.join(root, next));
+                assert.ok(!stat.isSymbolicLink(), 'Unexpected symlink: ' + next);
+                if (stat.isDirectory()) visit(next);
+                else { assert.ok(stat.isFile(), 'Unexpected file type: ' + next); result.push(next); }
+              }
+            }
+            visit('');
+            return result.sort();
+          }
+          function main() {
+            assert.equal(process.version, 'v24.22.1');
+            const npmRoot = '/usr/local/lib/node_modules/npm';
+            assert.equal(JSON.parse(fs.readFileSync(npmRoot + '/package.json', 'utf8')).version, '11.19.1');
+            assert.equal(process.getuid(), 1000);
+            for (const key of Object.keys(process.env)) assert.ok(['PATH', 'HOME', 'PWD'].includes(key), 'Unexpected environment key: ' + key);
+            for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
+            const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
+            assert.equal(source.commit, report.sourceCommit);
+            assert.equal(source.tree, '931615956f327450bedf3796aff144ae30033ea7');
+            assert.equal(source.files.length, 121);
+            process.chdir('/work/project');
+            function verifySource() {
+              assert.deepEqual(filesIn('.', ['node_modules', 'dist']), source.files.map(f => f.path).sort(), 'Unexpected source/config file');
+              for (const file of source.files) {
+                assert.ok(!/(^|\/)\.env(?:\.|$)|(^|\/)\.npmrc$/.test(file.path));
+                const bytes = fs.readFileSync(file.path);
+                assert.equal(bytes.length, file.bytes);
+                assert.equal(hash(bytes), file.sha256, 'Source changed: ' + file.path);
+              }
+            }
+            verifySource();
+            assert.ok(!fs.existsSync('node_modules') && !fs.existsSync('dist'));
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+            assert.equal(hash(fs.readFileSync('package.json')), 'a476b115459e1b4bc6ee3d42f93eea611729f02f30fb72d690db5aff6b3eae59');
+            assert.equal(hash(fs.readFileSync('package-lock.json')), 'a6313f305ea3e4df4ce4faebfec1dac85c2188b31ae70565bedb4b29572476b7');
+            assert.equal(lock.lockfileVersion, 3);
+            assert.equal(Object.keys(lock.packages).length, 112);
+            assert.deepEqual(pkg.dependencies, lock.packages[''].dependencies);
+            assert.deepEqual(pkg.devDependencies, lock.packages[''].devDependencies);
+            assert.equal(pkg.scripts.test, 'vitest run');
+            assert.equal(pkg.scripts.build, 'tsc --noEmit && vite build');
+            for (const name of ['preinstall', 'install', 'postinstall', 'prepare', 'prepublish', 'pretest', 'posttest', 'prebuild', 'postbuild']) assert.ok(!pkg.scripts[name]);
+            assert.ok(!pkg.workspaces && !pkg.overrides);
+            const lockRoots = source.files.filter(f => /(^|\/)(package-lock\.json|npm-shrinkwrap\.json)$/.test(f.path)).map(f => f.path);
+            assert.deepEqual(lockRoots, ['package-lock.json']);
+            const expectedHooks = { 'node_modules/fsevents': '2.3.3', 'node_modules/playwright/node_modules/fsevents': '2.3.2' };
+            for (const [location, entry] of Object.entries(lock.packages)) {
+              if (!location) continue;
+              assert.ok(!entry.link && !entry.inBundle);
+              assert.match(entry.version, /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
+              const url = new URL(entry.resolved);
+              assert.equal(url.origin, 'https://registry.npmjs.org');
+              assert.ok(!url.username && !url.password && !url.search && !url.hash && url.pathname.endsWith('.tgz'));
+              assert.match(entry.integrity, /^sha512-[A-Za-z0-9+/]{86}==$/);
+              if (entry.hasInstallScript) {
+                assert.equal(entry.version, expectedHooks[location]);
+                assert.deepEqual(entry.os, ['darwin']);
+                assert.equal(entry.optional, true);
+              }
+              for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+                for (const spec of Object.values(entry[field] || {})) assert.match(spec, /^[v0-9*^~<>=][0-9A-Za-z.*+^~<>=| -]*$/);
+              }
+            }
+            const userConfig = '/tmp/npm-user.npmrc';
+            const globalConfig = '/tmp/npm-global.npmrc';
+            assert.notEqual(userConfig, globalConfig);
+            for (const config of [userConfig, globalConfig]) {
+              fs.writeFileSync(config, '', { flag: 'wx', mode: 0o600 });
+              const stat = fs.statSync(config);
+              assert.ok(stat.isFile() && stat.size === 0 && stat.uid === process.getuid());
+            }
+            const env = { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: '/tmp', CI: 'true', npm_config_userconfig: userConfig, npm_config_globalconfig: globalConfig, npm_config_cache: '/tmp/npm-cache', npm_config_registry: 'https://registry.npmjs.org/', npm_config_ignore_scripts: 'true', npm_config_color: 'false', npm_config_update_notifier: 'false' };
+            function npm(stage, args, timeout, accepted = [0]) {
+              const result = spawnSync(process.execPath, [npmRoot + '/bin/npm-cli.js', ...args], { env, encoding: 'utf8', timeout, killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024 });
+              const record = { stage, args, status: result.status, signal: result.signal, error: result.error?.message, stdout: result.stdout, stderr: result.stderr, outputComplete: !result.error };
+              report.stages.push(record);
+              assert.equal(result.error, undefined, stage + ' incomplete');
+              assert.ok(accepted.includes(result.status), stage + ' failed');
+              return record;
+            }
+            assert.equal(npm('registry', ['config', 'get', 'registry'], 15000).stdout.trim(), 'https://registry.npmjs.org/');
+            npm('install-scripts-disabled', ['ci', '--ignore-scripts', '--include=dev', '--include=optional', '--audit=false', '--fund=false', '--fetch-retries=0', '--fetch-timeout=30000'], 180000);
+            verifySource();
+            report.installed = [];
+            report.omitted = [];
+            assert.ok(process.report.getReport().header.glibcVersionRuntime, 'Expected glibc image');
+            const wasmParent = 'node_modules/@rolldown/binding-wasm32-wasi';
+            const wasmParentEntry = lock.packages[wasmParent];
+            const absentIncompatibleWasmParent = !fs.existsSync(wasmParent + '/package.json') && wasmParentEntry.optional === true && wasmParentEntry.version === '1.1.5' && wasmParentEntry.cpu?.length === 1 && wasmParentEntry.cpu[0] === 'wasm32' && process.arch !== 'wasm32';
+            const omittedWasmClosure = {
+              'node_modules/@emnapi/core': '1.11.1',
+              'node_modules/@emnapi/runtime': '1.11.1',
+              'node_modules/@emnapi/wasi-threads': '1.2.2',
+              'node_modules/@napi-rs/wasm-runtime': '1.1.6',
+              'node_modules/@tybys/wasm-util': '0.10.3',
+              'node_modules/tslib': '2.8.1',
+            };
+            for (const [location, entry] of Object.entries(lock.packages)) {
+              if (!location) continue;
+              const installedManifest = location + '/package.json';
+              if (!fs.existsSync(installedManifest)) {
+                const incompatible = (entry.os && !entry.os.includes('linux')) || (entry.cpu && !entry.cpu.includes('x64')) || (entry.libc && !entry.libc.includes('glibc'));
+                const omittedWithWasmParent = entry.optional === true && absentIncompatibleWasmParent && omittedWasmClosure[location] === entry.version;
+                report.omitted.push({ location, version: entry.version, optional: entry.optional, os: entry.os, cpu: entry.cpu, libc: entry.libc, reason: incompatible ? 'incompatible-platform' : omittedWithWasmParent ? 'absent-incompatible-wasm32-parent' : 'unexpected-missing', parent: omittedWithWasmParent ? wasmParent : undefined, parentVersion: omittedWithWasmParent ? wasmParentEntry.version : undefined });
+                assert.ok(entry.optional && (incompatible || omittedWithWasmParent), 'Unexplained install omission: ' + location);
+                continue;
+              }
+              const installed = JSON.parse(fs.readFileSync(installedManifest, 'utf8'));
+              assert.equal(installed.version, entry.version);
+              assert.equal(installed.name, location.split('node_modules/').at(-1));
+              const hooks = Object.fromEntries(['preinstall', 'install', 'postinstall'].filter(k => installed.scripts?.[k]).map(k => [k, installed.scripts[k]]));
+              report.installed.push({ location, name: installed.name, version: installed.version, resolved: entry.resolved, integrity: entry.integrity, hooks });
+              assert.equal(Object.keys(hooks).length, 0, 'Installed lifecycle hook needs exact review: ' + location);
+              assert.ok(!entry.hasInstallScript, 'Unexpected installed native setup');
+            }
+            const actualInstalled = [];
+            function inspectNodeModules(directory) {
+              for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+                if (entry.name === '.bin' || entry.name === '.package-lock.json') continue;
+                const location = directory + '/' + entry.name;
+                assert.ok(entry.isDirectory() && !entry.isSymbolicLink(), 'Unexpected installed entry: ' + location);
+                if (entry.name.startsWith('@')) inspectNodeModules(location);
+                else {
+                  assert.ok(fs.existsSync(location + '/package.json'), 'Unidentified installed package: ' + location);
+                  actualInstalled.push(location);
+                  if (fs.existsSync(location + '/node_modules')) inspectNodeModules(location + '/node_modules');
+                }
+              }
+            }
+            inspectNodeModules('node_modules');
+            assert.deepEqual(actualInstalled.sort(), report.installed.map(p => p.location).sort(), 'Uncovered installed package paths');
+            report.hookExecution = { executed: [], exceptions: [], omittedDarwinHooks: Object.entries(expectedHooks).map(([location, version]) => ({ location, version, installed: fs.existsSync(location + '/package.json'), executed: false })) };
+            const audit = npm('all-root-audit', ['audit', '--package-lock-only', '--include=dev', '--include=optional', '--audit-level=high', '--json', '--fetch-retries=0', '--fetch-timeout=30000'], 60000, [0, 1]);
+            const audited = JSON.parse(audit.stdout);
+            assert.ok(!audited.error && audited.vulnerabilities && !Array.isArray(audited.vulnerabilities) && audited.metadata?.vulnerabilities);
+            const counts = audited.metadata.vulnerabilities;
+            for (const severity of ['info', 'low', 'moderate', 'high', 'critical', 'total']) assert.ok(Number.isInteger(counts[severity]) && counts[severity] >= 0, 'Incomplete audit counts');
+            assert.equal(counts.total, ['info', 'low', 'moderate', 'high', 'critical'].reduce((sum, key) => sum + counts[key], 0), 'Inconsistent audit counts');
+            for (const finding of Object.values(audited.vulnerabilities)) assert.ok(finding && ['info', 'low', 'moderate', 'high', 'critical'].includes(finding.severity), 'Malformed advisory record');
+            report.audit = { lockRoots, vulnerabilities: audited.metadata.vulnerabilities, fullReport: audited };
+            for (const field of ['high', 'critical']) assert.ok(Number.isInteger(audited.metadata.vulnerabilities[field]) && audited.metadata.vulnerabilities[field] === 0, 'Blocked ' + field + ' advisories');
+            for (const finding of Object.values(audited.vulnerabilities)) assert.ok(!['high', 'critical'].includes(finding.severity));
+            assert.equal(audit.status, 0, 'Audit returned non-success');
+            const signatures = npm('registry-signatures', ['audit', 'signatures', '--fetch-retries=0', '--fetch-timeout=30000'], 180000, [0, 1]);
+            const counted = signatures.stdout.match(/audited (\d+) packages? in \d+s/);
+            const signed = signatures.stdout.match(/(\d+) packages? (?:have|has a) verified registry signatures?/);
+            const attested = signatures.stdout.match(/(\d+) packages? (?:have|has a) verified attestations?/);
+            report.signatureCoverage = { installedPaths: report.installed.length, auditedWithKeys: counted ? Number(counted[1]) : null, verifiedRegistrySignatures: signed ? Number(signed[1]) : null, verifiedAttestations: attested ? Number(attested[1]) : 0, platformOmissions: report.omitted, exceptions: [], malwareClearanceClaim: false };
+            assert.equal(signatures.status, 0, 'Signature verification failed');
+            assert.equal(report.signatureCoverage.auditedWithKeys, report.installed.length, 'Incomplete signature registry coverage');
+            assert.equal(report.signatureCoverage.verifiedRegistrySignatures, report.installed.length, 'Incomplete signature identity coverage');
+            verifySource();
+            report.dependencyGates = 'PASS_AUDIT_AND_INSTALLED_SIGNATURE_COVERAGE_NOT_MALWARE_CLEARANCE';
+            npm('unit-tests', ['run', 'test'], 120000);
+            verifySource();
+            npm('typecheck-and-build', ['run', 'build'], 180000);
+            verifySource();
+            const distFiles = filesIn('dist');
+            assert.ok(distFiles.includes('index.html') && distFiles.length > 1);
+            report.dist = { binaryMediaAssetsIncluded: false, releaseReady: false, files: [] };
+            let total = 0;
+            for (const file of distFiles) {
+              assert.match(file, /\.(?:html|js|css|json|txt|md|svg|webmanifest|map)$/);
+              const bytes = fs.readFileSync('dist/' + file);
+              assert.ok(!bytes.includes(0), 'Unexpected binary dist file');
+              total += bytes.length;
+              assert.ok(total <= 32 * 1024 * 1024, 'Dist exceeds uncompressed log budget');
+              report.dist.files.push({ path: file, bytes: bytes.length, sha256: hash(bytes) });
+            }
+            const packed = spawnSync('/bin/tar', ['--sort=name', '--mtime=@0', '--owner=0', '--group=0', '--numeric-owner', '-cf', '/tmp/dist.tar', '-C', '/work/project', 'dist'], { env, encoding: 'utf8', timeout: 15000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024 });
+            report.stages.push({ stage: 'dist-tar', status: packed.status, error: packed.error?.message, stdout: packed.stdout, stderr: packed.stderr });
+            assert.equal(packed.error, undefined); assert.equal(packed.status, 0);
+            assert.ok(fs.statSync('/tmp/dist.tar').size <= 34 * 1024 * 1024);
+            const zipped = spawnSync('/bin/gzip', ['-n', '-c', '/tmp/dist.tar'], { env, timeout: 15000, killSignal: 'SIGKILL', maxBuffer: 8 * 1024 * 1024 });
+            report.stages.push({ stage: 'dist-gzip', status: zipped.status, error: zipped.error?.message, stderr: zipped.stderr?.toString('utf8') });
+            assert.equal(zipped.error, undefined); assert.equal(zipped.status, 0);
+            compressed = zipped.stdout;
+            report.dist.archive = { format: 'tar.gz', compressedBytes: compressed.length, sha256: hash(compressed), uncompressedFileBytes: total };
+            report.result = 'PASS_SOURCE_TEST_TYPE_BUILD_NO_MEDIA_ASSEMBLY_OR_BROWSER_RELEASE';
+          }
+          try { main(); }
+          catch (error) { report.result = 'FAILED_OR_INCOMPLETE'; report.error = error.stack; process.exitCode = 1; }
+          finally {
+            emit('FAIR_CHECK_REPORT_BASE64', Buffer.from(JSON.stringify(report)));
+            if (compressed && !process.exitCode) emit('FAIR_DIST_TARGZ_BASE64', compressed);
+            if (!process.exitCode) console.log('FAIR_CHECKS=PASS_SOURCE_BUILD_ONLY');
+          }
+          JS
+          image='docker.io/library/node@sha256:2dd9a4f758e173b65fee15388f7706af6fb01ef50cf7a2c0538711d67a6981ae'
+          timeout 120s docker pull --platform linux/amd64 "$image"
+          test "$(docker image inspect --format '{{.Id}}' "$image")" = 'sha256:dc1f22974dab4be31a8b56d58cb1f8fc218e83de83ccd831d885b3d7ac1223fb'
+          command='set -eu; test "$(id -u)" = 1000; test ! -e /var/run/docker.sock; cd /work; unset OLDPWD; tar -xf -; exec node check-build.cjs'
+          cid=$(docker create --platform linux/amd64 --interactive --user 1000:1000 \
+            --read-only --cap-drop ALL --security-opt no-new-privileges=true \
+            --pids-limit 256 --memory 4g --memory-swap 4g --cpus 2 \
+            --network bridge --ipc none --cgroupns private --ulimit nofile=256:256 \
+            --tmpfs /work:rw,exec,nosuid,nodev,size=2147483648,uid=1000,gid=1000,mode=0700 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=536870912,uid=1000,gid=1000,mode=0700 \
+            --log-driver local --log-opt max-size=1m --log-opt max-file=1 --log-opt compress=false \
+            --entrypoint /usr/bin/env "$image" -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/tmp /bin/sh -c "$command")
+          docker inspect "$cid" > container-inspect.json
+          jq -e --arg image "$image" --arg command "$command" '
+            length == 1 and (.[0] |
+              .State.Status == "created" and .Config.Image == $image and
+              .Image == "sha256:dc1f22974dab4be31a8b56d58cb1f8fc218e83de83ccd831d885b3d7ac1223fb" and
+              .Config.User == "1000:1000" and .Config.Entrypoint == ["/usr/bin/env"] and
+              .Config.Cmd == ["-i","PATH=/usr/local/bin:/usr/bin:/bin","HOME=/tmp","/bin/sh","-c",$command] and
+              (.Config.Env | sort) == (["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","NODE_VERSION=24.22.1","YARN_VERSION=1.22.22"] | sort) and
+              (.Config.Volumes // {} | length) == 0 and
+              (.Mounts | all(.Type == "tmpfs" and (.Source // "") == "" and (.Destination == "/work" or .Destination == "/tmp"))) and
+              (.HostConfig | .Privileged == false and .ReadonlyRootfs == true and
+                (.Binds // [] | length) == 0 and (.Mounts // [] | length) == 0 and (.VolumesFrom // [] | length) == 0 and
+                .CapDrop == ["ALL"] and (.CapAdd // [] | length) == 0 and
+                .SecurityOpt == ["no-new-privileges=true"] and .PidsLimit == 256 and
+                .Memory == 4294967296 and .MemorySwap == 4294967296 and .NanoCpus == 2000000000 and
+                .NetworkMode == "bridge" and .IpcMode == "none" and .PidMode == "" and .CgroupnsMode == "private" and
+                (.Devices // [] | length) == 0 and (.DeviceRequests // [] | length) == 0 and
+                .Tmpfs == {"/work":"rw,exec,nosuid,nodev,size=2147483648,uid=1000,gid=1000,mode=0700","/tmp":"rw,noexec,nosuid,nodev,size=536870912,uid=1000,gid=1000,mode=0700"}))
+          ' container-inspect.json
+          cat container-inspect.json
+          sha256sum source-files.json check-build.cjs container-inspect.json
+          guard=$(cat /proc/sys/kernel/random/uuid)
+          printf '::stop-commands::%s\n' "$guard"
+          set +e
+          tar -cf - project source-files.json check-build.cjs | timeout --signal=KILL 840s docker start --attach --interactive "$cid" | tee checks-output.log
+          statuses=("${PIPESTATUS[@]}")
+          set -e
+          printf '::%s::\n' "$guard"
+          printf 'Pinned public source checks/build only; FAIR_CHECK_REPORT_BASE64 holds full stage statuses/stdout/stderr and dependency coverage; FAIR_DIST_TARGZ_BASE64 holds the bounded SHA-bound compiled dist. No media assembly/browser/deployment claim.\n' >> "$GITHUB_STEP_SUMMARY"
+          printf 'Input public commit: `%s`\n' "$SOURCE_COMMIT" >> "$GITHUB_STEP_SUMMARY"
+          for status in "${statuses[@]}"; do test "$status" = 0; done
+          grep -qx 'FAIR_CHECKS=PASS_SOURCE_BUILD_ONLY' checks-output.log
