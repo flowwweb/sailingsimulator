@@ -166,7 +166,7 @@ jobs:
             --network bridge --ipc none --cgroupns private --ulimit nofile=256:256 \
             --tmpfs /work:rw,noexec,nosuid,nodev,size=268435456,uid=1000,gid=1000,mode=0700 \
             --tmpfs /tmp:rw,noexec,nosuid,nodev,size=268435456,uid=1000,gid=1000,mode=0700 \
-            --log-driver local --log-opt max-size=1m --log-opt max-file=1 \
+            --log-driver local --log-opt max-size=1m --log-opt max-file=1 --log-opt compress=false \
             --entrypoint /usr/bin/env "$image" -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/tmp /bin/sh -c "$command")
           docker inspect "$cid" > container-inspect.json
           jq -e --arg image "$image" --arg command "$command" '
