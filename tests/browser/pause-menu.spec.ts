@@ -126,7 +126,8 @@ test("pause nested Settings and Logbook return to their opener, then Esc resumes
   await expect(page.locator("#pause-settings")).toBeFocused();
   await page.locator("#pause-logbook").click();
   await expect(page.locator("#pause-heading")).toHaveText("Logbook");
-  await expect(page.locator("#pause-logbook-lessons li")).toHaveCount(3);
+  await expect(page.locator("#pause-logbook-lessons li")).toHaveCount(4);
+  await expect(page.locator("#pause-logbook-lessons li").first()).toHaveText("Reach the first buoy · Not yet completed");
   await page.locator("#pause-logbook-back").click();
   await expect(page.locator("#pause-logbook")).toBeFocused();
   expect(await snapshot(page)).toEqual(before);

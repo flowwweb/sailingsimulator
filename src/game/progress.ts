@@ -1,4 +1,5 @@
 import type { ActivityScore } from "./activity-session";
+import { FIRST_BUOY } from "./first-buoy";
 
 export const PROGRESS_STORAGE_KEY = "fair-winds-progress-v1";
 
@@ -9,7 +10,9 @@ export interface ActivityRecord {
 }
 
 export interface SailingProgress {
-  version: 1;
+  version: 2;
+  completedIntroductions?: Record<string, number>;
+  activeIntroduction?: string;
   academyCompleted: boolean;
   academyObjective?: number;
   completedLessons?: number[];
@@ -23,7 +26,7 @@ export interface SailingProgress {
 
 export function createProgress(): SailingProgress {
   return {
-    version: 1,
+    version: 2,
     academyCompleted: false,
     activities: {},
     voyages: 0,
@@ -34,9 +37,9 @@ export function createProgress(): SailingProgress {
 export function parseProgress(raw: string | null): SailingProgress {
   if (!raw) return createProgress();
   try {
-    const value = JSON.parse(raw) as Partial<SailingProgress>;
+    const value = JSON.parse(raw) as Partial<Omit<SailingProgress, "version">> & { version?: number };
     if (
-      value.version !== 1 ||
+      (value.version !== 1 && value.version !== 2) ||
       typeof value.academyCompleted !== "boolean" ||
       !Number.isFinite(value.voyages) ||
       !Number.isFinite(value.distanceSailed) ||
@@ -46,7 +49,7 @@ export function parseProgress(raw: string | null): SailingProgress {
       return createProgress();
     }
     const restored: SailingProgress = {
-      version: 1,
+      version: 2,
       academyCompleted: value.academyCompleted,
       voyages: Math.max(0, value.voyages!),
       distanceSailed: Math.max(0, value.distanceSailed!),
@@ -56,6 +59,13 @@ export function parseProgress(raw: string | null): SailingProgress {
     if (Array.isArray(value.completedLessons)) restored.completedLessons = [...new Set(value.completedLessons.filter((lesson) => Number.isInteger(lesson) && lesson >= 0 && lesson <= 2))];
     if (Number.isInteger(value.academyLesson) && value.academyLesson! >= 0 && value.academyLesson! <= 2) restored.academyLesson = value.academyLesson;
     restored.academyPaused = value.academyPaused === true;
+    // Old numeric drill results are legacy practice, never introduction credit.
+    if (value.version === 2) {
+      if (value.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision) {
+        restored.completedIntroductions = { [FIRST_BUOY.id]: FIRST_BUOY.revision };
+      }
+      if (value.activeIntroduction === FIRST_BUOY.id) restored.activeIntroduction = FIRST_BUOY.id;
+    }
     // Legacy cursor position is navigation, never proof of previous targets.
     restored.completedObjectives = Array.isArray(value.completedObjectives)
       ? validObjectives(value.completedObjectives)
@@ -86,6 +96,11 @@ export function nextLessonObjective(progress: SailingProgress, lesson: number): 
   if (!Number.isInteger(lesson) || lesson < 0 || lesson > 2) return 0;
   return [0, 1, 2].map((target) => lesson * 3 + target)
     .find((objective) => !progress.completedObjectives?.includes(objective)) ?? lesson * 3;
+}
+
+/** Call only when the current live journey update returns a new completion. */
+export function recordFirstBuoyCompletion(progress: SailingProgress): SailingProgress {
+  return { ...progress, completedIntroductions: { ...progress.completedIntroductions, [FIRST_BUOY.id]: FIRST_BUOY.revision } };
 }
 
 export function recordActivityCompletion(

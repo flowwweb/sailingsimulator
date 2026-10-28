@@ -43,7 +43,23 @@ describe("observed lesson performance", () => {
     const a = enter(2); hold(a, recover); expect(a.view().stage).toBe("recover");
     a.update(1 / 60, stall); hold(a, recover); expect(a.view().stage).toBe("lesson-complete");
   });
-  it.each([[3, "Close-hauled", 48, 70], [4, "Beam reach", 90, 48], [5, "Broad reach", 128, 90]])("target %i needs course and trim changes", (index, point, angle, entryAngle) => {
+  it("close-hauled requires heading up and inward trim, retaining both actions after release", () => {
+    const initial = { ...base, apparentWindAngle: degrees(70), sheet: 0.6 };
+    const reached = { ...base, pointOfSail: "Close-hauled", apparentWindAngle: degrees(48), rudder: 0.2 };
+    for (const sheet of [{ sheet: 0.6, sheetRate: 0 }, { sheet: 0.7, sheetRate: 1 }]) {
+      const a = enter(3, initial);
+      hold(a, { ...reached, ...sheet });
+      expect(a.objectiveIndex()).toBe(3);
+    }
+    const noSteering = enter(3, initial);
+    hold(noSteering, { ...reached, rudder: 0, sheet: 0.55, sheetRate: -1 });
+    expect(noSteering.objectiveIndex()).toBe(3);
+    const a = enter(3, initial);
+    a.update(1 / 60, { ...reached, sheet: 0.55, sheetRate: -1 });
+    hold(a, { ...reached, sheet: 0.55, sheetRate: 0, rudder: 0 });
+    expect(a.objectiveIndex()).toBe(4);
+  });
+  it.each([[4, "Beam reach", 90, 48], [5, "Broad reach", 128, 90]])("target %i needs course and easing changes", (index, point, angle, entryAngle) => {
     const a = enter(Number(index), { ...base, apparentWindAngle: degrees(Number(entryAngle)), sheet: 0.2 });
     const reached = { ...base, pointOfSail: String(point), apparentWindAngle: degrees(Number(angle)), sheet: 0.6 };
     hold(a, reached); expect(a.objectiveIndex()).toBe(Number(index));

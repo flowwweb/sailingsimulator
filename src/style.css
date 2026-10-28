@@ -4487,7 +4487,7 @@ input:disabled {
   .welcome[data-returning="true"] { padding: max(16px,env(safe-area-inset-top)) max(38px,env(safe-area-inset-left)); }
   .welcome[data-returning="true"] .welcome-lockup { width: 30vw; }
   .welcome[data-returning="true"] .welcome-brand { width: 150px; }
-  .welcome[data-returning="true"] .title-menu { top: min(36.7vh, calc(100svh - 260px)); width: 27%; margin-top: 0; gap: 0; }
+  .welcome[data-returning="true"] .title-menu { top: min(36.7vh, calc(100svh - 280px)); width: 27%; margin-top: 0; gap: 0; }
   .welcome[data-returning="true"] .title-menu-item { min-height: 44px; }
   .welcome[data-returning="true"] .returning-copy { margin-bottom: 6px; }
   .returning-copy p { font-size: 15px; }
