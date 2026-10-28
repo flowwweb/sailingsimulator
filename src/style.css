@@ -4460,6 +4460,7 @@ input:disabled {
 .lesson-choice:hover { background: rgba(16,66,90,.55); }
 .lesson-image { display: block; width: 100%; aspect-ratio: 218 / 128; background-image: url('/brand/fairwinds-approved-menu-board.png'); background-size: 767% 735.16%; }
 .lesson-image-buoy { background-image: url('/brand/first-buoy-concept.png'); background-size: cover; background-position: center; }
+.lesson-image-dummy { background-image: url('/brand/dummy-recovery-concept.png'); background-size: cover; background-position: center; }
 .lesson-preview-note { display: block; padding: 4px 16px 0; font-size: 11px; opacity: .75; }
 .lesson-image-1 { background-position: 62.72% 15.76%; }
 .lesson-image-2 { background-position: 78.93% 15.76%; }
@@ -4520,7 +4521,7 @@ input:disabled {
   .lesson-chooser { padding: 12px; }
   .lesson-chooser h2 { margin-bottom: 16px; }
   .lesson-image { max-height: 70px; }
-  .lesson-chooser:has(.lesson-detail[open]) .lesson-image:not(.lesson-image-buoy) { height: 60px; background-size: 767% 1286.5%; background-position-y: 14.76%; }
+  .lesson-chooser:has(.lesson-detail[open]) .lesson-image:not(.lesson-image-buoy):not(.lesson-image-dummy) { height: 60px; background-size: 767% 1286.5%; background-position-y: 14.76%; }
   #start-lesson { margin-top: 12px; }
 }
 

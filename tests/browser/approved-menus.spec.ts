@@ -45,7 +45,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.screenshot({ path: resolve(evidence, `title-${label}.png`) });
     await page.locator("#title-logbook").click();
     await expect(page.locator("#title-logbook-panel")).toBeVisible();
-    await expect(page.locator("#title-logbook-lessons li")).toHaveCount(4);
+    await expect(page.locator("#title-logbook-lessons li")).toHaveCount(5);
     await expect(page.locator("#title-logbook-lessons li").first()).toHaveText("Round the buoys · Not yet completed");
     await expect(page.locator("#title-logbook-stats")).toContainText("0 voyages");
     await page.keyboard.press("Escape");
@@ -59,7 +59,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await expect(chooser).toBeHidden();
     await expect(page.locator("#set-sail")).toBeFocused();
     await page.locator("#set-sail").click();
-    await expect(page.locator(".lesson-choice")).toHaveCount(4);
+    await expect(page.locator(".lesson-choice")).toHaveCount(5);
     await expect(page.locator("#start-first-buoy")).toContainText("01");
     await expect(page.locator("#start-first-buoy")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#start-first-buoy .lesson-image")).toBeVisible();
