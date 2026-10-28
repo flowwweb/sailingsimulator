@@ -28,6 +28,7 @@ import {
   unwrapCompassHeading,
 } from "./game/compass-tape";
 import { SailingAcademy, LESSON_TITLES } from "./game/academy";
+import { FIRST_BUOY, FIRST_BUOY_COURSE, FirstBuoyJourney } from "./game/first-buoy";
 import { createLessonState, createLessonWeather, observeLesson, checkpointLesson, restoreLesson } from "./game/lesson-session";
 import {
   ActivitySession,
@@ -41,6 +42,7 @@ import {
   parseProgress,
   recordActivityCompletion,
   recordAcademyObjective,
+  recordFirstBuoyCompletion,
   nextLessonObjective,
   type SailingProgress,
 } from "./game/progress";
@@ -215,6 +217,7 @@ document.addEventListener("pointerdown", event => {
 const chart = new LakeChart(elements.chartCanvas);
 const miniChart = new LakeChart(elements.minimap);
 const academy = new SailingAcademy();
+let firstBuoy: FirstBuoyJourney | undefined;
 let weatherConfig = loadWeatherConfig();
 const audio = new GameAudio(weatherConfig.seed);
 const weatherSystem = new WeatherSystem(weatherConfig);
@@ -446,6 +449,7 @@ function bindInterface(): void {
     openLessonChooser(elements.newJourney);
   });
   elements.continueLesson.addEventListener("click", () => {
+    if (progress.activeIntroduction === FIRST_BUOY.id) { startFirstBuoy(); return; }
     if (academy.view().objective === 3) { openLessonChooser(elements.continueLesson); return; }
     beginSailing(false);
     activitySession = undefined;
@@ -454,6 +458,8 @@ function bindInterface(): void {
     prepareLessonAttempt();
   });
   elements.titleFreeSail.addEventListener("click", () => {
+    firstBuoy = undefined;
+    progress.activeIntroduction = undefined;
     beginSailing(false);
     activitySession = undefined;
     activityView = undefined;
@@ -466,6 +472,7 @@ function bindInterface(): void {
     updateHud();
   });
   const lessonChoices = [...document.querySelectorAll<HTMLButtonElement>("[data-lesson]")];
+  required("#start-first-buoy").addEventListener("click", startFirstBuoy);
   lessonChoices.forEach((button) => button.addEventListener("click", () => {
     lessonChoices.forEach((choice) => {
       choice.classList.toggle("is-selected", choice === button);
@@ -499,6 +506,11 @@ function bindInterface(): void {
   elements.mute.addEventListener("click", toggleMute);
   elements.reset.addEventListener("click", resetBoat);
   elements.lessonSkip.addEventListener("click", () => {
+    if (firstBuoy) {
+      if (firstBuoy.completed) { returnToTitle(); openLessonChooser(); }
+      else prepareLessonAttempt("first-buoy");
+      return;
+    }
     if (activitySession) {
       setChartOpen(true);
     } else {
@@ -556,6 +568,7 @@ function bindInterface(): void {
   elements.settingsResetLogbook.addEventListener("click", () => {
     if (!window.confirm("Reset your local logbook? Saved activity records will be cleared.")) return;
     progress = createProgress();
+    firstBuoy = undefined;
     activitySession = undefined;
     activityView = undefined;
     academy.reset({
@@ -620,6 +633,13 @@ function syncTitleState(): void {
     ? `${progress.academyCompleted ? "Academy" : "Lesson"} complete · All ${progress.academyCompleted ? "nine" : "three"} targets earned`
     : `Target ${view.objective + 1} of 3 · ${choice.querySelector(".lesson-targets")!.textContent!.split("·")[view.objective]!.trim()}`;
   elements.continueLesson.firstChild!.textContent = complete ? "Choose lesson" : "Continue lesson";
+  if (progress.activeIntroduction === FIRST_BUOY.id) {
+    const earned = progress.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision;
+    required("#returning-lesson").textContent = FIRST_BUOY.title;
+    required("#returning-target").textContent = earned ? "Journey complete · Reach Juniper buoy again" : "Fresh departure · Sail to Juniper buoy";
+    elements.continueLesson.firstChild!.textContent = earned ? "Repeat journey" : "Continue journey";
+    elements.newJourney.hidden = !returning;
+  }
   selectTitleItem(returning ? elements.continueLesson : elements.setSail);
 }
 
@@ -748,6 +768,8 @@ function syncHighContrast(): void {
 }
 
 function resetJourney(): void {
+  firstBuoy = undefined;
+  progress.activeIntroduction = undefined;
   simulationTime = 0;
   weatherConfig = cloneWeatherConfig(DEFAULT_WEATHER);
   activeBoat = HARBOR_20;
@@ -936,13 +958,14 @@ function loop(now: number): void {
   if (portrait || document.hidden) interruptLessonAttempt();
   if (droppedFrame) {
     academy.interrupt();
+    firstBuoy?.interrupt();
     accumulator = 0;
   }
   if (!portrait) presentationTime += frameDt;
   if (input.consumeMute()) toggleMute();
   if (input.consumeConditions()) setConditionsOpen(!isConditionsOpen());
   const simulationPaused = document.hidden || portrait || isSimulationPaused();
-  if (simulationPaused) { academy.interrupt(); input.releaseAll(); }
+  if (simulationPaused) { academy.interrupt(); firstBuoy?.interrupt(); input.releaseAll(); }
   if (canControlBoat() && !steeringHintOffered && window.matchMedia("(pointer: coarse)").matches) {
     steeringHintOffered = true;
     steeringHintSeconds = 5;
@@ -950,7 +973,7 @@ function loop(now: number): void {
   }
   if (!simulationPaused) steeringHintSeconds = Math.max(0, steeringHintSeconds - frameDt);
   required("#steering-hint").hidden = steeringHintSeconds <= 0 || !canControlBoat();
-  const simulationTimeScale = timeScaleForHold(input.isFastForwarding());
+  const simulationTimeScale = firstBuoy ? 1 : timeScaleForHold(input.isFastForwarding());
   elements.gameShell.dataset.timeScale = `${simulationTimeScale}`;
   if (!simulationPaused && input.consumeReset()) resetBoat();
   if (input.consumeReef() && canHandleSails(simulationPaused)) toggleReef();
@@ -1096,7 +1119,18 @@ function loop(now: number): void {
         }
         const eligible = !droppedFrame && !incident && nextIncident.kind !== "docking"
           && nextIncident.severity !== "touch" && !activitySession && !dockedAt;
-        if (!eligible) academy.interrupt();
+        if (firstBuoy) {
+          const unsafe = Boolean(incident) || nextIncident.severity === "touch" || nextIncident.severity === "impact"
+            || nextIncident.severity === "stranded" || nextIncident.kind === "docking" || Boolean(dockedAt);
+          if (droppedFrame && !unsafe) firstBuoy.interrupt();
+          else if (firstBuoy.update(fixedStep, { ...observeLesson(state, diagnostics, controls),
+            position: state.position, heading: state.heading, unsafe })) {
+            progress = recordFirstBuoyCompletion(progress);
+            persistProgress();
+            elements.status.textContent = "Juniper buoy reached under control. Journey complete.";
+          }
+        }
+        if (!eligible || firstBuoy) academy.interrupt();
         else {
           const earnedObjective = academy.objectiveIndex();
           if (academy.update(fixedStep / simulationTimeScale, observeLesson(state, diagnostics, controls))) {
@@ -1183,6 +1217,7 @@ function finishBoot(status: "ready" | "failed" = "ready"): void {
 
 function resetBoat(): void {
   interruptLessonAttempt();
+  if (firstBuoy) { prepareLessonAttempt("first-buoy"); return; }
   if (started && !activitySession && !["free-sail", "lesson-complete", "complete"].includes(academy.view().stage)) {
     prepareLessonAttempt();
     return;
@@ -1212,6 +1247,12 @@ function resetBoat(): void {
 function selectBoat(id: BoatId): void {
   const nextBoat = getBoatDefinition(id);
   if (!nextBoat) return;
+  const leftIntroduction = Boolean(firstBuoy);
+  if (leftIntroduction) {
+    firstBuoy = undefined;
+    progress.activeIntroduction = undefined;
+    persistProgress();
+  }
   activeBoat = nextBoat;
   saveStoredValue("fair-winds-boat", activeBoat.id);
   world.setBoat(activeBoat);
@@ -1219,10 +1260,11 @@ function selectBoat(id: BoatId): void {
   resetBoat();
   elements.boatSelect.value = activeBoat.id;
   elements.status.textContent =
-    `${activeBoat.name} selected. Draft ${activeBoat.hull.draft.toFixed(2)} m.`;
+    `${activeBoat.name} selected. Draft ${activeBoat.hull.draft.toFixed(2)} m.${leftIntroduction ? " Free sailing; choose the first journey to try again." : ""}`;
 }
 
 function recoverBoat(): void {
+  if (firstBuoy) { prepareLessonAttempt("first-buoy"); return; }
   interruptLessonAttempt();
   state = createGameState(FAIR_WINDS_WORLD.recoverySpawn);
   previousState = state;
@@ -1522,6 +1564,31 @@ function cardinalDirection(heading: number): string {
 }
 
 function updateLesson(): void {
+  if (firstBuoy) {
+    const view = firstBuoy.view(state.position);
+    const course = courseMetrics(state.position, state.velocity, state.heading, FIRST_BUOY_COURSE);
+    const approach = `Juniper buoy · ${formatChartDistance(course.distance)} · ${Math.round(course.bearingDegrees).toString().padStart(3, "0")}°`;
+    elements.gameShell.classList.add("is-learning");
+    elements.gameShell.dataset.academyStage = firstBuoy.completed ? "intro-complete" : "intro-buoy-1";
+    delete elements.gameShell.dataset.activeActivity;
+    delete elements.gameShell.dataset.activityProgress;
+    delete elements.gameShell.dataset.activityScore;
+    required("#status-lesson-progress").hidden = false;
+    required("#status-lesson-progress").textContent = firstBuoy.completed ? "First journey complete" : approach;
+    required("#status-pips").hidden = true;
+    elements.lessonCard.hidden = false;
+    elements.lessonCard.classList.remove("is-minimized");
+    elements.lessonCard.classList.toggle("is-complete", firstBuoy.completed);
+    elements.lessonEyebrow.textContent = firstBuoy.completed ? "Journey complete" : "First journey";
+    elements.lessonTitle.textContent = FIRST_BUOY.title;
+    elements.lessonInstruction.textContent = view.instruction;
+    required("#status-objective-detail").hidden = false;
+    required("#status-objective-detail").textContent = firstBuoy.completed ? view.instruction : `${view.instruction} ${approach}.`;
+    elements.lessonProgress.style.width = `${view.progress * 100}%`;
+    elements.lessonSkip.textContent = firstBuoy.completed ? "Choose lesson" : "Retry journey";
+    elements.lessonSkip.disabled = false;
+    return;
+  }
   const lessonView = academy.view();
   const learning = !activitySession && !["free-sail", "complete"].includes(lessonView.stage);
   required("#status-lesson-progress").hidden = !learning;
@@ -1593,19 +1660,34 @@ function interruptLessonAttempt(): void {
   input.releaseAll();
   elements.sailActions.open = false;
   academy.interrupt();
+  firstBuoy?.interrupt();
   accumulator = 0;
   previousFrame = performance.now();
 }
 
-function prepareLessonAttempt(): void {
+function startFirstBuoy(): void {
+  closeTitleDialog(false);
+  beginSailing(false);
+  academy.skip();
+  prepareLessonAttempt("first-buoy");
+}
+
+function prepareLessonAttempt(kind: "drill" | "first-buoy" = "drill"): void {
   interruptLessonAttempt();
+  firstBuoy = kind === "first-buoy" ? new FirstBuoyJourney() : undefined;
+  progress.activeIntroduction = firstBuoy ? FIRST_BUOY.id : undefined;
   activeBoat = HARBOR_20;
   world.setBoat(activeBoat);
   weatherConfig = createLessonWeather();
+  if (firstBuoy) weatherConfig.seed = FIRST_BUOY.seed;
   weatherSystem.setConfig(weatherConfig);
   simulationTime = 0;
   weather = weatherSystem.sample(0);
   state = createLessonState(Math.min(academy.objectiveIndex(), 8), weather.trueWind);
+  if (firstBuoy) {
+    state = createLessonState(0, weather.trueWind, FIRST_BUOY.start);
+    state.heading = degrees(FIRST_BUOY.startHeadingDegrees);
+  }
   previousState = state;
   diagnostics = computeSailAerodynamics(state, { trueWind: weather.trueWind, boat: activeBoat });
   headsailDiagnostics = computeHeadsailAerodynamics(state, { trueWind: weather.trueWind, boat: activeBoat });
@@ -1729,6 +1811,7 @@ function buildChartActivityList(): void {
 }
 
 function activeCourse(): WorldActivity | undefined {
+  if (firstBuoy) return firstBuoy.completed ? undefined : FIRST_BUOY_COURSE;
   return activityView?.completed ? undefined : activitySession?.activity;
 }
 
@@ -1740,6 +1823,9 @@ function selectedActivity(): WorldActivity | undefined {
 
 function selectChartActivity(id: string): void {
   interruptLessonAttempt();
+  firstBuoy = undefined;
+  progress.activeIntroduction = undefined;
+  persistProgress();
   selectedActivityId = id;
   const activity = selectedActivity();
   if (activity) {
@@ -1793,7 +1879,7 @@ function syncChartActivityList(): void {
     completed === 0
       ? `${formatChartDistance(progress.distanceSailed)} sailed · no completed activities yet`
       : `${completed} activities · ${progress.voyages} voyages · ${formatChartDistance(progress.distanceSailed)}`;
-  const activity = selectedActivity();
+  const activity = firstBuoy ? activeCourse() : selectedActivity();
   elements.chartCourseReadout.textContent = activity
     ? `Course: ${activity.title} · ${activity.objective}`
     : "No course selected";
@@ -1801,7 +1887,7 @@ function syncChartActivityList(): void {
 
 function renderChart(): void {
   syncChartActivityList();
-  chart.render(state, FAIR_WINDS_WORLD, weather.trueWind, selectedActivity());
+  chart.render(state, FAIR_WINDS_WORLD, weather.trueWind, firstBuoy ? activeCourse() : selectedActivity());
 }
 
 function formatChartDistance(distance: number): string {
@@ -1835,6 +1921,9 @@ function fillLogbook(stats: HTMLElement, list: HTMLElement): void {
   stats.textContent = `${progress.voyages} voyages · ${formatChartDistance(progress.distanceSailed)} sailed`;
   if (storageUnavailable) stats.textContent += ` ${STORAGE_WARNING}`;
   list.replaceChildren();
+  const introduction = document.createElement("li");
+  introduction.textContent = `${FIRST_BUOY.title} · ${progress.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision ? "Complete" : "Not yet completed"}`;
+  list.append(introduction);
   document.querySelectorAll<HTMLButtonElement>("[data-lesson]").forEach((choice, index) => {
     const row = document.createElement("li");
     row.textContent = `${choice.querySelector(".lesson-name")!.textContent!.trim()} · ${progress.academyCompleted || progress.completedLessons?.includes(index) ? "Complete" : "Not yet completed"}`;
@@ -2096,6 +2185,12 @@ function updateMusicPlayback(playback: MusicPlaybackState): void {
 
 function applyWeatherConfig(sync: boolean): void {
   interruptLessonAttempt();
+  if (firstBuoy) {
+    firstBuoy = undefined;
+    progress.activeIntroduction = undefined;
+    persistProgress();
+    elements.status.textContent = "Conditions changed. Free sailing; choose the first journey to try again.";
+  }
   weatherSystem.setConfig(weatherConfig);
   weather = weatherSystem.sample(simulationTime);
   audio.setSeed(weatherConfig.seed);

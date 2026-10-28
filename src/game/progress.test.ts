@@ -5,9 +5,31 @@ import {
   recordActivityCompletion,
   recordAcademyObjective,
   nextLessonObjective,
+  recordFirstBuoyCompletion,
 } from "./progress";
+import { FIRST_BUOY } from "./first-buoy";
 
 describe("sailing progress", () => {
+  it("migrates v1 drills as practice without awarding a new introduction", () => {
+    const saved = parseProgress(JSON.stringify({ ...createProgress(), version: 1, academyCompleted: true,
+      completedIntroductions: { [FIRST_BUOY.id]: 1 }, activeIntroduction: FIRST_BUOY.id, voyages: 3, distanceSailed: 900 }));
+    expect(saved.version).toBe(2);
+    expect(saved.academyCompleted).toBe(true);
+    expect(saved.completedIntroductions).toBeUndefined();
+    expect(saved.activeIntroduction).toBeUndefined();
+    expect([saved.voyages, saved.distanceSailed]).toEqual([3, 900]);
+  });
+  it("persists versioned introduction credit independently from selection and legacy drills", () => {
+    const selected = { ...createProgress(), activeIntroduction: FIRST_BUOY.id };
+    expect(parseProgress(JSON.stringify(selected)).completedIntroductions).toBeUndefined();
+    const earned = recordFirstBuoyCompletion(selected);
+    expect(recordFirstBuoyCompletion(earned)).toEqual(earned);
+    expect(parseProgress(JSON.stringify(earned)).completedIntroductions).toEqual({ [FIRST_BUOY.id]: FIRST_BUOY.revision });
+    expect(earned.academyCompleted).toBe(false);
+    for (const revision of [0, 2, "1", null]) {
+      expect(parseProgress(JSON.stringify({ ...selected, completedIntroductions: { [FIRST_BUOY.id]: revision } })).completedIntroductions).toBeUndefined();
+    }
+  });
   it("records only observed targets and requires all three before marking a lesson", () => {
     let progress = createProgress();
     progress = recordAcademyObjective(progress, 8);

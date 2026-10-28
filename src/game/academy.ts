@@ -186,7 +186,7 @@ export class SailingAcademy {
     const action = stage === "trim" ? this.sawLuff && this.sheetIn
       : stage === "stall" ? this.sheetIn
       : stage === "recover" ? this.sawStall && this.eased && o.sheet > this.stallSheet + 0.02
-      : stage === "close-hauled" ? this.steered && turned < -0.08
+      : stage === "close-hauled" ? this.steered && turned < -0.08 && this.sheetIn
       : stage === "beam-reach" || stage === "broad-reach" ? this.steered && turned > 0.08 && this.eased
       : stage === "reef" ? this.reefTaken && settled
       : this.steered && settled;
