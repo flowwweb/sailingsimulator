@@ -235,7 +235,7 @@ export class SailingWorld {
     this.boatRoot.add(this.meshyBoat.root);
     this.scene.add(this.boatRoot);
     const dummyVest = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 8), new THREE.MeshStandardMaterial({ color: 0xff8a18 }));
-    const dummyHead = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), new THREE.MeshStandardMaterial({ color: 0xe6c89b }));
+    const dummyHead = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffd23f }));
     dummyHead.position.set(0, 0.45, -0.55);
     this.trainingDummy.add(dummyVest, dummyHead);
     this.trainingDummy.visible = false;

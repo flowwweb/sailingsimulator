@@ -4668,6 +4668,7 @@ input:disabled {
   .status-pips { gap: 12px; }
   .status-pips span { width: 14px; height: 14px; }
   #status-scroll { max-height: calc(100svh - 292px); }
+  .game-shell[data-academy-stage^="dummy-"] #status-scroll { max-height: calc(100svh - 150px); }
 }
 @media (orientation: landscape) and (max-height: 600px) and (max-width: 740px) {
   .lesson-card, .game-shell[data-academy-stage="free-sail"] .lesson-card { bottom: 78px; max-width: min(206px, calc(100vw - 336px)); }

@@ -220,7 +220,7 @@ const miniChart = new LakeChart(elements.minimap);
 const academy = new SailingAcademy();
 let firstBuoy: FirstBuoyJourney | undefined;
 let dummyRecovery: DummyRecovery | undefined;
-const DUMMY_COURSE: WorldActivity = { id: "training-dummy", title: "Training dummy", kind: "lesson", x: FIRST_BUOY.start.x, z: FIRST_BUOY.start.z, area: "School Water", difficulty: "Intro", objective: "Return to the training dummy and recover it under control." };
+const DUMMY_COURSE: WorldActivity = { id: "training-dummy", title: "Training dummy", kind: "lesson", x: FIRST_BUOY.start.x + 5 * Math.cos(degrees(FIRST_BUOY.startHeadingDegrees)), z: FIRST_BUOY.start.z - 5 * Math.sin(degrees(FIRST_BUOY.startHeadingDegrees)), area: "School Water", difficulty: "Intro", objective: "Return to the training dummy and recover it under control." };
 let weatherConfig = loadWeatherConfig();
 const audio = new GameAudio(weatherConfig.seed);
 const weatherSystem = new WeatherSystem(weatherConfig);
@@ -1601,7 +1601,7 @@ function updateLesson(): void {
   if (dummyRecovery) {
     const stage = dummyRecovery.stage;
     const distance = Math.hypot(state.position.x - DUMMY_COURSE.x, state.position.y - DUMMY_COURSE.z);
-    const instruction = stage === "depart" ? "Sail away from the dummy, then turn back. After a pause, begin near it again." : stage === "return" ? "Trim and steer back. Settle beside the dummy at low speed." : stage === "ready" ? "The boat is settled. Open status and recover the training dummy." : stage === "failed" ? "Contact interrupted this attempt. Open status to retry." : "Training dummy recovered.";
+    const instruction = stage === "depart" ? dummyRecovery.needsDepartureStart({ x: state.position.x, z: state.position.y }) ? "Return within 8 m of the dummy to restart the departure after an interruption." : "Sail 40 m away from the dummy, then turn back." : stage === "return" ? "Trim and steer back. Settle beside the dummy at low speed." : stage === "ready" ? "The boat is settled. Open status and recover the training dummy." : stage === "failed" ? "Contact interrupted this attempt. Open status to retry." : "Training dummy recovered.";
     elements.gameShell.classList.add("is-learning");
     elements.gameShell.dataset.academyStage = `dummy-${stage}`;
     delete elements.gameShell.dataset.activeActivity;

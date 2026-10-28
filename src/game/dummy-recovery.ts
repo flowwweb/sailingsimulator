@@ -22,6 +22,10 @@ export class DummyRecovery {
 
   constructor(readonly target: { x: number; z: number }, readonly hull: { halfLength: number; halfBeam: number }) {}
 
+  needsDepartureStart(position: { x: number; z: number }): boolean {
+    return this.stage === "depart" && !this.startedNearDummy && Math.hypot(position.x - this.target.x, position.z - this.target.z) > RECOVERY_RADIUS_M;
+  }
+
   interrupt(): void {
     this.previous = undefined;
     this.previousSheet = undefined;

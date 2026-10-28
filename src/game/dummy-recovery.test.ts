@@ -67,7 +67,19 @@ describe("dummy recovery", () => {
     tick(session, 50);
     tick(session, 50);
     expect(session.stage).toBe("depart");
+    expect(session.needsDepartureStart({ x: 50, z: 0 })).toBe(true);
     expect(session.recover()).toBe(false);
+  });
+
+  it("explains how to restart departure after an interruption", () => {
+    const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
+    travel(session, 0, 20);
+    expect(session.needsDepartureStart({ x: 20, z: 0 })).toBe(false);
+    session.interrupt();
+    tick(session, 20);
+    expect(session.needsDepartureStart({ x: 20, z: 0 })).toBe(true);
+    travel(session, 20, 7);
+    expect(session.needsDepartureStart({ x: 7, z: 0 })).toBe(false);
   });
 
   it("does not credit motion without trim or helm and fails on dummy contact", () => {
