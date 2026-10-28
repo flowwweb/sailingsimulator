@@ -26,7 +26,7 @@ function resetContext(world: ReturnType<typeof cameraWorld>, stage: string) {
   const state = { position: { x: 610, y: 330 }, heave: -2.85, heading: 0 };
   return {
     world, state: { ...state, position: { x: 1172, y: -371 } }, previousState: {},
-    started: true, activitySession: undefined, activityView: undefined,
+    started: true, activitySession: undefined, activityView: undefined, firstBuoy: undefined,
     academy: { view: () => ({ stage }) },
     interruptLessonAttempt() {}, prepareLessonAttempt() {},
     createGameState: () => state,
@@ -62,6 +62,18 @@ test("visible lesson reset still delegates to the existing lesson preparation", 
   context.prepareLessonAttempt = () => { attempts++; };
   runInNewContext(`${resetBoatAction}; resetBoat();`, context);
   expect(attempts).toBe(1);
+  expect(context.state).toBe(state);
+});
+
+test("visible first-buoy reset delegates to a fresh journey attempt", () => {
+  const attempts: string[] = [];
+  const context = {
+    ...resetContext(cameraWorld(), "free-sail"), firstBuoy: {},
+    prepareLessonAttempt: (kind: string) => { attempts.push(kind); },
+  };
+  const state = context.state;
+  runInNewContext(`${resetBoatAction}; resetBoat();`, context);
+  expect(attempts).toEqual(["first-buoy"]);
   expect(context.state).toBe(state);
 });
 
