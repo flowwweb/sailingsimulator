@@ -6,7 +6,7 @@ import { FirstBuoyJourney, FIRST_BUOY, FIRST_BUOY_COURSE } from "./first-buoy";
 const source = readFileSync(new URL("../main.ts", import.meta.url), "utf8");
 const lessonStart = source.indexOf("function updateLesson(): void {");
 const lessonEnd = source.indexOf("  const lessonView = academy.view();", lessonStart);
-const lesson = source.slice(lessonStart, lessonEnd).replace("function updateLesson(): void", "function updateLesson()") + "}";
+const lesson = source.slice(lessonStart, lessonEnd).replace("function updateLesson(): void", "function updateLesson()").replaceAll("required<HTMLButtonElement>", "required") + "}";
 const courseStart = source.indexOf("function activeCourse(): WorldActivity | undefined {");
 const courseEnd = source.indexOf("\n}", courseStart) + 2;
 const course = source.slice(courseStart, courseEnd).replace("function activeCourse(): WorldActivity | undefined", "function activeCourse()");
@@ -25,7 +25,7 @@ test("failed journey replaces the collapsed destination and offers retry", () =>
     lessonEyebrow: node("eyebrow"), lessonTitle: node("title"), lessonInstruction: node("instruction"),
     lessonProgress: node("progress"), lessonSkip: node("skip"),
   };
-  const context = { firstBuoy: journey, state: { position: { x: 0, y: 0 }, velocity: {}, heading: 0 },
+  const context = { firstBuoy: journey, dummyRecovery: undefined, state: { position: { x: 0, y: 0 }, velocity: {}, heading: 0 },
     FIRST_BUOY, FIRST_BUOY_COURSE, elements, required: node,
     courseMetrics: () => ({ distance: 100, bearingDegrees: 180 }), formatChartDistance: () => "100 m" };
   runInNewContext(`${lesson}; updateLesson();`, context);
@@ -40,7 +40,7 @@ test.each(["flow", "tack", "gybe"])("failed journey keeps both final status mess
   const journey = new FirstBuoyJourney();
   journey.update(1 / 60, { unsafe: true } as never);
   const elements = { status: { textContent: "Touched a marker. Steer clear and continue." }, statusMessage: { textContent: "" } };
-  const context = { elements, firstBuoy: journey, state: { maneuverCount: change === "flow" ? 0 : 1, lastManeuver: change === "flow" ? "none" : change },
+  const context = { elements, firstBuoy: journey, dummyRecovery: undefined, state: { maneuverCount: change === "flow" ? 0 : 1, lastManeuver: change === "flow" ? "none" : change },
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);
@@ -50,7 +50,7 @@ test.each(["flow", "tack", "gybe"])("failed journey keeps both final status mess
 
 test("active journey retains normal flow coaching", () => {
   const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" } };
-  const context = { elements, firstBuoy: new FirstBuoyJourney(), state: { maneuverCount: 0, lastManeuver: "none" },
+  const context = { elements, firstBuoy: new FirstBuoyJourney(), dummyRecovery: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);

@@ -13,6 +13,7 @@ export interface SailingProgress {
   version: 2;
   completedIntroductions?: Record<string, number>;
   activeIntroduction?: string;
+  completedDummyRecovery?: boolean;
   academyCompleted: boolean;
   academyObjective?: number;
   completedLessons?: number[];
@@ -61,6 +62,7 @@ export function parseProgress(raw: string | null): SailingProgress {
     restored.academyPaused = value.academyPaused === true;
     // Old numeric drill results are legacy practice, never introduction credit.
     if (value.version === 2) {
+      if (value.completedDummyRecovery === true) restored.completedDummyRecovery = true;
       if (value.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision) {
         restored.completedIntroductions = { [FIRST_BUOY.id]: FIRST_BUOY.revision };
       }

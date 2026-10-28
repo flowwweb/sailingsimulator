@@ -152,6 +152,7 @@ export class SailingWorld {
     THREE.ShaderMaterial
   >;
   private readonly boatRoot = new THREE.Group();
+  private readonly trainingDummy = new THREE.Group();
   private readonly meshyBoat: MeshyBoat;
   private readonly hullPose = new THREE.Group();
   private readonly rigPose = new THREE.Group();
@@ -233,6 +234,12 @@ export class SailingWorld {
     this.meshyBoat = new MeshyBoat(boatAsset, this.sailMaterial);
     this.boatRoot.add(this.meshyBoat.root);
     this.scene.add(this.boatRoot);
+    const dummyVest = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 8), new THREE.MeshStandardMaterial({ color: 0xff8a18 }));
+    const dummyHead = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), new THREE.MeshStandardMaterial({ color: 0xe6c89b }));
+    dummyHead.position.set(0, 0.45, -0.55);
+    this.trainingDummy.add(dummyVest, dummyHead);
+    this.trainingDummy.visible = false;
+    this.scene.add(this.trainingDummy);
     this.wakeLines = [this.createWakeLine(), this.createWakeLine()];
     this.wakeFoam = this.createWakeFoam();
     this.hullContactFoam = this.createHullContactFoam();
@@ -348,6 +355,11 @@ export class SailingWorld {
     return this.ambientLife.trafficSnapshot();
   }
 
+  setTrainingDummy(position?: { x: number; z: number }): void {
+    this.trainingDummy.visible = Boolean(position);
+    if (position) this.trainingDummy.position.set(position.x, 0, position.z);
+  }
+
   render(
     previous: BoatState,
     current: BoatState,
@@ -361,6 +373,7 @@ export class SailingWorld {
     presentationTime = 0,
   ): void {
     const titleScreen = titleScene !== undefined;
+    this.trainingDummy.position.y = weather.tideLevel + 0.25;
     this.renderClock += frameDt;
     if (titleScreen !== this.previousTitleScreen) this.cameraInitialized = false;
     this.previousTitleScreen = titleScreen;
