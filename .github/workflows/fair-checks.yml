@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: c804f9434ee7f1ac9ed89dc59898759cddb7e751
+          SOURCE_COMMIT: 863870b999c37297e19d5ac27bf70974988a59f8
         run: |
           set -euo pipefail
           umask 077
@@ -52,12 +52,12 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "c804f9434ee7f1ac9ed89dc59898759cddb7e751" and .tree.sha == "e7737061ceb1d814e7b72e3af88a30b826916757"' "$work/commit.json"
+          jq -e '.sha == "863870b999c37297e19d5ac27bf70974988a59f8" and .tree.sha == "f28a68be713418dae3ea64258addf981cc7d1fe5"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "c804f9434ee7f1ac9ed89dc59898759cddb7e751",
-            "tree": "e7737061ceb1d814e7b72e3af88a30b826916757",
+            "commit": "863870b999c37297e19d5ac27bf70974988a59f8",
+            "tree": "f28a68be713418dae3ea64258addf981cc7d1fe5",
             "publishedChangesCovered": 2,
             "files": [
               {
@@ -65,6 +65,12 @@ jobs:
                 "bytes": 1338,
                 "sha256": "3ce48392b881615a1df2ea96487815481102d4371b0bf47426fc2283d625dad3",
                 "blobSha1": "02e2be0f3f6b6addf5956f89ec12aa800cc47fdd"
+              },
+              {
+                "path": "index.html",
+                "bytes": 35196,
+                "sha256": "64823406653345863876484a0521a437307c1ad3e9e4854bd936d04d649215a5",
+                "blobSha1": "1ebfcbf25d30c3589537c5e01b553f0f8965101e"
               },
               {
                 "path": "package-lock.json",
@@ -211,6 +217,18 @@ jobs:
                 "blobSha1": "1067a9fa848976315700953cdd434b556d0ceb3a"
               },
               {
+                "path": "src/game/academy.test.ts",
+                "bytes": 9743,
+                "sha256": "a66d4885bae1f9c8ce0aa07682c7fd750babdb8b731f1c6bab1dde4d9f0abec8",
+                "blobSha1": "8519ff233849b5754059d4e11af2b5c60e43ad75"
+              },
+              {
+                "path": "src/game/academy.ts",
+                "bytes": 12460,
+                "sha256": "4fc33eb369b6f00475c5b8695406cdcfece0dc7732c027e3fc3852410d69890d",
+                "blobSha1": "14f62d42bd117f3f2450ad9d43d9ed2213b6a45e"
+              },
+              {
                 "path": "src/game/activity-session.test.ts",
                 "bytes": 1932,
                 "sha256": "4eb3cf2b1cbf31add96f7a1b9c9a7560255f9568d4c5bccb6630139d6aecf196",
@@ -271,6 +289,24 @@ jobs:
                 "blobSha1": "29d8220d5e3b56dd746cb059bf1ba9447136789f"
               },
               {
+                "path": "src/game/first-buoy-hud.test.ts",
+                "bytes": 4036,
+                "sha256": "25586b4de9f88b51a6a5f2cbcf9ac4f030a7457bc3277ab9cbb454544ecddeb4",
+                "blobSha1": "2f6c7fcb0174a63294ba55b147a2196a64f20f23"
+              },
+              {
+                "path": "src/game/first-buoy.test.ts",
+                "bytes": 5299,
+                "sha256": "a889f73e1074a37e2e9cc3c3242e7675755ebf22aab60974e60ee8896dc9ff57",
+                "blobSha1": "aab05a67845c1553d08d963468229df95e09e1b4"
+              },
+              {
+                "path": "src/game/first-buoy.ts",
+                "bytes": 5607,
+                "sha256": "d17a313ab89600075d32e35cc7e5b695c42d4cf1f5da7e9335a057c73e592982",
+                "blobSha1": "f0b83152eb703d34b419364822b35dda8ee9fb13"
+              },
+              {
                 "path": "src/game/hazards.test.ts",
                 "bytes": 5201,
                 "sha256": "fc8152842c72c8a6c289754a174f8b688476fcd67808493a235b206f8ad7dd9e",
@@ -299,6 +335,18 @@ jobs:
                 "bytes": 15849,
                 "sha256": "cd5f976d8d9a0efdcc8cf5553582009b9e83c8ce69e45816e7558aa395187130",
                 "blobSha1": "6555d9110b9ba43777f01022cffda4f6e07d4d43"
+              },
+              {
+                "path": "src/game/progress.test.ts",
+                "bytes": 5438,
+                "sha256": "86b736a2893184fcfd09d79ee05291e21bbc4a29e78359d26eac3e2a15d6b9f7",
+                "blobSha1": "98e1ea4b77a608ea7f5e4dcf54a2746c89f5f57f"
+              },
+              {
+                "path": "src/game/progress.ts",
+                "bytes": 5776,
+                "sha256": "522d41735d2d4eb415bedcf17f133db2603422d4002e5382f92d439e16ecb0a7",
+                "blobSha1": "572d3e13ce98ce52a86ddd2bbb31474386b731e4"
               },
               {
                 "path": "src/game/quay-contact.test.ts",
@@ -353,6 +401,12 @@ jobs:
                 "bytes": 10926,
                 "sha256": "032ad67c874a98f94fa15e45396f47dbb069dffa613f2ce4935c0f19548d7e8b",
                 "blobSha1": "52764425a2edab1d262b53442b99b004434e0062"
+              },
+              {
+                "path": "src/main.ts",
+                "bytes": 90487,
+                "sha256": "2830a155bb652d0f58686bfc2e254c35adfdeee570ea7ec5972505e9a49fc437",
+                "blobSha1": "c5f20910c897a68ca61929830f5f2f17250dd2b8"
               },
               {
                 "path": "src/render/ambient-life.ts",
@@ -619,6 +673,12 @@ jobs:
                 "blobSha1": "faa946991d6a7a16cd2e8740c5e738b73bd24ac3"
               },
               {
+                "path": "tests/browser/approved-menus.spec.ts",
+                "bytes": 8503,
+                "sha256": "0bd46333bf6e93f52edeb43585c586a8f807e3d75d39b7ee312914554d60000c",
+                "blobSha1": "855f81df4e0fc4911d0453eb5eb5f0a86967c038"
+              },
+              {
                 "path": "tests/browser/boat-asset.spec.ts",
                 "bytes": 1208,
                 "sha256": "3164dba9aca64ad8a436c49615fb533c6415f46fda854f6aaa94366cb4e7f764",
@@ -641,6 +701,12 @@ jobs:
                 "bytes": 4656,
                 "sha256": "38a852348b7c9f222ed7b84ef50674e645cb076e5e7c1b2bad3232b033ee0afc",
                 "blobSha1": "ed10b3c9fef9c44f630cbf7ddf88116b5751d4ad"
+              },
+              {
+                "path": "tests/browser/first-buoy.spec.ts",
+                "bytes": 6555,
+                "sha256": "59a6959ba0b5fe7de137a0f299e19fab7a1cdd609830c739997a98fb9e828a7e",
+                "blobSha1": "0640587252fa7adc9db0fb553dc4bd78a63132dc"
               },
               {
                 "path": "tests/browser/lesson-disclosure-focus.spec.ts",
@@ -683,6 +749,12 @@ jobs:
                 "bytes": 1970,
                 "sha256": "b67081608a3628286e70f503508d22acb8d2308537b9c508fe65d0cc83e73741",
                 "blobSha1": "22b408942ef8befbda3b9d038d4b00d7253c3e99"
+              },
+              {
+                "path": "tests/browser/pause-menu.spec.ts",
+                "bytes": 7961,
+                "sha256": "5851a8c7e8f33c74be3260f7ac79138f1d4f01e82c58c824a93602d24c30f8b4",
+                "blobSha1": "ba1daab04ede5310082ed909febba4834a7a9e6f"
               },
               {
                 "path": "tests/browser/progress-storage.spec.ts",
@@ -737,77 +809,11 @@ jobs:
                 "bytes": 131,
                 "sha256": "aa7858f05b2261348f1502fa076550b0930672e0df3f054a22e8a8d9b68fb32e",
                 "blobSha1": "ae847ff6d9cdd6c3e1300cfa6584201c8e3edfef"
-              },
-              {
-                "path": "index.html",
-                "bytes": 35196,
-                "sha256": "64823406653345863876484a0521a437307c1ad3e9e4854bd936d04d649215a5",
-                "blobSha1": "1ebfcbf25d30c3589537c5e01b553f0f8965101e"
-              },
-              {
-                "path": "src/game/academy.test.ts",
-                "bytes": 9743,
-                "sha256": "a66d4885bae1f9c8ce0aa07682c7fd750babdb8b731f1c6bab1dde4d9f0abec8",
-                "blobSha1": "8519ff233849b5754059d4e11af2b5c60e43ad75"
-              },
-              {
-                "path": "src/game/academy.ts",
-                "bytes": 12460,
-                "sha256": "4fc33eb369b6f00475c5b8695406cdcfece0dc7732c027e3fc3852410d69890d",
-                "blobSha1": "14f62d42bd117f3f2450ad9d43d9ed2213b6a45e"
-              },
-              {
-                "path": "src/game/first-buoy.test.ts",
-                "bytes": 5299,
-                "sha256": "a889f73e1074a37e2e9cc3c3242e7675755ebf22aab60974e60ee8896dc9ff57",
-                "blobSha1": "aab05a67845c1553d08d963468229df95e09e1b4"
-              },
-              {
-                "path": "src/game/first-buoy.ts",
-                "bytes": 5607,
-                "sha256": "d17a313ab89600075d32e35cc7e5b695c42d4cf1f5da7e9335a057c73e592982",
-                "blobSha1": "f0b83152eb703d34b419364822b35dda8ee9fb13"
-              },
-              {
-                "path": "src/game/progress.test.ts",
-                "bytes": 5438,
-                "sha256": "86b736a2893184fcfd09d79ee05291e21bbc4a29e78359d26eac3e2a15d6b9f7",
-                "blobSha1": "98e1ea4b77a608ea7f5e4dcf54a2746c89f5f57f"
-              },
-              {
-                "path": "src/game/progress.ts",
-                "bytes": 5776,
-                "sha256": "522d41735d2d4eb415bedcf17f133db2603422d4002e5382f92d439e16ecb0a7",
-                "blobSha1": "572d3e13ce98ce52a86ddd2bbb31474386b731e4"
-              },
-              {
-                "path": "src/main.ts",
-                "bytes": 90215,
-                "sha256": "18f127083a1e7306bf2ee257400c67104c626a0d66c0b95981c535b4381a4799",
-                "blobSha1": "b693d5abbce0676352c5cabf667476295a05eed2"
-              },
-              {
-                "path": "tests/browser/approved-menus.spec.ts",
-                "bytes": 8503,
-                "sha256": "0bd46333bf6e93f52edeb43585c586a8f807e3d75d39b7ee312914554d60000c",
-                "blobSha1": "855f81df4e0fc4911d0453eb5eb5f0a86967c038"
-              },
-              {
-                "path": "tests/browser/first-buoy.spec.ts",
-                "bytes": 6555,
-                "sha256": "59a6959ba0b5fe7de137a0f299e19fab7a1cdd609830c739997a98fb9e828a7e",
-                "blobSha1": "0640587252fa7adc9db0fb553dc4bd78a63132dc"
-              },
-              {
-                "path": "tests/browser/pause-menu.spec.ts",
-                "bytes": 7961,
-                "sha256": "5851a8c7e8f33c74be3260f7ac79138f1d4f01e82c58c824a93602d24c30f8b4",
-                "blobSha1": "ba1daab04ede5310082ed909febba4834a7a9e6f"
               }
             ]
           }
           SOURCE
-          jq -e '.commit == "c804f9434ee7f1ac9ed89dc59898759cddb7e751" and (.files | length) == 124' "$work/source-files.json"
+          jq -e '.commit == "863870b999c37297e19d5ac27bf70974988a59f8" and (.files | length) == 125' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -831,7 +837,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: 'c804f9434ee7f1ac9ed89dc59898759cddb7e751', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: '863870b999c37297e19d5ac27bf70974988a59f8', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -863,8 +869,8 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, 'e7737061ceb1d814e7b72e3af88a30b826916757');
-            assert.equal(source.files.length, 124);
+            assert.equal(source.tree, 'f28a68be713418dae3ea64258addf981cc7d1fe5');
+            assert.equal(source.files.length, 125);
             process.chdir('/work/project');
             function verifySource() {
               assert.deepEqual(filesIn('.', ['node_modules', 'dist']), source.files.map(f => f.path).sort(), 'Unexpected source/config file');
