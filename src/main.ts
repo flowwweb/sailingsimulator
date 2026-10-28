@@ -1453,6 +1453,7 @@ function updateHud(): void {
     elements.status.textContent = `${flow}. ${coach}.`;
     lastFlow = flow;
   }
+  if (firstBuoy?.failed) elements.status.textContent = "Journey failed. Open status to retry.";
   if (storageUnavailable && !elements.status.textContent?.includes(STORAGE_WARNING)) {
     elements.status.textContent += ` ${STORAGE_WARNING}`;
   }
@@ -1569,21 +1570,21 @@ function updateLesson(): void {
     const course = courseMetrics(state.position, state.velocity, state.heading, FIRST_BUOY_COURSE);
     const approach = `Juniper buoy · ${formatChartDistance(course.distance)} · ${Math.round(course.bearingDegrees).toString().padStart(3, "0")}°`;
     elements.gameShell.classList.add("is-learning");
-    elements.gameShell.dataset.academyStage = firstBuoy.completed ? "intro-complete" : "intro-buoy-1";
+    elements.gameShell.dataset.academyStage = firstBuoy.completed ? "intro-complete" : firstBuoy.failed ? "intro-failed" : "intro-buoy-1";
     delete elements.gameShell.dataset.activeActivity;
     delete elements.gameShell.dataset.activityProgress;
     delete elements.gameShell.dataset.activityScore;
     required("#status-lesson-progress").hidden = false;
-    required("#status-lesson-progress").textContent = firstBuoy.completed ? "First journey complete" : approach;
+    required("#status-lesson-progress").textContent = firstBuoy.completed ? "First journey complete" : firstBuoy.failed ? "Journey failed · Open status to retry" : approach;
     required("#status-pips").hidden = true;
     elements.lessonCard.hidden = false;
     elements.lessonCard.classList.remove("is-minimized");
     elements.lessonCard.classList.toggle("is-complete", firstBuoy.completed);
-    elements.lessonEyebrow.textContent = firstBuoy.completed ? "Journey complete" : "First journey";
+    elements.lessonEyebrow.textContent = firstBuoy.completed ? "Journey complete" : firstBuoy.failed ? "Journey failed" : "First journey";
     elements.lessonTitle.textContent = FIRST_BUOY.title;
     elements.lessonInstruction.textContent = view.instruction;
     required("#status-objective-detail").hidden = false;
-    required("#status-objective-detail").textContent = firstBuoy.completed ? view.instruction : `${view.instruction} ${approach}.`;
+    required("#status-objective-detail").textContent = firstBuoy.completed || firstBuoy.failed ? view.instruction : `${view.instruction} ${approach}.`;
     elements.lessonProgress.style.width = `${view.progress * 100}%`;
     elements.lessonSkip.textContent = firstBuoy.completed ? "Choose lesson" : "Retry journey";
     elements.lessonSkip.disabled = false;
@@ -1811,7 +1812,7 @@ function buildChartActivityList(): void {
 }
 
 function activeCourse(): WorldActivity | undefined {
-  if (firstBuoy) return firstBuoy.completed ? undefined : FIRST_BUOY_COURSE;
+  if (firstBuoy) return firstBuoy.completed || firstBuoy.failed ? undefined : FIRST_BUOY_COURSE;
   return activityView?.completed ? undefined : activitySession?.activity;
 }
 
