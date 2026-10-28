@@ -121,3 +121,20 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
   });
 }
 
+
+test("completed first journey return controls fit on a landscape phone", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.addInitScript(() => localStorage.setItem("fair-winds-progress-v1", JSON.stringify({
+    version: 2, activeIntroduction: "intro.buoy-1", completedIntroductions: { "intro.buoy-1": 1 },
+    academyCompleted: false, academyObjective: 0, academyLesson: 0, completedObjectives: [], completedLessons: [], activities: {}, voyages: 1, distanceSailed: 400,
+  })));
+  await page.goto("/");
+  await expect(page.locator("#boot-loader")).toHaveCount(0);
+  await expect(page.locator("#continue-lesson")).toContainText("Repeat journey");
+  for (const id of ["continue-lesson", "new-journey", "title-free-sail", "title-logbook", "title-settings"]) {
+    const box = (await page.locator(`#${id}`).boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(390);
+  }
+});
