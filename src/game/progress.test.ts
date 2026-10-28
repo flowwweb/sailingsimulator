@@ -10,6 +10,11 @@ import {
 import { FIRST_BUOY } from "./first-buoy";
 
 describe("sailing progress", () => {
+  it("persists only explicit dummy-recovery completion", () => {
+    expect(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: true })).completedDummyRecovery).toBe(true);
+    expect(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: "true" })).completedDummyRecovery).toBeUndefined();
+    expect(parseProgress(JSON.stringify({ ...createProgress(), version: 1, completedDummyRecovery: true })).completedDummyRecovery).toBeUndefined();
+  });
   it("migrates v1 drills as practice without awarding a new introduction", () => {
     const saved = parseProgress(JSON.stringify({ ...createProgress(), version: 1, academyCompleted: true,
       completedIntroductions: { [FIRST_BUOY.id]: 1 }, activeIntroduction: FIRST_BUOY.id, voyages: 3, distanceSailed: 900 }));

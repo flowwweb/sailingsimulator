@@ -26,7 +26,7 @@ function resetContext(world: ReturnType<typeof cameraWorld>, stage: string) {
   const state = { position: { x: 610, y: 330 }, heave: -2.85, heading: 0 };
   return {
     world, state: { ...state, position: { x: 1172, y: -371 } }, previousState: {},
-    started: true, activitySession: undefined, activityView: undefined, firstBuoy: undefined,
+    started: true, activitySession: undefined, activityView: undefined, firstBuoy: undefined, dummyRecovery: undefined,
     academy: { view: () => ({ stage }) },
     interruptLessonAttempt() {}, prepareLessonAttempt() {},
     createGameState: () => state,

@@ -29,6 +29,7 @@ import {
 } from "./game/compass-tape";
 import { SailingAcademy, LESSON_TITLES } from "./game/academy";
 import { FIRST_BUOY, FIRST_BUOY_COURSE, FirstBuoyJourney } from "./game/first-buoy";
+import { DummyRecovery } from "./game/dummy-recovery";
 import { createLessonState, createLessonWeather, observeLesson, checkpointLesson, restoreLesson } from "./game/lesson-session";
 import {
   ActivitySession,
@@ -218,6 +219,8 @@ const chart = new LakeChart(elements.chartCanvas);
 const miniChart = new LakeChart(elements.minimap);
 const academy = new SailingAcademy();
 let firstBuoy: FirstBuoyJourney | undefined;
+let dummyRecovery: DummyRecovery | undefined;
+const DUMMY_COURSE: WorldActivity = { id: "training-dummy", title: "Training dummy", kind: "lesson", x: FIRST_BUOY.start.x + 5 * Math.cos(degrees(FIRST_BUOY.startHeadingDegrees)), z: FIRST_BUOY.start.z - 5 * Math.sin(degrees(FIRST_BUOY.startHeadingDegrees)), area: "School Water", difficulty: "Intro", objective: "Return to the training dummy and recover it under control." };
 let weatherConfig = loadWeatherConfig();
 const audio = new GameAudio(weatherConfig.seed);
 const weatherSystem = new WeatherSystem(weatherConfig);
@@ -458,6 +461,7 @@ function bindInterface(): void {
     prepareLessonAttempt();
   });
   elements.titleFreeSail.addEventListener("click", () => {
+    stopDummyRecovery();
     firstBuoy = undefined;
     progress.activeIntroduction = undefined;
     beginSailing(false);
@@ -473,6 +477,15 @@ function bindInterface(): void {
   });
   const lessonChoices = [...document.querySelectorAll<HTMLButtonElement>("[data-lesson]")];
   required("#start-first-buoy").addEventListener("click", startFirstBuoy);
+  required("#start-dummy-recovery").addEventListener("click", startDummyRecovery);
+  required("#recover-training-dummy").addEventListener("click", () => {
+    if (!dummyRecovery?.recover()) return;
+    progress.completedDummyRecovery = true;
+    persistProgress();
+    world.setTrainingDummy();
+    elements.status.textContent = "Training dummy recovered.";
+    updateHud();
+  });
   lessonChoices.forEach((button) => button.addEventListener("click", () => {
     lessonChoices.forEach((choice) => {
       choice.classList.toggle("is-selected", choice === button);
@@ -506,6 +519,11 @@ function bindInterface(): void {
   elements.mute.addEventListener("click", toggleMute);
   elements.reset.addEventListener("click", resetBoat);
   elements.lessonSkip.addEventListener("click", () => {
+    if (dummyRecovery) {
+      if (dummyRecovery.stage === "complete") { stopDummyRecovery(); returnToTitle(); openLessonChooser(); }
+      else startDummyRecovery();
+      return;
+    }
     if (firstBuoy) {
       if (firstBuoy.completed) { returnToTitle(); openLessonChooser(); }
       else prepareLessonAttempt("first-buoy");
@@ -568,6 +586,7 @@ function bindInterface(): void {
   elements.settingsResetLogbook.addEventListener("click", () => {
     if (!window.confirm("Reset your local logbook? Saved activity records will be cleared.")) return;
     progress = createProgress();
+    stopDummyRecovery();
     firstBuoy = undefined;
     activitySession = undefined;
     activityView = undefined;
@@ -744,6 +763,7 @@ function beginSailing(newJourney: boolean): void {
 }
 
 function returnToTitle(): void {
+  stopDummyRecovery();
   setPauseOpen(false, false);
   interruptLessonAttempt();
   persistProgress();
@@ -768,6 +788,7 @@ function syncHighContrast(): void {
 }
 
 function resetJourney(): void {
+  stopDummyRecovery();
   firstBuoy = undefined;
   progress.activeIntroduction = undefined;
   simulationTime = 0;
@@ -959,13 +980,14 @@ function loop(now: number): void {
   if (droppedFrame) {
     academy.interrupt();
     firstBuoy?.interrupt();
+    dummyRecovery?.interrupt();
     accumulator = 0;
   }
   if (!portrait) presentationTime += frameDt;
   if (input.consumeMute()) toggleMute();
   if (input.consumeConditions()) setConditionsOpen(!isConditionsOpen());
   const simulationPaused = document.hidden || portrait || isSimulationPaused();
-  if (simulationPaused) { academy.interrupt(); firstBuoy?.interrupt(); input.releaseAll(); }
+  if (simulationPaused) { academy.interrupt(); firstBuoy?.interrupt(); dummyRecovery?.interrupt(); input.releaseAll(); }
   if (canControlBoat() && !steeringHintOffered && window.matchMedia("(pointer: coarse)").matches) {
     steeringHintOffered = true;
     steeringHintSeconds = 5;
@@ -973,7 +995,7 @@ function loop(now: number): void {
   }
   if (!simulationPaused) steeringHintSeconds = Math.max(0, steeringHintSeconds - frameDt);
   required("#steering-hint").hidden = steeringHintSeconds <= 0 || !canControlBoat();
-  const simulationTimeScale = firstBuoy ? 1 : timeScaleForHold(input.isFastForwarding());
+  const simulationTimeScale = firstBuoy || dummyRecovery ? 1 : timeScaleForHold(input.isFastForwarding());
   elements.gameShell.dataset.timeScale = `${simulationTimeScale}`;
   if (!simulationPaused && input.consumeReset()) resetBoat();
   if (input.consumeReef() && canHandleSails(simulationPaused)) toggleReef();
@@ -1130,7 +1152,12 @@ function loop(now: number): void {
             elements.status.textContent = "Juniper buoy reached under control. Journey complete.";
           }
         }
-        if (!eligible || firstBuoy) academy.interrupt();
+        if (dummyRecovery) {
+          const unsafe = Boolean(incident) || nextIncident.severity === "touch" || nextIncident.severity === "impact" || nextIncident.severity === "stranded" || nextIncident.kind === "docking" || Boolean(dockedAt);
+          if (droppedFrame && !unsafe) dummyRecovery.interrupt();
+          else dummyRecovery.update(fixedStep, { x: state.position.x, z: state.position.y }, Math.hypot(state.velocity.x, state.velocity.y), unsafe, state.sheet, controls.sheetRate, state.heading, controls.rudder, state.yawRate);
+        }
+        if (!eligible || firstBuoy || dummyRecovery) academy.interrupt();
         else {
           const earnedObjective = academy.objectiveIndex();
           if (academy.update(fixedStep / simulationTimeScale, observeLesson(state, diagnostics, controls))) {
@@ -1217,6 +1244,7 @@ function finishBoot(status: "ready" | "failed" = "ready"): void {
 
 function resetBoat(): void {
   interruptLessonAttempt();
+  if (dummyRecovery) { startDummyRecovery(); return; }
   if (firstBuoy) { prepareLessonAttempt("first-buoy"); return; }
   if (started && !activitySession && !["free-sail", "lesson-complete", "complete"].includes(academy.view().stage)) {
     prepareLessonAttempt();
@@ -1245,6 +1273,7 @@ function resetBoat(): void {
 }
 
 function selectBoat(id: BoatId): void {
+  stopDummyRecovery();
   const nextBoat = getBoatDefinition(id);
   if (!nextBoat) return;
   const leftIntroduction = Boolean(firstBuoy);
@@ -1264,6 +1293,7 @@ function selectBoat(id: BoatId): void {
 }
 
 function recoverBoat(): void {
+  if (dummyRecovery) { startDummyRecovery(); return; }
   if (firstBuoy) { prepareLessonAttempt("first-buoy"); return; }
   interruptLessonAttempt();
   state = createGameState(FAIR_WINDS_WORLD.recoverySpawn);
@@ -1454,6 +1484,9 @@ function updateHud(): void {
     lastFlow = flow;
   }
   if (firstBuoy?.failed) elements.status.textContent = "Journey failed. Open status to retry.";
+  if (dummyRecovery?.stage === "failed") elements.status.textContent = "Exercise failed. Open status to retry.";
+  if (dummyRecovery?.stage === "ready") elements.status.textContent = "Ready to recover the training dummy. Open status.";
+  if (dummyRecovery?.stage === "complete") elements.status.textContent = "Training dummy recovered.";
   if (storageUnavailable && !elements.status.textContent?.includes(STORAGE_WARNING)) {
     elements.status.textContent += ` ${STORAGE_WARNING}`;
   }
@@ -1565,6 +1598,33 @@ function cardinalDirection(heading: number): string {
 }
 
 function updateLesson(): void {
+  if (dummyRecovery) {
+    const stage = dummyRecovery.stage;
+    const distance = Math.hypot(state.position.x - DUMMY_COURSE.x, state.position.y - DUMMY_COURSE.z);
+    const instruction = stage === "depart" ? dummyRecovery.needsDepartureStart({ x: state.position.x, z: state.position.y }) ? "Return within 8 m of the dummy to restart the departure after an interruption." : "Sail 40 m away from the dummy, then turn back." : stage === "return" ? "Trim and steer back. Settle beside the dummy at low speed." : stage === "ready" ? "The boat is settled. Open status and recover the training dummy." : stage === "failed" ? "Contact interrupted this attempt. Open status to retry." : "Training dummy recovered.";
+    elements.gameShell.classList.add("is-learning");
+    elements.gameShell.dataset.academyStage = `dummy-${stage}`;
+    delete elements.gameShell.dataset.activeActivity;
+    delete elements.gameShell.dataset.activityProgress;
+    delete elements.gameShell.dataset.activityScore;
+    required("#status-lesson-progress").hidden = false;
+    required("#status-lesson-progress").textContent = stage === "complete" ? "Dummy recovered" : stage === "failed" ? "Attempt failed · Open status to retry" : `Training dummy · ${formatChartDistance(distance)}`;
+    required("#status-pips").hidden = true;
+    elements.lessonCard.hidden = false;
+    elements.lessonCard.classList.remove("is-minimized");
+    elements.lessonCard.classList.toggle("is-complete", stage === "complete");
+    elements.lessonEyebrow.textContent = stage === "failed" ? "Attempt failed" : stage === "complete" ? "Recovery complete" : "Training exercise";
+    elements.lessonTitle.textContent = "Recover the training dummy";
+    elements.lessonInstruction.textContent = instruction;
+    required("#status-objective-detail").hidden = false;
+    required("#status-objective-detail").textContent = instruction;
+    required<HTMLButtonElement>("#recover-training-dummy").hidden = stage !== "ready";
+    elements.lessonProgress.style.width = stage === "complete" ? "100%" : "0%";
+    elements.lessonSkip.textContent = stage === "complete" ? "Choose lesson" : "Retry exercise";
+    elements.lessonSkip.disabled = false;
+    return;
+  }
+  required<HTMLButtonElement>("#recover-training-dummy").hidden = true;
   if (firstBuoy) {
     const view = firstBuoy.view(state.position);
     const course = courseMetrics(state.position, state.velocity, state.heading, FIRST_BUOY_COURSE);
@@ -1662,30 +1722,52 @@ function interruptLessonAttempt(): void {
   elements.sailActions.open = false;
   academy.interrupt();
   firstBuoy?.interrupt();
+  dummyRecovery?.interrupt();
   accumulator = 0;
   previousFrame = performance.now();
 }
 
 function startFirstBuoy(): void {
+  stopDummyRecovery();
   closeTitleDialog(false);
   beginSailing(false);
   academy.skip();
   prepareLessonAttempt("first-buoy");
 }
 
-function prepareLessonAttempt(kind: "drill" | "first-buoy" = "drill"): void {
+function stopDummyRecovery(): void {
+  dummyRecovery = undefined;
+  world.setTrainingDummy();
+  required<HTMLButtonElement>("#recover-training-dummy").hidden = true;
+}
+
+function startDummyRecovery(): void {
+  stopDummyRecovery();
+  firstBuoy = undefined;
+  progress.activeIntroduction = undefined;
+  closeTitleDialog(false);
+  beginSailing(false);
+  academy.skip();
+  prepareLessonAttempt("dummy");
+  dummyRecovery = new DummyRecovery({ x: DUMMY_COURSE.x, z: DUMMY_COURSE.z }, activeBoat.collision);
+  world.setTrainingDummy(dummyRecovery.target);
+  persistProgress();
+  updateHud();
+}
+
+function prepareLessonAttempt(kind: "drill" | "first-buoy" | "dummy" = "drill"): void {
   interruptLessonAttempt();
   firstBuoy = kind === "first-buoy" ? new FirstBuoyJourney() : undefined;
   progress.activeIntroduction = firstBuoy ? FIRST_BUOY.id : undefined;
   activeBoat = HARBOR_20;
   world.setBoat(activeBoat);
   weatherConfig = createLessonWeather();
-  if (firstBuoy) weatherConfig.seed = FIRST_BUOY.seed;
+  if (firstBuoy || kind === "dummy") weatherConfig.seed = FIRST_BUOY.seed;
   weatherSystem.setConfig(weatherConfig);
   simulationTime = 0;
   weather = weatherSystem.sample(0);
   state = createLessonState(Math.min(academy.objectiveIndex(), 8), weather.trueWind);
-  if (firstBuoy) {
+  if (firstBuoy || kind === "dummy") {
     state = createLessonState(0, weather.trueWind, FIRST_BUOY.start);
     state.heading = degrees(FIRST_BUOY.startHeadingDegrees);
   }
@@ -1812,6 +1894,7 @@ function buildChartActivityList(): void {
 }
 
 function activeCourse(): WorldActivity | undefined {
+  if (dummyRecovery) return ["complete", "failed"].includes(dummyRecovery.stage) ? undefined : DUMMY_COURSE;
   if (firstBuoy) return firstBuoy.completed || firstBuoy.failed ? undefined : FIRST_BUOY_COURSE;
   return activityView?.completed ? undefined : activitySession?.activity;
 }
@@ -1823,6 +1906,7 @@ function selectedActivity(): WorldActivity | undefined {
 }
 
 function selectChartActivity(id: string): void {
+  stopDummyRecovery();
   interruptLessonAttempt();
   firstBuoy = undefined;
   progress.activeIntroduction = undefined;
@@ -1880,7 +1964,7 @@ function syncChartActivityList(): void {
     completed === 0
       ? `${formatChartDistance(progress.distanceSailed)} sailed · no completed activities yet`
       : `${completed} activities · ${progress.voyages} voyages · ${formatChartDistance(progress.distanceSailed)}`;
-  const activity = firstBuoy ? activeCourse() : selectedActivity();
+  const activity = firstBuoy || dummyRecovery ? activeCourse() : selectedActivity();
   elements.chartCourseReadout.textContent = activity
     ? `Course: ${activity.title} · ${activity.objective}`
     : "No course selected";
@@ -1888,7 +1972,7 @@ function syncChartActivityList(): void {
 
 function renderChart(): void {
   syncChartActivityList();
-  chart.render(state, FAIR_WINDS_WORLD, weather.trueWind, firstBuoy ? activeCourse() : selectedActivity());
+  chart.render(state, FAIR_WINDS_WORLD, weather.trueWind, firstBuoy || dummyRecovery ? activeCourse() : selectedActivity());
 }
 
 function formatChartDistance(distance: number): string {
@@ -1925,6 +2009,9 @@ function fillLogbook(stats: HTMLElement, list: HTMLElement): void {
   const introduction = document.createElement("li");
   introduction.textContent = `${FIRST_BUOY.title} · ${progress.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision ? "Complete" : "Not yet completed"}`;
   list.append(introduction);
+  const recovery = document.createElement("li");
+  recovery.textContent = `Recover the training dummy · ${progress.completedDummyRecovery ? "Complete" : "Not yet completed"}`;
+  list.append(recovery);
   document.querySelectorAll<HTMLButtonElement>("[data-lesson]").forEach((choice, index) => {
     const row = document.createElement("li");
     row.textContent = `${choice.querySelector(".lesson-name")!.textContent!.trim()} · ${progress.academyCompleted || progress.completedLessons?.includes(index) ? "Complete" : "Not yet completed"}`;
@@ -2186,6 +2273,10 @@ function updateMusicPlayback(playback: MusicPlaybackState): void {
 
 function applyWeatherConfig(sync: boolean): void {
   interruptLessonAttempt();
+  if (dummyRecovery) {
+    stopDummyRecovery();
+    elements.status.textContent = "Conditions changed. Choose the exercise to try again.";
+  }
   if (firstBuoy) {
     firstBuoy = undefined;
     progress.activeIntroduction = undefined;
