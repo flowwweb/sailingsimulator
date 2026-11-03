@@ -4526,6 +4526,8 @@ input:disabled {
 .sailing-status { position: fixed; z-index: 12; top: 18px; left: 50%; width: min(380px, calc(100vw - 330px)); transform: translateX(-50%); color: #f7f8f3; }
 #status-toggle { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 8px 14px; border: 1px solid #ffffff55; border-radius: 8px; background: #06243acc; color: inherit; font: inherit; font-size: 14px; text-align: left; }
 #status { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#status-feedback { margin: 4px 0 0; padding: 8px 14px; border-radius: 8px; background: #06243acc; font-size: 14px; line-height: 1.4; }
+#status-feedback:empty { display: none; }
 #status-toggle > svg { width: 16px; height: 16px; transform: rotate(90deg); }
 #status-toggle[aria-expanded="true"] > svg { transform: rotate(-90deg); }
 #status-message { margin: 0 28px 12px 0; font-size: 14px; line-height: 1.4; }

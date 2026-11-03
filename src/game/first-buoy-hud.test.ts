@@ -39,7 +39,7 @@ test("failed journey replaces the collapsed destination and offers retry", () =>
 test.each(["flow", "tack", "gybe"])("failed journey keeps both final status messages after %s", (change) => {
   const journey = new FirstBuoyJourney();
   journey.update(1 / 60, { unsafe: true } as never);
-  const elements = { status: { textContent: "Touched a marker. Steer clear and continue." }, statusMessage: { textContent: "" } };
+  const elements = { status: { textContent: "Touched a marker. Steer clear and continue." }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
   const context = { elements, firstBuoy: journey, state: { maneuverCount: change === "flow" ? 0 : 1, lastManeuver: change === "flow" ? "none" : change },
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
@@ -49,7 +49,7 @@ test.each(["flow", "tack", "gybe"])("failed journey keeps both final status mess
 });
 
 test("active journey shows the sailing objective instead of flow jargon", () => {
-  const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" } };
+  const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
   const context = { elements, firstBuoy: new FirstBuoyJourney(), state: { maneuverCount: 0, lastManeuver: "none" },
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
@@ -59,7 +59,7 @@ test("active journey shows the sailing objective instead of flow jargon", () => 
 });
 
 test.each(["Tack complete. Build speed on the new side and retrim.", "Sound muted.", "Reefed mainsail."])("active journey retains feedback: %s", (message) => {
-  const elements = { status: { textContent: message }, statusMessage: { textContent: "" } };
+  const elements = { status: { textContent: message }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
   const context = { elements, firstBuoy: new FirstBuoyJourney(), state: { maneuverCount: 0, lastManeuver: "none" },
     lastManeuverCount: 0, lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
@@ -69,7 +69,7 @@ test.each(["Tack complete. Build speed on the new side and retrim.", "Sound mute
 });
 
 test("completed journey keeps its completion message after flow changes", () => {
-  const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" } };
+  const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
   const context = { elements, firstBuoy: { completed: true, failed: false }, state: { maneuverCount: 0, lastManeuver: "none" },
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };

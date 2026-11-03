@@ -127,6 +127,7 @@ const elements = {
   statusDetails: required("#status-details"),
   statusCue: required("#status-cue"),
   statusMessage: required("#status-message"),
+  statusFeedback: required("#status-feedback"),
   welcome: required("#welcome"),
   setSail: required<HTMLButtonElement>("#set-sail"),
   newJourney: required<HTMLButtonElement>("#new-journey"),
@@ -645,7 +646,9 @@ function syncTitleState(): void {
 
 function setStatusOpen(open: boolean, restoreFocus = true): void {
   if (open) input.releaseAll();
-  elements.statusMessage.textContent = elements.status.textContent;
+  if (!firstBuoy || firstBuoy.failed || firstBuoy.completed) {
+    elements.statusMessage.textContent = elements.status.textContent;
+  }
   elements.statusDetails.hidden = !open;
   elements.statusToggle.setAttribute("aria-expanded", String(open));
   if (!open && restoreFocus) elements.statusToggle.focus();
@@ -1461,7 +1464,8 @@ function updateHud(): void {
         ? "Sail looks steady. Watch your course and speed."
         : detail;
     }
-    elements.status.textContent = objective;
+    const headline = storageUnavailable ? `${objective} ${STORAGE_WARNING}` : objective;
+    if (elements.status.textContent !== headline) elements.status.textContent = headline;
   } else {
     if (firstBuoy) elements.status.textContent = firstBuoy.failed
       ? "Journey failed. Open status to retry."
@@ -1474,6 +1478,9 @@ function updateHud(): void {
   if (storageUnavailable && !elements.statusMessage.textContent?.includes(STORAGE_WARNING)) {
     elements.statusMessage.textContent += ` ${STORAGE_WARNING}`;
   }
+  const feedback = firstBuoy && !firstBuoy.failed && !firstBuoy.completed
+    ? elements.statusMessage.textContent : "";
+  if (elements.statusFeedback.textContent !== feedback) elements.statusFeedback.textContent = feedback;
 }
 
 function syncSailControls(): void {
@@ -1692,6 +1699,12 @@ function startFirstBuoy(): void {
 function prepareLessonAttempt(kind: "drill" | "first-buoy" = "drill"): void {
   interruptLessonAttempt();
   firstBuoy = kind === "first-buoy" ? new FirstBuoyJourney() : undefined;
+  if (firstBuoy) {
+    elements.status.textContent = "Ready to sail.";
+    elements.statusMessage.textContent = "";
+    elements.statusFeedback.textContent = "";
+    lastFlow = "";
+  }
   progress.activeIntroduction = firstBuoy ? FIRST_BUOY.id : undefined;
   activeBoat = HARBOR_20;
   world.setBoat(activeBoat);
