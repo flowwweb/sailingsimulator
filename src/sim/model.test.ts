@@ -49,20 +49,25 @@ describe("sailing physics teaching contracts", () => {
     expect(run()).toBeGreaterThan(run(previousHullTune));
   });
 
-  it("sails the teaching dinghy around five knots on a well-trimmed reach", () => {
-    let state = createInitialState();
-    const heading = degrees(160);
-    state.heading = heading;
-    const environment = { trueWind: { x: -6, y: 0 } };
-    for (let index = 0; index < 60 * 30; index += 1) {
-      const sail = computeSailAerodynamics(state, environment);
-      const error = Math.atan2(Math.sin(heading - state.heading), Math.cos(heading - state.heading));
-      const rudder = Math.max(-1, Math.min(1, error * 4 - state.yawRate * 8));
-      state = stepBoat(state, { rudder, sheetRate: 0, sheetTarget: sheetForBoomAngle(sail.idealBoomAngle) }, environment, 1 / 60).state;
-    }
-    const knots = Math.hypot(state.velocity.x, state.velocity.y) * 1.94384;
-    expect(knots).toBeGreaterThan(4.8);
-    expect(knots).toBeLessThan(5.5);
+  it("keeps the teaching dinghy responsive in moderate wind without accelerating excessively in strong wind", () => {
+    const run = (wind: number, angle: number) => {
+      let state = createInitialState();
+      const heading = degrees(90 + angle);
+      state.heading = heading;
+      const environment = { trueWind: { x: -wind, y: 0 } };
+      for (let index = 0; index < 60 * 30; index += 1) {
+        const sail = computeSailAerodynamics(state, environment);
+        const error = Math.atan2(Math.sin(heading - state.heading), Math.cos(heading - state.heading));
+        const rudder = Math.max(-1, Math.min(1, error * 4 - state.yawRate * 8));
+        state = stepBoat(state, { rudder, sheetRate: 0, sheetTarget: sheetForBoomAngle(sail.idealBoomAngle) }, environment, 1 / 60).state;
+      }
+      return Math.hypot(state.velocity.x, state.velocity.y) * 1.94384;
+    };
+    const moderate = run(6, 70);
+    expect(moderate).toBeGreaterThan(4.8);
+    expect(moderate).toBeLessThan(5.5);
+    expect(run(14, 90)).toBeLessThan(11.85);
+    expect(run(14, 20)).toBeLessThan(2.05);
   });
 
   it("uses boat velocity when calculating apparent wind", () => {
