@@ -1453,17 +1453,27 @@ function updateHud(): void {
     elements.status.textContent = `${flow}. ${coach}.`;
     lastFlow = flow;
   }
-  if (firstBuoy) {
-    elements.status.textContent = firstBuoy.failed
+  if (firstBuoy && !firstBuoy.failed && !firstBuoy.completed) {
+    const objective = "Sail to Juniper buoy.";
+    const detail = elements.status.textContent ?? "";
+    if (detail && !detail.startsWith(objective)) {
+      elements.statusMessage.textContent = detail === "Attached. Flow attached."
+        ? "Sail looks steady. Watch your course and speed."
+        : detail;
+    }
+    elements.status.textContent = objective;
+  } else {
+    if (firstBuoy) elements.status.textContent = firstBuoy.failed
       ? "Journey failed. Open status to retry."
-      : firstBuoy.completed
-        ? "Juniper buoy reached under control. Journey complete."
-        : "Sail to Juniper buoy.";
+      : "Juniper buoy reached under control. Journey complete.";
+    elements.statusMessage.textContent = elements.status.textContent;
   }
   if (storageUnavailable && !elements.status.textContent?.includes(STORAGE_WARNING)) {
     elements.status.textContent += ` ${STORAGE_WARNING}`;
   }
-  elements.statusMessage.textContent = elements.status.textContent;
+  if (storageUnavailable && !elements.statusMessage.textContent?.includes(STORAGE_WARNING)) {
+    elements.statusMessage.textContent += ` ${STORAGE_WARNING}`;
+  }
 }
 
 function syncSailControls(): void {

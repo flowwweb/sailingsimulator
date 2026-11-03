@@ -37,6 +37,38 @@ test("objective and failure take priority only in the first-buoy lesson", () => 
       dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
     runInNewContext(status, context);
     assert.equal(elements.status.textContent, expected);
+    assert.equal(elements.statusMessage.textContent,
+      firstBuoy && !firstBuoy.failed && !firstBuoy.completed
+        ? "Sail looks steady. Watch your course and speed."
+        : expected);
+  }
+});
+
+test("first-buoy objective retains action feedback and storage warning across updates", () => {
+  for (const message of ["Sound muted.", "Reefed mainsail.", "Tack complete."]) {
+    const elements = { status: { textContent: message }, statusMessage: { textContent: "" } };
+    const context = { elements, firstBuoy: { failed: false, completed: false },
+      state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0,
+      lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
+      dockedAt: undefined, storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
+    runInNewContext(`${status} updateStatus();`, context);
+    assert.equal(elements.status.textContent, "Sail to Juniper buoy. Storage unavailable");
+    assert.equal(elements.statusMessage.textContent, `${message} Storage unavailable`);
+  }
+});
+
+test("first-buoy objective retains actual maneuver and flow transitions", () => {
+  for (const [state, lastFlow, flow, coach, expected] of [
+    [{ maneuverCount: 1, lastManeuver: "tack" }, "Attached", "Attached", "Flow attached", "Tack complete. Build speed on the new side and retrim."],
+    [{ maneuverCount: 1, lastManeuver: "gybe" }, "Attached", "Attached", "Flow attached", "Gybe complete. The boom crossed with the wind astern; steady the helm and retrim."],
+    [{ maneuverCount: 0, lastManeuver: "none" }, "Attached", "Luffing", "Sheet in or bear away", "Luffing. Sheet in or bear away."],
+  ]) {
+    const elements = { status: { textContent: "Sail to Juniper buoy." }, statusMessage: { textContent: "" } };
+    const context = { elements, firstBuoy: { failed: false, completed: false }, state,
+      lastManeuverCount: 0, lastFlow, flow, coach, started: true, dockedAt: undefined,
+      storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
+    runInNewContext(`${status} updateStatus();`, context);
+    assert.equal(elements.status.textContent, "Sail to Juniper buoy.");
     assert.equal(elements.statusMessage.textContent, expected);
   }
 });

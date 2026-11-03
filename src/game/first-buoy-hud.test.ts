@@ -55,7 +55,17 @@ test("active journey shows the sailing objective instead of flow jargon", () => 
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);
   expect(elements.status.textContent).toBe("Sail to Juniper buoy.");
-  expect(elements.statusMessage.textContent).toBe(elements.status.textContent);
+  expect(elements.statusMessage.textContent).toBe("Sail looks steady. Watch your course and speed.");
+});
+
+test.each(["Tack complete. Build speed on the new side and retrim.", "Sound muted.", "Reefed mainsail."])("active journey retains feedback: %s", (message) => {
+  const elements = { status: { textContent: message }, statusMessage: { textContent: "" } };
+  const context = { elements, firstBuoy: new FirstBuoyJourney(), state: { maneuverCount: 0, lastManeuver: "none" },
+    lastManeuverCount: 0, lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
+    dockedAt: undefined, storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
+  runInNewContext(`${hudStatus}; updateHudStatus(); updateHudStatus();`, context);
+  expect(elements.status.textContent).toBe("Sail to Juniper buoy. Storage unavailable");
+  expect(elements.statusMessage.textContent).toBe(`${message} Storage unavailable`);
 });
 
 test("completed journey keeps its completion message after flow changes", () => {
