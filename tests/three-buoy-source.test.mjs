@@ -123,15 +123,16 @@ test("skipping the first buoy cannot complete a later mark", () => {
   assert.equal(journey.completed, false);
 });
 
-test("an untrimmed approach and a later leg without steering do not advance", () => {
+test("first approach requires trim, while controlled straight legs can advance", () => {
   const untrimmed = new FirstBuoyJourney(), firstBoat = driver(untrimmed);
   firstBoat.line(FIRST_BUOY_MARKS[0].x, FIRST_BUOY_MARKS[0].z + 14.5, false, { sheetRate: 0 });
   assert.match(untrimmed.objective(), /Sail/);
   const journey = new FirstBuoyJourney(), boat = reachFirst(journey);
   assert.equal(journey.markIndex, 1);
-  boat.line(FIRST_BUOY_MARKS[1].x, FIRST_BUOY_MARKS[1].z, false, { rudder: 0 });
-  assert.equal(journey.markIndex, 1);
-  assert.equal(journey.completed, false);
+  boat.line(FIRST_BUOY_MARKS[1].x, FIRST_BUOY_MARKS[1].z, true, { rudder: 0 });
+  assert.equal(journey.markIndex, 2);
+  boat.line(FIRST_BUOY_MARKS[2].x, FIRST_BUOY_MARKS[2].z, true, { rudder: 0 });
+  assert.equal(journey.completed, true);
 });
 
 test("interrupt preserves completed marks but clears an unfinished rounding", () => {

@@ -146,7 +146,7 @@ export class FirstBuoyJourney {
       }
       return false;
     }
-    if (!entered || !this.steered || !controlled) return false;
+    if (!entered || !controlled) return false;
     if (this.markIndex < FIRST_BUOY_MARKS.length - 1) {
       this.markIndex++;
       this.interrupt();
