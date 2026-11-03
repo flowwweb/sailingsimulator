@@ -191,6 +191,7 @@ export class SailingWorld {
   private lastReflectionAt = Number.NEGATIVE_INFINITY;
   private lastAtmosphereAt = Number.NEGATIVE_INFINITY;
   private reflectionInterval = 1 / 30;
+  private titleReflectionDeferred = false;
 
   constructor(canvas: HTMLCanvasElement, boatAsset: THREE.Group) {
     this.renderer = new THREE.WebGLRenderer({
@@ -477,13 +478,19 @@ export class SailingWorld {
       this.camera.position.y + 38,
       this.camera.position.z,
     );
-    if (this.renderClock - this.lastAtmosphereAt >= 1 / 15) {
+    const atmosphereDue = this.renderClock - this.lastAtmosphereAt >= 1 / 15;
+    if (atmosphereDue) {
       this.updateAtmosphere(weather, titleScene);
       this.lastAtmosphereAt = this.renderClock;
     }
     if (this.renderClock - this.lastReflectionAt >= this.reflectionInterval) {
-      this.updateReflection();
-      this.lastReflectionAt = this.renderClock;
+      if (titleScreen && atmosphereDue && Number.isFinite(this.lastReflectionAt) && !this.titleReflectionDeferred) {
+        this.titleReflectionDeferred = true;
+      } else {
+        this.updateReflection();
+        this.lastReflectionAt = this.renderClock;
+        this.titleReflectionDeferred = false;
+      }
     }
     this.renderer.render(this.scene, this.camera);
   }
