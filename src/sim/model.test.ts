@@ -78,7 +78,10 @@ describe("sailing physics teaching contracts", () => {
       const state = createInitialState();
       state.velocity = { x: 0, y: speed };
       const { hydro } = stepBoat(state, { rudder: 0, sheetRate: 0 }, { trueWind: { x: 0, y: 0 } }, 1 / 60);
+      const withoutWave = { ...HARBOR_20, hull: { ...HARBOR_20.hull, waveDragFactor: 0 } };
+      const baseline = stepBoat(state, { rudder: 0, sheetRate: 0 }, { trueWind: { x: 0, y: 0 }, boat: withoutWave }, 1 / 60);
       expect(hydro.hullDrag.y * speed).toBeLessThan(0);
+      expect(Math.abs(hydro.hullDrag.y)).toBeGreaterThan(Math.abs(baseline.hydro.hullDrag.y));
     }
   });
 
