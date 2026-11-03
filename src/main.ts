@@ -44,6 +44,7 @@ import {
   recordAcademyObjective,
   recordFirstBuoyCompletion,
   sailingRank,
+  completionProgressFrame,
   nextLessonObjective,
   type SailingProgress,
 } from "./game/progress";
@@ -241,6 +242,7 @@ let accumulator = 0;
 let started = false;
 let paused = false;
 let wasPortrait = false;
+let completionAnimationFrame: number | undefined;
 let pauseOpener: HTMLElement = elements.conditionsToggle;
 let titleExitTimeout: number | undefined;
 let lessonChooserOpener: HTMLButtonElement = elements.setSail;
@@ -1968,24 +1970,48 @@ function isSimulationPaused(): boolean {
   );
 }
 
+function renderCompletionProgress(frame: ReturnType<typeof sailingRank>, previousLevel: number): void {
+  const levelText = `${frame.level > previousLevel ? "Level up! · " : ""}Level ${frame.level} · ${frame.rank}`;
+  const level = required("#completion-level");
+  if (level.textContent !== levelText) level.textContent = levelText;
+  required("#completion-xp").textContent = `${Math.round(frame.levelXp)} / 100 XP to next level · ${Math.floor(frame.xp)} XP total`;
+  required(".completion-track").setAttribute("aria-valuenow", String(Math.round(frame.levelXp)));
+  required(".completion-fill").style.width = `${frame.levelXp}%`;
+  required(".completion-marker").style.left = `${frame.levelXp}%`;
+}
+
 function showCompletion(title: string, before: ReturnType<typeof sailingRank>): void {
   const after = sailingRank(progress);
   const earned = after.xp - before.xp;
-  required("#completion-heading").textContent = title;
+  if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
+  required("#completion-heading").textContent = firstBuoy ? "Journey complete" : "Lesson complete";
+  required("#completion-title").textContent = title;
   required("#completion-reward").textContent = `${earned ? `+${earned} XP earned` : "Previously completed"}${storageUnavailable ? ` ${STORAGE_WARNING}` : ""}`;
-  required("#completion-level").textContent = `${after.level > before.level ? "Level up! · " : ""}Level ${after.level} · ${after.rank}`;
-  required("#completion-xp").textContent = `${after.levelXp} / 100 XP to next level · ${after.xp} XP total`;
-  const bar = required(".completion-track");
-  bar.setAttribute("aria-valuenow", String(after.levelXp));
-  required(".completion-track span").style.width = `${after.levelXp}%`;
   input.releaseAll();
   accumulator = 0;
   elements.gameShell.inert = true;
   required("#completion-screen").hidden = false;
   required<HTMLButtonElement>("#completion-continue").focus({ preventScroll: true });
+  if (earned <= 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    renderCompletionProgress(after, before.level);
+    completionAnimationFrame = undefined;
+    return;
+  }
+  renderCompletionProgress(before, before.level);
+  const startedAt = performance.now();
+  const animate = (now: number): void => {
+    const frame = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? { ...after, done: true }
+      : completionProgressFrame(before.xp, after.xp, now - startedAt);
+    renderCompletionProgress(frame, before.level);
+    completionAnimationFrame = frame.done ? undefined : requestAnimationFrame(animate);
+  };
+  completionAnimationFrame = requestAnimationFrame(animate);
 }
 
 function closeCompletion(): void {
+  if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
+  completionAnimationFrame = undefined;
   required("#completion-screen").hidden = true;
   const portrait = window.matchMedia("(orientation: portrait)").matches;
   elements.gameShell.inert = portrait;

@@ -107,10 +107,35 @@ export function recordFirstBuoyCompletion(progress: SailingProgress): SailingPro
 export function sailingRank(progress: SailingProgress): { xp: number; level: number; rank: string; levelXp: number } {
   const introduction = progress.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision ? 1 : 0;
   const lessons = new Set((progress.completedLessons ?? []).filter((lesson) => Number.isInteger(lesson) && lesson >= 0 && lesson <= 2)).size;
-  const xp = (introduction + lessons) * 50;
+  return rankForXp((introduction + lessons) * 100);
+}
+
+export function rankForXp(xp: number): { xp: number; level: number; rank: string; levelXp: number } {
   const level = Math.floor(xp / 100) + 1;
-  const rank = ["Newcomer", "Crew", "Sailor"][Math.min(level - 1, 2)] ?? "Sailor";
+  const rank = ["Newcomer", "Deckhand", "Crew", "Sailor", "Voyager"][Math.min(level - 1, 4)] ?? "Voyager";
   return { xp, level, rank, levelXp: xp % 100 };
+}
+
+/** Fill each level, hold at the threshold, then reset before revealing the next level. */
+export function completionProgressFrame(beforeXp: number, afterXp: number, elapsed: number): ReturnType<typeof rankForXp> & { done: boolean } {
+  if (afterXp <= beforeXp) return { ...rankForXp(afterXp), done: true };
+  let cursor = beforeXp;
+  let remaining = Math.max(0, elapsed);
+  while (cursor < afterXp) {
+    const threshold = (Math.floor(cursor / 100) + 1) * 100;
+    const target = Math.min(afterXp, threshold);
+    const crosses = target === threshold;
+    if (remaining < 900) {
+      const xp = cursor + (target - cursor) * remaining / 900;
+      return { ...rankForXp(cursor), xp, levelXp: xp % 100, done: false };
+    }
+    if (crosses && remaining < 1150) {
+      return { ...rankForXp(cursor), xp: target, levelXp: 100, done: false };
+    }
+    remaining -= crosses ? 1150 : 900;
+    cursor = target;
+  }
+  return { ...rankForXp(afterXp), done: true };
 }
 
 export function recordActivityCompletion(

@@ -15,11 +15,11 @@ describe("sailing progress", () => {
     let progress = createProgress();
     expect(sailingRank(progress)).toMatchObject({ xp: 0, level: 1 });
     progress = recordFirstBuoyCompletion(progress);
-    expect(sailingRank(parseProgress(JSON.stringify(progress)))).toMatchObject({ xp: 50, level: 1, levelXp: 50 });
+    expect(sailingRank(parseProgress(JSON.stringify(progress)))).toMatchObject({ xp: 100, level: 2, levelXp: 0, rank: "Deckhand" });
     progress = recordFirstBuoyCompletion(progress);
     for (const target of [0, 1, 2]) progress = recordAcademyObjective(progress, target);
-    expect(sailingRank(progress)).toMatchObject({ xp: 100, level: 2, rank: "Crew" });
-    expect(sailingRank(recordAcademyObjective(parseProgress(JSON.stringify(progress)), 2)).xp).toBe(100);
+    expect(sailingRank(progress)).toMatchObject({ xp: 200, level: 3, rank: "Crew" });
+    expect(sailingRank(recordAcademyObjective(parseProgress(JSON.stringify(progress)), 2)).xp).toBe(200);
   });
   it("migrates v1 drills as practice without awarding a new introduction", () => {
     const saved = parseProgress(JSON.stringify({ ...createProgress(), version: 1, academyCompleted: true,
