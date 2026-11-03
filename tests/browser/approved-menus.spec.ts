@@ -59,6 +59,10 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await expect(chooser).toBeHidden();
     await expect(page.locator("#set-sail")).toBeFocused();
     await page.locator("#set-sail").click();
+    await expect(page.locator(".lesson-choice")).toHaveCount(4);
+    await expect(page.locator("#start-first-buoy")).toContainText("01");
+    await expect(page.locator("#start-first-buoy")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#start-first-buoy .lesson-image")).toBeVisible();
     await expect(page.locator("[data-lesson]")).toHaveCount(3);
     for (const card of await page.locator("[data-lesson]").all()) {
       const cardBox = (await card.boundingBox())!;
@@ -67,6 +71,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     }
     await page.locator('[data-lesson="1"]').click();
     await expect(page.locator('[data-lesson="1"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#start-first-buoy")).toHaveAttribute("aria-pressed", "false");
     await page.locator(".lesson-detail summary").click();
     await expect(page.locator("#chosen-lesson-targets li")).toHaveCount(3);
     await expect(page.locator("#chosen-lesson-targets")).toContainText("Beam reach");

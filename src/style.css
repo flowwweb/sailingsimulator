@@ -4454,11 +4454,13 @@ input:disabled {
 .lesson-chooser-body { width: min(1040px,100%); min-height: 0; margin-inline: auto; padding: 8px; overflow-y: auto; overscroll-behavior: contain; }
 .lesson-chooser-header h2 { padding-inline: 44px; }
 .lesson-chooser .menu-back { display: flex; position: absolute; top: 0; left: 0; z-index: 2; margin: 0; border-radius: 6px; background: #06273f; }
-.lesson-choices { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; }
+.lesson-choices { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 20px; }
 .lesson-choice { display: block; overflow: hidden; padding: 0 0 24px; border: 1px solid rgba(222,238,247,.25); border-radius: 10px; background: rgba(4,34,54,.45); color: #fff; text-align: left; box-shadow: none; }
 .lesson-choice.is-selected { border: 2px solid #ffcb52; }
 .lesson-choice:hover { background: rgba(16,66,90,.55); }
 .lesson-image { display: block; width: 100%; aspect-ratio: 218 / 128; background-image: url('/brand/fairwinds-approved-menu-board.png'); background-size: 767% 735.16%; }
+.lesson-image-buoy { background-image: url('/brand/first-buoy-concept.png'); background-size: cover; background-position: center; }
+.lesson-preview-note { display: block; padding: 4px 16px 0; font-size: 11px; opacity: .75; }
 .lesson-image-1 { background-position: 62.72% 15.76%; }
 .lesson-image-2 { background-position: 78.93% 15.76%; }
 .lesson-image-3 { background-position: 95.18% 15.76%; }
@@ -4467,7 +4469,6 @@ input:disabled {
 .lesson-name b { margin-right: 8px; }
 .lesson-choice.is-selected .lesson-name b { color: #ffd058; }
 .lesson-targets { margin-top: 10px; font-size: clamp(12px,1vw,16px); line-height: 1.4; }
-#start-first-buoy { width: min(420px,100%); min-height: 48px; margin: 0 auto 20px; border-radius: 999px; }
 #start-lesson { width: min(320px,100%); margin: 24px auto 0; min-height: 48px; border-radius: 999px; }
 .lesson-detail { margin: 16px auto 0; width: 50%; max-width: 100%; color: #fff; font-size: 16px; }
 .lesson-detail summary { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; cursor: pointer; white-space: nowrap; list-style: none; }
@@ -4519,8 +4520,7 @@ input:disabled {
   .lesson-chooser { padding: 12px; }
   .lesson-chooser h2 { margin-bottom: 16px; }
   .lesson-image { max-height: 70px; }
-  #start-first-buoy { margin-bottom: 10px; }
-  .lesson-chooser:has(.lesson-detail[open]) .lesson-image { height: 60px; background-size: 767% 1286.5%; background-position-y: 14.76%; }
+  .lesson-chooser:has(.lesson-detail[open]) .lesson-image:not(.lesson-image-buoy) { height: 60px; background-size: 767% 1286.5%; background-position-y: 14.76%; }
   #start-lesson { margin-top: 12px; }
 }
 

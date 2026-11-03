@@ -59,6 +59,7 @@ test("starting, pausing, retrying and reloading the first journey do not award c
   await page.locator("#set-sail").click();
   await expect(page.locator("[data-lesson]")).toHaveCount(3);
   await page.locator("#start-first-buoy").click();
+  await page.locator("#start-lesson").click();
   await expectFreshJourney(page);
 
   await page.keyboard.press("Escape");
@@ -109,6 +110,7 @@ test("completed legacy drills remain available and do not grant first-journey cr
   await expect(page.locator('[data-lesson="1"]')).toContainText("Close-hauled · Beam reach · Broad reach");
   await expect(page.locator('[data-lesson="2"]')).toContainText("Tack · Gybe · Reef");
   await page.locator("#start-first-buoy").click();
+  await page.locator("#start-lesson").click();
   await expectFreshJourney(page);
   const saved = await readProgress(page);
   expect(saved.version).toBe(2);

@@ -485,8 +485,7 @@ function bindInterface(): void {
     persistProgress();
     updateHud();
   });
-  const lessonChoices = [...document.querySelectorAll<HTMLButtonElement>("[data-lesson]")];
-  required("#start-first-buoy").addEventListener("click", startFirstBuoy);
+  const lessonChoices = [...document.querySelectorAll<HTMLButtonElement>(".lesson-choice")];
   lessonChoices.forEach((button) => button.addEventListener("click", () => {
     lessonChoices.forEach((choice) => {
       choice.classList.toggle("is-selected", choice === button);
@@ -495,6 +494,7 @@ function bindInterface(): void {
     syncLessonTargets();
   }));
   required("#start-lesson").addEventListener("click", () => {
+    if (required("#start-first-buoy").classList.contains("is-selected")) { startFirstBuoy(); return; }
     const lesson = Number(required<HTMLButtonElement>("[data-lesson].is-selected").dataset.lesson);
     closeTitleDialog(false);
     beginSailing(false);
@@ -668,7 +668,7 @@ function setStatusOpen(open: boolean, restoreFocus = true): void {
 }
 
 function syncLessonTargets(): void {
-  const targets = required("[data-lesson].is-selected .lesson-targets").textContent!.split("·");
+  const targets = required(".lesson-choice.is-selected .lesson-targets").textContent!.split("·");
   const list = required("#chosen-lesson-targets");
   list.replaceChildren(...targets.map((target) => {
     const row = document.createElement("li");
@@ -683,7 +683,7 @@ function openLessonChooser(opener: HTMLButtonElement = elements.continueLesson):
   elements.lessonChooser.hidden = false;
   required(".welcome-lockup").hidden = true;
   syncLessonTargets();
-  required<HTMLButtonElement>("#start-first-buoy").focus();
+  required<HTMLButtonElement>(".lesson-choice.is-selected").focus();
 }
 
 function closeTitleDialog(restoreFocus = true): void {
