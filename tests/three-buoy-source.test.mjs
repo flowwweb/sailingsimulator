@@ -42,7 +42,7 @@ function driver(journey) {
   return { line, sample, position: () => position };
 }
 
-function reachFirst(journey, direction = -1) {
+function reachFirst(journey, direction = 1) {
   const boat = driver(journey), first = FIRST_BUOY_MARKS[0];
   boat.line(first.x, first.z + 14.5);
   const steps = 1_000;
@@ -99,9 +99,21 @@ test("arrival alone and wrong-way rounding do not advance", () => {
   assert.equal(approach.markIndex, 0);
   assert.match(approach.objective(), /Round/);
   const wrong = new FirstBuoyJourney();
-  reachFirst(wrong, 1);
+  reachFirst(wrong, -1);
   assert.equal(wrong.markIndex, 0);
   assert.equal(wrong.completed, false);
+});
+
+test("accepted arc keeps the buoy to port and reverse rounding places it to starboard", () => {
+  for (const angle of [Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {
+    const toBuoy = { x: -Math.cos(angle), z: -Math.sin(angle) };
+    const ccwForward = { x: -Math.sin(angle), z: Math.cos(angle) };
+    const port = { x: -ccwForward.z, z: ccwForward.x };
+    assert.ok(port.x * toBuoy.x + port.z * toBuoy.z > .99);
+    const cwForward = { x: -ccwForward.x, z: -ccwForward.z };
+    const cwPort = { x: -cwForward.z, z: cwForward.x };
+    assert.ok(cwPort.x * toBuoy.x + cwPort.z * toBuoy.z < -.99);
+  }
 });
 
 test("skipping the first buoy cannot complete a later mark", () => {

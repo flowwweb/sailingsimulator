@@ -136,7 +136,7 @@ export class FirstBuoyJourney {
         const currentAngle = Math.atan2(o.position.y - target.z, o.position.x - target.x);
         const change = currentAngle - previousAngle;
         this.roundAngle += Math.atan2(Math.sin(change), Math.cos(change));
-        if (currentDistance > FIRST_BUOY.radiusM && this.roundAngle <= -Math.PI * 0.65 && controlled) {
+        if (currentDistance > FIRST_BUOY.radiusM && this.roundAngle >= Math.PI * 0.65 && controlled) {
           this.markIndex = 1;
           this.interrupt();
         } else if (currentDistance > FIRST_BUOY.radiusM * 1.5) {
