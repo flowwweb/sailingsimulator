@@ -1984,14 +1984,19 @@ function renderCompletionProgress(frame: ReturnType<typeof sailingRank>): void {
   required(".completion-marker").style.left = `${frame.levelXp}%`;
 }
 
+function setCompletionSemanticProgress(frame: ReturnType<typeof sailingRank>): void {
+  const track = required(".completion-track");
+  track.setAttribute("aria-valuenow", String(frame.levelXp));
+  track.setAttribute("aria-valuetext", `Level ${frame.level}, ${frame.rank}: ${frame.levelXp} of 100 XP toward the next level, ${frame.xp} XP total`);
+}
+
 function showCompletion(title: string, before: ReturnType<typeof sailingRank>): void {
   const after = sailingRank(progress);
   const earned = after.xp - before.xp;
-  const track = required(".completion-track");
-  track.setAttribute("aria-valuenow", String(after.levelXp));
-  track.setAttribute("aria-valuetext", `Level ${after.level}, ${after.rank}: ${after.levelXp} of 100 XP toward the next level, ${after.xp} XP total`);
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
   completionPendingRank = after.level > before.level ? after : undefined;
+  const threshold = { ...before, xp: before.xp - before.levelXp + 100, levelXp: 100 };
+  setCompletionSemanticProgress(completionPendingRank ? threshold : after);
   completionRevealing = false;
   required("#completion-screen").dataset.stage = "complete";
   required("#completion-title").hidden = false;
@@ -2007,7 +2012,7 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
   required("#completion-screen").hidden = false;
   required<HTMLButtonElement>("#completion-continue").focus({ preventScroll: true });
   if (earned <= 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    renderCompletionProgress(after);
+    renderCompletionProgress(completionPendingRank ? threshold : after);
     completionAnimationFrame = undefined;
     return;
   }
@@ -2017,8 +2022,9 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
     const frame = window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ? { ...after, done: true }
       : completionProgressFrame(before.xp, after.xp, now - startedAt);
-    renderCompletionProgress(frame);
-    completionAnimationFrame = frame.done ? undefined : requestAnimationFrame(animate);
+    const reachedRank = Boolean(completionPendingRank && frame.level > before.level);
+    renderCompletionProgress(reachedRank ? threshold : frame);
+    completionAnimationFrame = frame.done || reachedRank ? undefined : requestAnimationFrame(animate);
   };
   completionAnimationFrame = requestAnimationFrame(animate);
 }
@@ -2033,6 +2039,7 @@ function advanceCompletion(): void {
   required("#completion-reward").hidden = true;
   required(".completion-content").setAttribute("aria-describedby", "completion-level");
   required("#completion-heading").textContent = "Level up!";
+  setCompletionSemanticProgress(completionPendingRank);
   renderCompletionProgress(completionPendingRank);
   completionPendingRank = undefined;
   required("#completion-continue").textContent = "Continue sailing";
