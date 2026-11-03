@@ -78,8 +78,8 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   const functions = stripTypeScriptTypes(main.slice(start, end), { mode: "strip" });
   const nodes = new Map();
   const required = (selector) => {
-    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", style: {}, dataset: {},
-      setAttribute(name, value) { this[name] = value; }, focus() { this.focused = true; } });
+    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", style: {}, dataset: {}, writes: {},
+      setAttribute(name, value) { this[name] = value; this.writes[name] = (this.writes[name] ?? 0) + 1; }, focus() { this.focused = true; } });
     return nodes.get(selector);
   };
   const statusToggle = { focus() { this.focused = true; } };
@@ -99,12 +99,15 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(required("#completion-rank").textContent, " · Newcomer");
   assert.equal(required("#completion-continue").textContent, "See your rank");
   callback(900);
-  assert.equal(required(".completion-track")["aria-valuenow"], "100");
+  assert.equal(required(".completion-track")["aria-valuenow"], "0");
+  assert.equal(required(".completion-fill").style.width, "100%");
   assert.equal(required(".completion-marker").style.left, "100%");
   callback(1150);
   assert.equal(required("#completion-level-number").textContent, "Level 2");
   assert.equal(required("#completion-rank").textContent, " · Deckhand");
   assert.equal(required(".completion-track")["aria-valuenow"], "0");
+  assert.equal(required(".completion-track").writes["aria-valuenow"], 1);
+  assert.match(required(".completion-track")["aria-valuetext"], /Level 2, Deckhand: 0 of 100 XP.*100 XP total/);
   assert.equal(required("#completion-continue").focused, true);
   runInNewContext("advanceCompletion();", context);
   assert.equal(required("#completion-screen").dataset.stage, "level-up");

@@ -1980,7 +1980,6 @@ function renderCompletionProgress(frame: ReturnType<typeof sailingRank>): void {
   if (number.textContent !== levelText) number.textContent = levelText;
   if (rank.textContent !== rankText) rank.textContent = rankText;
   required("#completion-xp").textContent = `${Math.round(frame.levelXp)} / 100 XP to next level · ${Math.floor(frame.xp)} XP total`;
-  required(".completion-track").setAttribute("aria-valuenow", String(Math.round(frame.levelXp)));
   required(".completion-fill").style.width = `${frame.levelXp}%`;
   required(".completion-marker").style.left = `${frame.levelXp}%`;
 }
@@ -1988,6 +1987,9 @@ function renderCompletionProgress(frame: ReturnType<typeof sailingRank>): void {
 function showCompletion(title: string, before: ReturnType<typeof sailingRank>): void {
   const after = sailingRank(progress);
   const earned = after.xp - before.xp;
+  const track = required(".completion-track");
+  track.setAttribute("aria-valuenow", String(after.levelXp));
+  track.setAttribute("aria-valuetext", `Level ${after.level}, ${after.rank}: ${after.levelXp} of 100 XP toward the next level, ${after.xp} XP total`);
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
   completionPendingRank = after.level > before.level ? after : undefined;
   completionRevealing = false;
