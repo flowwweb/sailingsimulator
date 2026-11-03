@@ -4717,8 +4717,11 @@ input:disabled {
 #completion-xp { margin: 8px 0 22px; font-size: 14px; }
 #completion-continue { min-height: 48px; padding: 10px 28px; border: 0; border-radius: 999px; background: #f6bd53; color: #071f30; font-size: 19px; font-weight: 600; cursor: pointer; }
 #completion-continue:hover { text-decoration: underline; text-underline-offset: 7px; }
+.completion-screen[data-stage="level-up"] #completion-heading { font-size: clamp(42px,7vw,76px); }
+.completion-screen[data-stage="level-up"] #completion-level { margin: 24px 0 36px; font-size: clamp(25px,4vw,40px); }
+.completion-screen[data-stage="level-up"] #completion-rank { display: block; color: #f6bd53; }
 @media (prefers-reduced-motion: reduce) { .completion-content { animation: none; } }
-@media (max-height: 450px) { .completion-emblem { width: 30px; height: 30px; } .completion-kicker { margin: 2px 0; } .completion-content h2 { margin: 4px 0; font-size: 25px; } #completion-reward, #completion-level { margin: 4px 0; } #completion-xp { margin: 6px 0; } }
+@media (max-height: 450px) { .completion-emblem { width: 30px; height: 30px; } .completion-kicker { margin: 2px 0; } .completion-content h2, .completion-screen[data-stage="level-up"] #completion-heading { margin: 4px 0; font-size: 25px; } #completion-reward, #completion-level, .completion-screen[data-stage="level-up"] #completion-level { margin: 8px 0 20px; font-size: 19px; } #completion-xp { margin: 6px 0; } }
 #conditions-panel .settings-footer:has(#pause-toggle:not([hidden])) { grid-template-columns: 1fr auto auto; }
 #conditions-panel .settings-footer:has(#pause-toggle:not([hidden])) #settings-resume { grid-column: auto; grid-row: auto; }
 #conditions-panel .settings-footer .secondary-button { font-size: var(--settings-label); }

@@ -78,14 +78,14 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   const functions = stripTypeScriptTypes(main.slice(start, end), { mode: "strip" });
   const nodes = new Map();
   const required = (selector) => {
-    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", style: {},
+    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", style: {}, dataset: {},
       setAttribute(name, value) { this[name] = value; }, focus() { this.focused = true; } });
     return nodes.get(selector);
   };
   const statusToggle = { focus() { this.focused = true; } };
   let callback;
   const context = { required, elements: { statusToggle, gameShell: { inert: false } }, input: { releaseAll() {} },
-    window: { matchMedia: () => ({ matches: false }) }, firstBuoy: {}, completionAnimationFrame: undefined,
+    window: { matchMedia: () => ({ matches: false }) }, firstBuoy: {}, completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false,
     performance: { now: () => 0 }, requestAnimationFrame: (fn) => { callback = fn; return 1; }, cancelAnimationFrame() { callback = undefined; },
     storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 1,
     sailingRank: () => ({ xp: 100, level: 2, rank: "Deckhand", levelXp: 0 }),
@@ -95,20 +95,31 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(context.elements.gameShell.inert, true);
   assert.equal(context.accumulator, 0);
   assert.equal(required("#completion-reward").textContent, "+100 XP earned");
-  assert.equal(required("#completion-level").textContent, "Level 1 · Newcomer");
+  assert.equal(required("#completion-level-number").textContent, "Level 1");
+  assert.equal(required("#completion-rank").textContent, " · Newcomer");
+  assert.equal(required("#completion-continue").textContent, "See your rank");
   callback(900);
   assert.equal(required(".completion-track")["aria-valuenow"], "100");
   assert.equal(required(".completion-marker").style.left, "100%");
   callback(1150);
-  assert.equal(required("#completion-level").textContent, "Level up! · Level 2 · Deckhand");
+  assert.equal(required("#completion-level-number").textContent, "Level 2");
+  assert.equal(required("#completion-rank").textContent, " · Deckhand");
   assert.equal(required(".completion-track")["aria-valuenow"], "0");
   assert.equal(required("#completion-continue").focused, true);
+  runInNewContext("advanceCompletion();", context);
+  assert.equal(required("#completion-screen").dataset.stage, "level-up");
+  assert.equal(required("#completion-heading").textContent, "Level up!");
+  assert.equal(required("#completion-rank").textContent, " Deckhand");
+  assert.equal(required("#completion-continue").textContent, "Continue sailing");
   runInNewContext(`${functions}\ncloseCompletion();`, context);
   assert.equal(required("#completion-screen").hidden, true);
   assert.equal(context.elements.gameShell.inert, false);
   assert.equal(statusToggle.focused, true);
-  runInNewContext(`showCompletion("First buoy", { xp: 0, level: 1, rank: "Newcomer", levelXp: 0 }); closeCompletion();`, context);
+  runInNewContext(`showCompletion("First buoy", { xp: 0, level: 1, rank: "Newcomer", levelXp: 0 }); advanceCompletion();`, context);
   assert.equal(callback, undefined);
+  assert.equal(required("#completion-level-number").textContent, "Level 2");
+  runInNewContext("advanceCompletion();", context);
+  assert.equal(required("#completion-screen").hidden, true);
 });
 
 test("rotating with a completion open isolates the game and restores dialog focus", () => {
@@ -138,21 +149,27 @@ test("reduced motion and replay show the final rank without scheduling animation
   const functions = stripTypeScriptTypes(main.slice(start, end), { mode: "strip" });
   const nodes = new Map();
   const required = (selector) => {
-    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", style: {}, setAttribute() {}, focus() {} });
+    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", style: {}, dataset: {}, setAttribute() {}, focus() {} });
     return nodes.get(selector);
   };
   let scheduled = 0;
   const context = { required, elements: { gameShell: { inert: false }, statusToggle: { focus() {} } },
     input: { releaseAll() {} }, window: { matchMedia: () => ({ matches: true }) }, firstBuoy: {},
-    completionAnimationFrame: undefined, requestAnimationFrame: () => { scheduled++; return 1; },
+    completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false, requestAnimationFrame: () => { scheduled++; return 1; },
     cancelAnimationFrame() {}, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 0,
     sailingRank: () => ({ xp: 100, level: 2, rank: "Deckhand", levelXp: 0 }) };
   runInNewContext(`${functions}\nshowCompletion("First buoy", { xp: 0, level: 1 });`, context);
-  assert.equal(required("#completion-level").textContent, "Level up! · Level 2 · Deckhand");
+  assert.equal(required("#completion-level-number").textContent, "Level 2");
+  assert.equal(required("#completion-rank").textContent, " · Deckhand");
   assert.equal(required(".completion-marker").style.left, "0%");
   assert.equal(scheduled, 0);
+  runInNewContext("advanceCompletion();", context);
+  assert.equal(required("#completion-heading").textContent, "Level up!");
+  assert.equal(required("#completion-rank").textContent, " Deckhand");
   runInNewContext(`showCompletion("First buoy", { xp: 100, level: 2 });`, context);
   assert.equal(required("#completion-reward").textContent, "Previously completed");
-  assert.equal(required("#completion-level").textContent, "Level 2 · Deckhand");
+  assert.equal(required("#completion-level-number").textContent, "Level 2");
+  assert.equal(required("#completion-rank").textContent, " · Deckhand");
+  assert.equal(required("#completion-continue").textContent, "Continue sailing");
   assert.equal(scheduled, 0);
 });
