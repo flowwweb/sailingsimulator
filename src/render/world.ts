@@ -73,6 +73,7 @@ interface SailMaterial extends THREE.ShaderMaterial {
 export class SailingWorld {
   readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
+  private readonly worldObjects = new Map<string, THREE.Group>();
   private readonly camera = new THREE.PerspectiveCamera(52, 1, 0.1, 3_500);
   private readonly scenery = new LakeScenery();
   private readonly ambientLife = new AmbientLife();
@@ -1184,8 +1185,14 @@ export class SailingWorld {
         rockMaterial,
         pineMaterial,
       );
+      this.worldObjects.set(object.id, group);
       this.scene.add(group);
     }
+  }
+
+  setWorldObjectVisible(id: string, visible: boolean): void {
+    const object = this.worldObjects.get(id);
+    if (object) object.visible = visible;
   }
 
   private populateWorldObject(

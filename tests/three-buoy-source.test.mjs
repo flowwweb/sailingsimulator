@@ -11,10 +11,11 @@ const objects = ids.map((id) => {
   assert.ok(match, `missing ${id}`);
   return { id, kind: "buoy", x: Number(match[1]), z: Number(match[2]) };
 });
+objects.push({ id: "channel-port", kind: "buoy", x: 510, z: 500 });
 const source = readFileSync(new URL("../src/game/first-buoy.ts", import.meta.url), "utf8");
 const code = stripTypeScriptTypes(source, { mode: "strip" }).replace(/^import .*;\s*$/gm, "").replace(/^export /gm, "");
-const { FirstBuoyJourney, FIRST_BUOY, FIRST_BUOY_MARKS } = runInNewContext(
-  `${code}\n({ FirstBuoyJourney, FIRST_BUOY, FIRST_BUOY_MARKS });`, { FAIR_WINDS_WORLD: { objects } });
+const { FirstBuoyJourney, FIRST_BUOY, FIRST_BUOY_MARKS, firstBuoyWorld } = runInNewContext(
+  `${code}\n({ FirstBuoyJourney, FIRST_BUOY, FIRST_BUOY_MARKS, firstBuoyWorld });`, { FAIR_WINDS_WORLD: { objects } });
 
 function driver(journey) {
   let position = { x: FIRST_BUOY.start.x, y: FIRST_BUOY.start.z };
@@ -57,10 +58,24 @@ test("three marks are nearby and in navigable water", () => {
   const bathymetry = readFileSync(new URL("../src/game/bathymetry.ts", import.meta.url), "utf8");
   const js = stripTypeScriptTypes(bathymetry, { mode: "strip" }).replace(/^export /gm, "");
   const depth = runInNewContext(`${js}\n(sampleLakeDepth);`);
-  for (let i = 0; i < objects.length; i++) {
+  for (let i = 0; i < ids.length; i++) {
     assert.ok(depth(objects[i].x, objects[i].z) > 5);
     if (i) assert.ok(Math.abs(Math.hypot(objects[i].x - objects[i - 1].x, objects[i].z - objects[i - 1].z) - 42) < 1);
   }
+});
+
+test("only the active training buoy remains in the lesson world; unrelated marks remain", () => {
+  for (const id of ids) {
+    const visible = firstBuoyWorld(id).objects.map((object) => object.id);
+    assert.deepEqual(Array.from(visible), [id, "channel-port"]);
+  }
+  assert.deepEqual(Array.from(firstBuoyWorld().objects.map((object) => object.id)), ["channel-port"]);
+  assert.deepEqual(objects.map((object) => object.id), [...ids, "channel-port"]);
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  assert.match(main, /evaluateIncident\([\s\S]*?firstBuoyWorld\(firstBuoy\.activeCourse\(\)\?\.id\)/);
+  assert.match(main, /miniChart\.render\(state, firstBuoy \? firstBuoyWorld/);
+  assert.match(main, /chart\.render\(state, firstBuoy \? firstBuoyWorld/);
+  assert.match(main, /setWorldObjectVisible\(mark\.id, !firstBuoy \|\| mark\.id === firstBuoy\.activeCourse\(\)\?\.id\)/);
 });
 
 test("port rounding and both ordered arrivals award once", () => {

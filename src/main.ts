@@ -28,7 +28,7 @@ import {
   unwrapCompassHeading,
 } from "./game/compass-tape";
 import { SailingAcademy, LESSON_TITLES } from "./game/academy";
-import { FIRST_BUOY, FIRST_COURSE_ID, FirstBuoyJourney } from "./game/first-buoy";
+import { FIRST_BUOY, FIRST_BUOY_MARKS, FIRST_COURSE_ID, FirstBuoyJourney, firstBuoyWorld } from "./game/first-buoy";
 import { createLessonState, createLessonWeather, observeLesson, checkpointLesson, restoreLesson } from "./game/lesson-session";
 import {
   ActivitySession,
@@ -1072,7 +1072,7 @@ function loop(now: number): void {
         const nextIncident = evaluateIncident(
           result.state,
           activeBoat,
-          FAIR_WINDS_WORLD,
+          firstBuoy ? firstBuoyWorld(firstBuoy.activeCourse()?.id) : FAIR_WINDS_WORLD,
           weather.tideLevel,
           departingDock,
           state,
@@ -1203,6 +1203,9 @@ function loop(now: number): void {
     renderWeather = titleWeather;
   }
 
+  for (const mark of FIRST_BUOY_MARKS) {
+    world.setWorldObjectVisible(mark.id, !firstBuoy || mark.id === firstBuoy.activeCourse()?.id);
+  }
   world.render(
     renderPrevious,
     renderCurrent,
@@ -1468,7 +1471,7 @@ function updateHud(): void {
   updateLesson();
   updateDestination();
   updateNavigation();
-  miniChart.render(state, FAIR_WINDS_WORLD, weather.trueWind, activeCourse());
+  miniChart.render(state, firstBuoy ? firstBuoyWorld(firstBuoy.activeCourse()?.id) : FAIR_WINDS_WORLD, weather.trueWind, activeCourse());
   const completedManeuver =
     state.maneuverCount !== lastManeuverCount && state.lastManeuver !== "none";
   if (completedManeuver) {
@@ -1947,7 +1950,7 @@ function syncChartActivityList(): void {
 
 function renderChart(): void {
   syncChartActivityList();
-  chart.render(state, FAIR_WINDS_WORLD, weather.trueWind, firstBuoy ? activeCourse() : selectedActivity());
+  chart.render(state, firstBuoy ? firstBuoyWorld(firstBuoy.activeCourse()?.id) : FAIR_WINDS_WORLD, weather.trueWind, firstBuoy ? activeCourse() : selectedActivity());
 }
 
 function formatChartDistance(distance: number): string {

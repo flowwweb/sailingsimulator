@@ -1,5 +1,5 @@
 import type { AcademyObservation } from "./academy";
-import { FAIR_WINDS_WORLD, type WorldActivity } from "./world-definition";
+import { FAIR_WINDS_WORLD, type WorldActivity, type WorldDefinition } from "./world-definition";
 
 // Provisional teaching/continuity bounds in metres and m/s, not navigation rules.
 export const FIRST_BUOY = {
@@ -19,6 +19,16 @@ export const FIRST_BUOY_MARKS: readonly WorldActivity[] = ["juniper-buoy", "scho
     objective: index === 0 ? "Round the buoy, keeping it to port." : "Sail to the next buoy under control." };
 });
 export const FIRST_BUOY_COURSE = FIRST_BUOY_MARKS[0]!;
+const markIds = new Set(FIRST_BUOY_MARKS.map((mark) => mark.id));
+const lessonWorlds = new Map<string, WorldDefinition>(["", ...markIds].map((activeId): [string, WorldDefinition] => [activeId, {
+  ...FAIR_WINDS_WORLD,
+  objects: FAIR_WINDS_WORLD.objects.filter((object) => !markIds.has(object.id) || object.id === activeId),
+}]));
+
+/** Keep navigation, rendering and collision on the same active training mark. */
+export function firstBuoyWorld(activeId?: string): WorldDefinition {
+  return lessonWorlds.get(activeId ?? "") ?? lessonWorlds.get("")!;
+}
 
 export interface FirstBuoyObservation extends AcademyObservation {
   position: { x: number; y: number };
