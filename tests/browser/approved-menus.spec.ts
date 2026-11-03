@@ -46,7 +46,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.locator("#title-logbook").click();
     await expect(page.locator("#title-logbook-panel")).toBeVisible();
     await expect(page.locator("#title-logbook-lessons li")).toHaveCount(4);
-    await expect(page.locator("#title-logbook-lessons li").first()).toHaveText("Reach the first buoy · Not yet completed");
+    await expect(page.locator("#title-logbook-lessons li").first()).toHaveText("Round the buoys · Not yet completed");
     await expect(page.locator("#title-logbook-stats")).toContainText("0 voyages");
     await page.keyboard.press("Escape");
     await expect(page.locator("#title-logbook")).toBeFocused();

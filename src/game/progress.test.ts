@@ -8,7 +8,7 @@ import {
   recordFirstBuoyCompletion,
   sailingRank,
 } from "./progress";
-import { FIRST_BUOY } from "./first-buoy";
+import { FIRST_BUOY, FIRST_COURSE_ID } from "./first-buoy";
 
 describe("sailing progress", () => {
   it("derives XP from distinct saved completions and never re-awards a replay", () => {
@@ -35,11 +35,19 @@ describe("sailing progress", () => {
     expect(parseProgress(JSON.stringify(selected)).completedIntroductions).toBeUndefined();
     const earned = recordFirstBuoyCompletion(selected);
     expect(recordFirstBuoyCompletion(earned)).toEqual(earned);
-    expect(parseProgress(JSON.stringify(earned)).completedIntroductions).toEqual({ [FIRST_BUOY.id]: FIRST_BUOY.revision });
+    expect(parseProgress(JSON.stringify(earned)).completedIntroductions).toEqual({ [FIRST_BUOY.id]: FIRST_BUOY.revision, [FIRST_COURSE_ID]: 1 });
     expect(earned.academyCompleted).toBe(false);
     for (const revision of [0, 2, "1", null]) {
       expect(parseProgress(JSON.stringify({ ...selected, completedIntroductions: { [FIRST_BUOY.id]: revision } })).completedIntroductions).toBeUndefined();
     }
+  });
+  it("preserves legacy buoy XP without falsely marking the three-buoy course complete", () => {
+    const legacy = parseProgress(JSON.stringify({ ...createProgress(), completedIntroductions: { [FIRST_BUOY.id]: FIRST_BUOY.revision } }));
+    expect(legacy.completedIntroductions?.[FIRST_COURSE_ID]).toBeUndefined();
+    expect(sailingRank(legacy).xp).toBe(100);
+    const earned = parseProgress(JSON.stringify(recordFirstBuoyCompletion(legacy)));
+    expect(earned.completedIntroductions?.[FIRST_COURSE_ID]).toBe(1);
+    expect(sailingRank(earned).xp).toBe(100);
   });
   it("records only observed targets and requires all three before marking a lesson", () => {
     let progress = createProgress();

@@ -7,7 +7,7 @@ import { test } from "node:test";
 const source = readFileSync(new URL("../src/game/progress.ts", import.meta.url), "utf8");
 const js = stripTypeScriptTypes(source, { mode: "strip" })
   .replace(/^import .*;\s*$/gm, "").replace(/^export /gm, "");
-const evaluate = (code) => runInNewContext(`${js}\n${code}`, { FIRST_BUOY: { id: "intro.buoy-1", revision: 1 } });
+const evaluate = (code) => runInNewContext(`${js}\n${code}`, { FIRST_BUOY: { id: "intro.buoy-1", revision: 1 }, FIRST_COURSE_ID: "intro.three-buoy-course" });
 
 test("earned lessons survive reload and replays never duplicate XP", () => {
   const result = evaluate(`
@@ -70,6 +70,20 @@ test("selection, partial targets and unrecognized introduction revisions earn no
   assert.equal(result, 0);
 });
 
+test("legacy one-buoy credit is preserved but never asserts the three-buoy course", () => {
+  const result = evaluate(`
+    let p = parseProgress(JSON.stringify({ ...createProgress(), completedIntroductions: { [FIRST_BUOY.id]: 1 } }));
+    const before = sailingRank(p).xp;
+    const courseBefore = p.completedIntroductions?.[FIRST_COURSE_ID];
+    p = parseProgress(JSON.stringify(recordFirstBuoyCompletion(p)));
+    ({ before, courseBefore, after: sailingRank(p).xp, courseAfter: p.completedIntroductions?.[FIRST_COURSE_ID] });
+  `);
+  assert.equal(result.before, 100);
+  assert.equal(result.courseBefore, undefined);
+  assert.equal(result.after, 100);
+  assert.equal(result.courseAfter, 1);
+});
+
 test("completion reveals the earned reward and closes back to sailing", () => {
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   const start = main.indexOf("function renderCompletionProgress(");
@@ -116,7 +130,7 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(required("#completion-rank").textContent, " Deckhand");
   assert.equal(required(".completion-track")["aria-valuenow"], "0");
   assert.equal(required(".completion-track").writes["aria-valuenow"], 2);
-  assert.equal(required("#completion-continue").textContent, "Continue sailing");
+  assert.equal(required("#completion-continue").textContent, "Next lesson");
   runInNewContext(`${functions}\ncloseCompletion();`, context);
   assert.equal(required("#completion-screen").hidden, true);
   assert.equal(context.elements.gameShell.inert, false);
@@ -124,8 +138,13 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   runInNewContext(`showCompletion("First buoy", { xp: 0, level: 1, rank: "Newcomer", levelXp: 0 }); advanceCompletion();`, context);
   assert.equal(callback, undefined);
   assert.equal(required("#completion-level-number").textContent, "Level 2");
+  context.academy = { restoreObjective(index) { context.next = index; } };
+  context.nextLessonObjective = () => 0;
+  context.prepareLessonAttempt = () => { context.startedNext = true; };
   runInNewContext("advanceCompletion();", context);
   assert.equal(required("#completion-screen").hidden, true);
+  assert.equal(context.next, 0);
+  assert.equal(context.startedNext, true);
 });
 
 test("rotating with a completion open isolates the game and restores dialog focus", () => {
@@ -176,6 +195,9 @@ test("reduced motion and replay show the final rank without scheduling animation
   assert.equal(required("#completion-reward").textContent, "Previously completed");
   assert.equal(required("#completion-level-number").textContent, "Level 2");
   assert.equal(required("#completion-rank").textContent, " · Deckhand");
-  assert.equal(required("#completion-continue").textContent, "Continue sailing");
+  assert.equal(required("#completion-continue").textContent, "Next lesson");
   assert.equal(scheduled, 0);
+  context.progress = { completedLessons: [0, 1, 2] };
+  runInNewContext(`showCompletion("First buoy", { xp: 100, level: 2, rank: "Deckhand", levelXp: 0 });`, context);
+  assert.equal(required("#completion-continue").textContent, "Continue sailing");
 });

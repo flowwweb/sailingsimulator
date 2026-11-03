@@ -1,5 +1,5 @@
 import type { ActivityScore } from "./activity-session";
-import { FIRST_BUOY } from "./first-buoy";
+import { FIRST_BUOY, FIRST_COURSE_ID } from "./first-buoy";
 
 export const PROGRESS_STORAGE_KEY = "fair-winds-progress-v1";
 
@@ -64,6 +64,9 @@ export function parseProgress(raw: string | null): SailingProgress {
       if (value.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision) {
         restored.completedIntroductions = { [FIRST_BUOY.id]: FIRST_BUOY.revision };
       }
+      if (value.completedIntroductions?.[FIRST_COURSE_ID] === 1) {
+        restored.completedIntroductions = { ...restored.completedIntroductions, [FIRST_COURSE_ID]: 1 };
+      }
       if (value.activeIntroduction === FIRST_BUOY.id) restored.activeIntroduction = FIRST_BUOY.id;
     }
     // Legacy cursor position is navigation, never proof of previous targets.
@@ -100,7 +103,7 @@ export function nextLessonObjective(progress: SailingProgress, lesson: number): 
 
 /** Call only when the current live journey update returns a new completion. */
 export function recordFirstBuoyCompletion(progress: SailingProgress): SailingProgress {
-  return { ...progress, completedIntroductions: { ...progress.completedIntroductions, [FIRST_BUOY.id]: FIRST_BUOY.revision } };
+  return { ...progress, completedIntroductions: { ...progress.completedIntroductions, [FIRST_BUOY.id]: FIRST_BUOY.revision, [FIRST_COURSE_ID]: 1 } };
 }
 
 /** XP is derived from distinct completed lessons, so replay and reload cannot duplicate it. */

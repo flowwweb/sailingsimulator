@@ -29,7 +29,7 @@ async function expectFreshJourney(page: Page) {
   await expect(shell).toHaveAttribute("data-academy-stage", "intro-buoy-1");
   await expect(page.locator("#welcome")).toBeHidden();
   await expect(page.locator("#lesson-title")).toBeVisible();
-  await expect(page.locator("#lesson-title")).toHaveText("Reach the first buoy");
+  await expect(page.locator("#lesson-title")).toHaveText("Round the buoys");
   const approach = page.locator("#status-lesson-progress");
   await expect(approach).toBeVisible();
   await expect(approach).toHaveText(/^Juniper buoy · \d+ m · \d{3}°$/);
@@ -65,7 +65,7 @@ test("starting, pausing, retrying and reloading the first journey do not award c
   await expect(page.locator("#pause-screen")).toBeVisible();
   const paused = await readProgress(page);
   await page.locator("#pause-logbook").click();
-  await expect(page.locator("#pause-logbook-lessons li").first()).toHaveText("Reach the first buoy · Not yet completed");
+  await expect(page.locator("#pause-logbook-lessons li").first()).toHaveText("Round the buoys · Not yet completed");
   expect(await readProgress(page)).toEqual(paused);
   await page.locator("#pause-logbook-back").click();
   await page.locator("#pause-resume").click();
@@ -99,7 +99,7 @@ test("completed legacy drills remain available and do not grant first-journey cr
   await page.locator("#title-logbook").click();
   const rows = page.locator("#title-logbook-lessons li");
   await expect(rows).toHaveCount(4);
-  await expect(rows.first()).toHaveText("Reach the first buoy · Not yet completed");
+  await expect(rows.first()).toHaveText("Round the buoys · Not yet completed");
   for (let index = 1; index <= 3; index++) await expect(rows.nth(index)).toContainText(" · Complete");
   await page.locator("#title-logbook-close").click();
   await page.locator("#continue-lesson").click();

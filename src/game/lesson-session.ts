@@ -6,6 +6,7 @@ import { cloneWeatherConfig, DEFAULT_WEATHER, type WeatherConfig } from "../weat
 export function createLessonWeather(): WeatherConfig {
   const config = cloneWeatherConfig(DEFAULT_WEATHER);
   config.wind.speed = 6;
+  config.wind.directionFromDegrees = 90;
   config.wind.gustStrength = 0;
   return config;
 }

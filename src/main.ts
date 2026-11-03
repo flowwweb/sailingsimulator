@@ -28,7 +28,7 @@ import {
   unwrapCompassHeading,
 } from "./game/compass-tape";
 import { SailingAcademy, LESSON_TITLES } from "./game/academy";
-import { FIRST_BUOY, FIRST_BUOY_COURSE, FirstBuoyJourney } from "./game/first-buoy";
+import { FIRST_BUOY, FIRST_COURSE_ID, FirstBuoyJourney } from "./game/first-buoy";
 import { createLessonState, createLessonWeather, observeLesson, checkpointLesson, restoreLesson } from "./game/lesson-session";
 import {
   ActivitySession,
@@ -245,6 +245,7 @@ let wasPortrait = false;
 let completionAnimationFrame: number | undefined;
 let completionPendingRank: ReturnType<typeof sailingRank> | undefined;
 let completionRevealing = false;
+let completionNextLesson: number | undefined;
 let pauseOpener: HTMLElement = elements.conditionsToggle;
 let titleExitTimeout: number | undefined;
 let lessonChooserOpener: HTMLButtonElement = elements.setSail;
@@ -647,9 +648,9 @@ function syncTitleState(): void {
     : `Target ${view.objective + 1} of 3 · ${choice.querySelector(".lesson-targets")!.textContent!.split("·")[view.objective]!.trim()}`;
   elements.continueLesson.firstChild!.textContent = complete ? "Choose lesson" : "Continue lesson";
   if (progress.activeIntroduction === FIRST_BUOY.id) {
-    const earned = progress.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision;
+    const earned = progress.completedIntroductions?.[FIRST_COURSE_ID] === 1;
     required("#returning-lesson").textContent = FIRST_BUOY.title;
-    required("#returning-target").textContent = earned ? "Journey complete · Reach Juniper buoy again" : "Fresh departure · Sail to Juniper buoy";
+    required("#returning-target").textContent = earned ? "Journey recorded · Sail the three buoys" : "Fresh departure · Sail the three buoys";
     elements.continueLesson.firstChild!.textContent = earned ? "Repeat journey" : "Continue journey";
     elements.newJourney.hidden = !returning;
   }
@@ -1149,7 +1150,7 @@ function loop(now: number): void {
             const before = sailingRank(progress);
             progress = recordFirstBuoyCompletion(progress);
             persistProgress();
-            elements.status.textContent = "Juniper buoy reached under control. Journey complete.";
+            elements.status.textContent = "Three buoys reached under control. Journey complete.";
             showCompletion(FIRST_BUOY.title, before);
           }
         }
@@ -1481,9 +1482,9 @@ function updateHud(): void {
     lastFlow = flow;
   }
   if (firstBuoy && !firstBuoy.failed && !firstBuoy.completed) {
-    const objective = "Sail to Juniper buoy.";
+    const objective = firstBuoy.objective();
     const detail = elements.status.textContent ?? "";
-    if (detail && !detail.startsWith(objective)) {
+    if (detail && !detail.startsWith("Sail to ") && !detail.startsWith("Round Juniper buoy")) {
       elements.statusMessage.textContent = detail === "Attached. Flow attached."
         ? "Sail looks steady. Watch your course and speed."
         : detail;
@@ -1493,7 +1494,7 @@ function updateHud(): void {
   } else {
     if (firstBuoy) elements.status.textContent = firstBuoy.failed
       ? "Journey failed. Open status to retry."
-      : "Juniper buoy reached under control. Journey complete.";
+      : "Three buoys reached under control. Journey complete.";
     elements.statusMessage.textContent = elements.status.textContent;
   }
   if (storageUnavailable && !elements.status.textContent?.includes(STORAGE_WARNING)) {
@@ -1614,16 +1615,21 @@ function cardinalDirection(heading: number): string {
 function updateLesson(): void {
   if (firstBuoy) {
     const view = firstBuoy.view(state.position);
-    const course = courseMetrics(state.position, state.velocity, state.heading, FIRST_BUOY_COURSE);
-    const approach = `Juniper buoy · ${formatChartDistance(course.distance)} · ${Math.round(course.bearingDegrees).toString().padStart(3, "0")}°`;
+    const target = firstBuoy.activeCourse();
+    const course = target ? courseMetrics(state.position, state.velocity, state.heading, target) : undefined;
+    const approach = course && target ? `${target.title} · ${formatChartDistance(course.distance)} · ${Math.round(course.bearingDegrees).toString().padStart(3, "0")}°` : "";
     elements.gameShell.classList.add("is-learning");
-    elements.gameShell.dataset.academyStage = firstBuoy.completed ? "intro-complete" : firstBuoy.failed ? "intro-failed" : "intro-buoy-1";
+    elements.gameShell.dataset.academyStage = firstBuoy.completed ? "intro-complete" : firstBuoy.failed ? "intro-failed" : `intro-buoy-${firstBuoy.markIndex + 1}`;
     delete elements.gameShell.dataset.activeActivity;
     delete elements.gameShell.dataset.activityProgress;
     delete elements.gameShell.dataset.activityScore;
     required("#status-lesson-progress").hidden = false;
     required("#status-lesson-progress").textContent = firstBuoy.completed ? "First journey complete" : firstBuoy.failed ? "Journey failed · Open status to retry" : approach;
-    required("#status-pips").hidden = true;
+    required("#status-pips").hidden = false;
+    for (const [index, pip] of [...required("#status-pips").children].entries()) {
+      pip.classList.toggle("is-earned", firstBuoy.completed || index < firstBuoy.markIndex);
+      pip.classList.toggle("is-current", !firstBuoy.failed && !firstBuoy.completed && index === firstBuoy.markIndex);
+    }
     elements.lessonCard.hidden = false;
     elements.lessonCard.classList.remove("is-minimized");
     elements.lessonCard.classList.toggle("is-complete", firstBuoy.completed);
@@ -1865,7 +1871,7 @@ function buildChartActivityList(): void {
 }
 
 function activeCourse(): WorldActivity | undefined {
-  if (firstBuoy) return firstBuoy.completed || firstBuoy.failed ? undefined : FIRST_BUOY_COURSE;
+  if (firstBuoy) return firstBuoy.activeCourse();
   return activityView?.completed ? undefined : activitySession?.activity;
 }
 
@@ -1995,6 +2001,8 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
   const earned = after.xp - before.xp;
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
   completionPendingRank = after.level > before.level ? after : undefined;
+  const nextStart = firstBuoy ? 0 : academy.view().lesson + 1;
+  completionNextLesson = [0, 1, 2].find((lesson) => lesson >= nextStart && !progress.completedLessons?.includes(lesson));
   const threshold = { ...before, xp: before.xp - before.levelXp + 100, levelXp: 100 };
   setCompletionSemanticProgress(completionPendingRank ? threshold : after);
   completionRevealing = false;
@@ -2002,7 +2010,7 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
   required("#completion-title").hidden = false;
   required("#completion-reward").hidden = false;
   required(".completion-content").setAttribute("aria-describedby", "completion-reward");
-  required("#completion-continue").textContent = completionPendingRank ? "See your rank" : "Continue sailing";
+  required("#completion-continue").textContent = completionPendingRank ? "See your rank" : completionNextLesson === undefined ? "Continue sailing" : "Next lesson";
   required("#completion-heading").textContent = firstBuoy ? "Journey complete" : "Lesson complete";
   required("#completion-title").textContent = title;
   required("#completion-reward").textContent = `${earned ? `+${earned} XP earned` : "Previously completed"}${storageUnavailable ? ` ${STORAGE_WARNING}` : ""}`;
@@ -2030,7 +2038,15 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
 }
 
 function advanceCompletion(): void {
-  if (!completionPendingRank) { closeCompletion(); return; }
+  if (!completionPendingRank) {
+    const next = completionNextLesson;
+    closeCompletion();
+    if (next !== undefined) {
+      academy.restoreObjective(nextLessonObjective(progress, next));
+      prepareLessonAttempt();
+    }
+    return;
+  }
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
   completionAnimationFrame = undefined;
   completionRevealing = true;
@@ -2042,13 +2058,14 @@ function advanceCompletion(): void {
   setCompletionSemanticProgress(completionPendingRank);
   renderCompletionProgress(completionPendingRank);
   completionPendingRank = undefined;
-  required("#completion-continue").textContent = "Continue sailing";
+  required("#completion-continue").textContent = completionNextLesson === undefined ? "Continue sailing" : "Next lesson";
 }
 
 function closeCompletion(): void {
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
   completionAnimationFrame = undefined;
   completionPendingRank = undefined;
+  completionNextLesson = undefined;
   required("#completion-screen").hidden = true;
   const portrait = window.matchMedia("(orientation: portrait)").matches;
   elements.gameShell.inert = portrait;
@@ -2061,7 +2078,7 @@ function fillLogbook(stats: HTMLElement, list: HTMLElement): void {
   if (storageUnavailable) stats.textContent += ` ${STORAGE_WARNING}`;
   list.replaceChildren();
   const introduction = document.createElement("li");
-  introduction.textContent = `${FIRST_BUOY.title} · ${progress.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision ? "Complete" : "Not yet completed"}`;
+  introduction.textContent = `${FIRST_BUOY.title} · ${progress.completedIntroductions?.[FIRST_COURSE_ID] === 1 ? "Complete" : "Not yet completed"}`;
   list.append(introduction);
   document.querySelectorAll<HTMLButtonElement>("[data-lesson]").forEach((choice, index) => {
     const row = document.createElement("li");

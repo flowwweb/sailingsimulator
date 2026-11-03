@@ -18,7 +18,8 @@ test("failed journey replaces the collapsed destination and offers retry", () =>
   const journey = new FirstBuoyJourney();
   journey.update(1 / 60, { unsafe: true } as never);
   const nodes: Record<string, any> = {};
-  const node = (id: string) => nodes[id] ??= { hidden: false, textContent: "", style: {} };
+  const node = (id: string) => nodes[id] ??= { hidden: false, textContent: "", style: {},
+    children: id === "#status-pips" ? Array.from({ length: 3 }, () => ({ classList: { toggle() {} } })) : [] };
   const elements = {
     gameShell: { classList: { add() {} }, dataset: {} },
     lessonCard: { hidden: false, classList: { remove() {}, toggle() {} } },
@@ -74,5 +75,5 @@ test("completed journey keeps its completion message after flow changes", () => 
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);
-  expect(elements.status.textContent).toBe("Juniper buoy reached under control. Journey complete.");
+  expect(elements.status.textContent).toBe("Three buoys reached under control. Journey complete.");
 });

@@ -19,16 +19,18 @@ function sail(journey: FirstBuoyJourney, from = 50, to = 14, overrides: Partial<
   const steps = Math.round(Math.abs(to - from) / 0.05);
   for (let i = 0; i <= steps; i++) {
     const offset = from + (to - from) * i / steps;
-    if (journey.update(dt, sample(offset, {
+    const before = journey.objective();
+    journey.update(dt, sample(offset, {
       sheet: 0.6 - Math.min(i / 1000, 0.1), sheetRate: -1,
       heading: Math.PI + Math.min(i / 1000, 0.1), rudder: 0.2, ...overrides,
-    }))) completions++;
+    }));
+    if (before.startsWith("Sail") && journey.objective().startsWith("Round")) completions++;
   }
   return completions;
 }
 
 describe("first buoy witnessed arrival", () => {
-  it("binds the existing training mark and earns one controlled outside-to-inside arrival", () => {
+  it("binds the existing training mark and starts rounding after controlled entry", () => {
     expect(FIRST_BUOY_COURSE).toMatchObject({ x: 210, z: -310, kind: "lesson" });
     const distance = Math.hypot(FIRST_BUOY.start.x - FIRST_BUOY_COURSE.x, FIRST_BUOY.start.z - FIRST_BUOY_COURSE.z);
     expect(distance).toBeGreaterThan(54);
@@ -36,12 +38,12 @@ describe("first buoy witnessed arrival", () => {
     expect(distance - FIRST_BUOY.radiusM).toBeGreaterThan(FIRST_BUOY.minTravelM);
     const journey = new FirstBuoyJourney();
     expect(sail(journey)).toBe(1);
-    expect(journey.completed).toBe(true);
+    expect(journey.completed).toBe(false);
     expect(journey.failed).toBe(false);
-    expect(journey.view(sample(14).position).progress).toBe(1);
+    expect(journey.view(sample(14).position).instruction).toContain("port");
     expect(journey.update(dt, sample(14))).toBe(false);
     journey.interrupt();
-    expect(journey.completed).toBe(true);
+    expect(journey.objective()).toContain("Sail");
   });
 
   it("does not award initial-inside, stationary input, or no-input drift", () => {
@@ -71,7 +73,7 @@ describe("first buoy witnessed arrival", () => {
   ])("requires a controlled arrival: %j", (overrides) => {
     const journey = new FirstBuoyJourney();
     expect(sail(journey, 50, 14, overrides)).toBe(0);
-    expect(journey.view(sample(14).position).instruction).toContain("re-enter");
+    expect(journey.view(sample(14).position).instruction).toContain("approach again");
     expect(journey.update(dt, sample(14))).toBe(false);
   });
 
