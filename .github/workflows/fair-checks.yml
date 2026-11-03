@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: ffde8147834a20ced38eda3570645af249c4bfb3
+          SOURCE_COMMIT: d8a10e15bd1546efaa8a9f3a235f4152ac88628f
         run: |
           set -euo pipefail
           umask 077
@@ -52,12 +52,12 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "ffde8147834a20ced38eda3570645af249c4bfb3" and .tree.sha == "7da47b492bcb14e0dd8510f8bcddf3c3b419ec8e"' "$work/commit.json"
+          jq -e '.sha == "d8a10e15bd1546efaa8a9f3a235f4152ac88628f" and .tree.sha == "ac239300a58114393b7d508a1fc585c3b4b870a5"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "ffde8147834a20ced38eda3570645af249c4bfb3",
-            "tree": "7da47b492bcb14e0dd8510f8bcddf3c3b419ec8e",
+            "commit": "d8a10e15bd1546efaa8a9f3a235f4152ac88628f",
+            "tree": "ac239300a58114393b7d508a1fc585c3b4b870a5",
             "publishedChangesCovered": 23,
             "files": [
               {
@@ -68,9 +68,9 @@ jobs:
               },
               {
                 "path": "index.html",
-                "bytes": 36860,
-                "sha256": "eb110f79ccca08611b764791c5cfc8dce38193270d0f0bf5fcd557d4e724ff32",
-                "blobSha1": "93daab81eb502dc9e03c8a38194a1b422dc7cd84"
+                "bytes": 37245,
+                "sha256": "0a2f7c1c148b886174181306a10617557ddc120100cc64531ef284268aada406",
+                "blobSha1": "9ca10c59d6c140cf95cf56a698f0f5e278e2c741"
               },
               {
                 "path": "package-lock.json",
@@ -379,6 +379,18 @@ jobs:
                 "blobSha1": "a6992a0ee5dcd1d912cad9a0bbdd595b2c558a30"
               },
               {
+                "path": "src/game/trim-guide.test.ts",
+                "bytes": 1749,
+                "sha256": "dc354947d8e5146daee507b64df6bc497a120f9f507ae1b73695d355d003ac7e",
+                "blobSha1": "108d5bc2533eda1d1d769fae9699bfec5707367c"
+              },
+              {
+                "path": "src/game/trim-guide.ts",
+                "bytes": 511,
+                "sha256": "a3495d13eb72a76f5e4b6a964e9747794d6ba4d0d54f47dc7936baf6451bebd9",
+                "blobSha1": "0bfcb9e5a67905159cb946bb0e220ca78d4f12bc"
+              },
+              {
                 "path": "src/game/wave-pose.test.ts",
                 "bytes": 2689,
                 "sha256": "3f9f44e83031b2f525823eafe528f36bef2c840d327f618576d8a3c05cce1c5c",
@@ -404,9 +416,9 @@ jobs:
               },
               {
                 "path": "src/main.ts",
-                "bytes": 98893,
-                "sha256": "0d4c808d596cb61397b58c634cc87f5b53672097950ca30a888cb21314e953c7",
-                "blobSha1": "17c2ab5aa246f181a901f4ad1af612927cc2210d"
+                "bytes": 100266,
+                "sha256": "019823c801feec7b6345ecfcb05a32e9472db42b045a47becc6577ee55c7254c",
+                "blobSha1": "96fa3d5263c77e2bc0a52709c8eeb7a31b0377ef"
               },
               {
                 "path": "src/render/ambient-life.ts",
@@ -590,9 +602,9 @@ jobs:
               },
               {
                 "path": "src/style.css",
-                "bytes": 123874,
-                "sha256": "f525f4d06e7162b596081619c7d30207182976675446327b1f4c42111724102e",
-                "blobSha1": "e39a565d606bd957b7e7e36b5da3f24d1f5d7eaa"
+                "bytes": 124694,
+                "sha256": "fabc5259bd4d83d644f3be0a4c6bee19a64e48cb6beb0ef9e5d1602a011935ac",
+                "blobSha1": "72367cc73d9cb7e538af76b1e60b5a32756cf738"
               },
               {
                 "path": "src/ui/controls-accessibility.test.ts",
@@ -674,9 +686,9 @@ jobs:
               },
               {
                 "path": "tests/browser/approved-menus.spec.ts",
-                "bytes": 8839,
-                "sha256": "4423d29f2b410de8c0d2073ae55eca66741b9b884ac167520e2c84d124b86d0d",
-                "blobSha1": "d30f2af24913de4ff9a3cdd23dd51d87a7349abb"
+                "bytes": 9245,
+                "sha256": "89ec51794dffc3ceca8bda3b4c8e5c034eb5902776ed4639655e1ba19e65c3da",
+                "blobSha1": "0ae15283e2b86d49c6bea2a0de99101190f685c7"
               },
               {
                 "path": "tests/browser/boat-asset.spec.ts",
@@ -704,9 +716,9 @@ jobs:
               },
               {
                 "path": "tests/browser/first-buoy.spec.ts",
-                "bytes": 6546,
-                "sha256": "79335bf8e696bb22a2337778f0e1326a9f4c4c55d4a30a31e58f8cde9c3e69c3",
-                "blobSha1": "fc399325cfc22425e698544b6ce293276a27ee9c"
+                "bytes": 6640,
+                "sha256": "596a82bc214f4d8e36eb1ff8e976587ee5254aa13c8aad138327db970dfd00f9",
+                "blobSha1": "668cbabb2fda8f8d5c434687b87bfff4b891f8d3"
               },
               {
                 "path": "tests/browser/lesson-disclosure-focus.spec.ts",
@@ -837,7 +849,7 @@ jobs:
             ]
           }
           SOURCE
-          jq -e '.commit == "ffde8147834a20ced38eda3570645af249c4bfb3" and (.files | length) == 129' "$work/source-files.json"
+          jq -e '.commit == "d8a10e15bd1546efaa8a9f3a235f4152ac88628f" and (.files | length) == 131' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -861,7 +873,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: 'ffde8147834a20ced38eda3570645af249c4bfb3', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: 'd8a10e15bd1546efaa8a9f3a235f4152ac88628f', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -893,8 +905,8 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, '7da47b492bcb14e0dd8510f8bcddf3c3b419ec8e');
-            assert.equal(source.files.length, 129);
+            assert.equal(source.tree, 'ac239300a58114393b7d508a1fc585c3b4b870a5');
+            assert.equal(source.files.length, 131);
             process.chdir('/work/project');
             function verifySource() {
               assert.deepEqual(filesIn('.', ['node_modules', 'dist']), source.files.map(f => f.path).sort(), 'Unexpected source/config file');
