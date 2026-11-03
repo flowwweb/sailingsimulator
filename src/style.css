@@ -107,6 +107,7 @@ button {
 .orientation-gate { display: none; }
 @media (orientation: portrait) {
   .game-shell > :not(#lake) { visibility: hidden !important; }
+  .completion-screen { visibility: hidden; }
   .orientation-gate { position: fixed; z-index: 90; inset: 0; display: grid; grid-template-rows: 1fr auto; place-items: center; gap: 16px; padding: max(20px,env(safe-area-inset-top)) 20px max(32px,env(safe-area-inset-bottom)); background: rgba(0,39,76,.53); backdrop-filter: blur(4px); color: #fff; text-align: center; }
   .orientation-instruction { align-self: center; width: 100%; }
   .orientation-gate .rotation-cue { display: block; width: min(58vw,240px,32vh); height: auto; margin: 0 auto clamp(12px,3vh,26px); }

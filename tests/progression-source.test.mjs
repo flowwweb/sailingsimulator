@@ -52,11 +52,13 @@ test("completion reveals the earned reward and closes back to sailing", () => {
     return nodes.get(selector);
   };
   const statusToggle = { focus() { this.focused = true; } };
-  const context = { required, elements: { statusToggle }, input: { releaseAll() {} },
+  const context = { required, elements: { statusToggle, gameShell: { inert: false } }, input: { releaseAll() {} },
+    window: { matchMedia: () => ({ matches: false }) },
     storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 1,
     sailingRank: () => ({ xp: 100, level: 2, rank: "Crew", levelXp: 0 }) };
   runInNewContext(`${functions}\nshowCompletion("Find your course", { xp: 50, level: 1 });`, context);
   assert.equal(required("#completion-screen").hidden, false);
+  assert.equal(context.elements.gameShell.inert, true);
   assert.equal(context.accumulator, 0);
   assert.equal(required("#completion-reward").textContent, "+50 XP earned");
   assert.equal(required("#completion-level").textContent, "Level up! · Level 2 · Crew");
@@ -64,5 +66,26 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(required("#completion-continue").focused, true);
   runInNewContext(`${functions}\ncloseCompletion();`, context);
   assert.equal(required("#completion-screen").hidden, true);
+  assert.equal(context.elements.gameShell.inert, false);
   assert.equal(statusToggle.focused, true);
+});
+
+test("rotating with a completion open isolates the game and restores dialog focus", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const start = main.indexOf('  const portrait = window.matchMedia("(orientation: portrait)").matches;', main.indexOf("function loop("));
+  const end = main.indexOf("  if (portrait || document.hidden)", start);
+  assert.ok(start >= 0 && end > start);
+  const body = stripTypeScriptTypes(main.slice(start, end), { mode: "strip" });
+  const completion = { hidden: false, inert: false };
+  const button = { focused: 0, focus() { this.focused++; } };
+  const context = { window: { matchMedia: () => ({ matches: true }) }, wasPortrait: false,
+    elements: { gameShell: { inert: false } }, required: (selector) => selector === "#completion-screen" ? completion : button };
+  runInNewContext(`function sync() {\n${body}\n} sync();`, context);
+  assert.equal(context.elements.gameShell.inert, true);
+  assert.equal(completion.inert, true);
+  context.window.matchMedia = () => ({ matches: false });
+  runInNewContext("sync();", context);
+  assert.equal(context.elements.gameShell.inert, true);
+  assert.equal(completion.inert, false);
+  assert.equal(button.focused, 1);
 });

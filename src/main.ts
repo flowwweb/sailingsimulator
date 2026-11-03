@@ -240,6 +240,7 @@ let previousFrame = performance.now();
 let accumulator = 0;
 let started = false;
 let paused = false;
+let wasPortrait = false;
 let pauseOpener: HTMLElement = elements.conditionsToggle;
 let titleExitTimeout: number | undefined;
 let lessonChooserOpener: HTMLButtonElement = elements.setSail;
@@ -964,7 +965,13 @@ function loop(now: number): void {
   const frameDt = Math.min(elapsed, 0.1);
   previousFrame = now;
   const portrait = window.matchMedia("(orientation: portrait)").matches;
-  elements.gameShell.inert = portrait;
+  const completion = required("#completion-screen");
+  elements.gameShell.inert = portrait || !completion.hidden;
+  completion.inert = portrait;
+  if (wasPortrait && !portrait && !completion.hidden) {
+    required<HTMLButtonElement>("#completion-continue").focus({ preventScroll: true });
+  }
+  wasPortrait = portrait;
   if (portrait || document.hidden) interruptLessonAttempt();
   if (droppedFrame) {
     academy.interrupt();
@@ -1973,13 +1980,16 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
   required(".completion-track span").style.width = `${after.levelXp}%`;
   input.releaseAll();
   accumulator = 0;
+  elements.gameShell.inert = true;
   required("#completion-screen").hidden = false;
   required<HTMLButtonElement>("#completion-continue").focus({ preventScroll: true });
 }
 
 function closeCompletion(): void {
   required("#completion-screen").hidden = true;
-  elements.statusToggle.focus({ preventScroll: true });
+  const portrait = window.matchMedia("(orientation: portrait)").matches;
+  elements.gameShell.inert = portrait;
+  if (!portrait) elements.statusToggle.focus({ preventScroll: true });
 }
 
 function fillLogbook(stats: HTMLElement, list: HTMLElement): void {

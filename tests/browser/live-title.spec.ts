@@ -53,7 +53,7 @@ test("portrait pauses the active lesson and landscape resumes it", async ({ page
   await page.setViewportSize({ width:390, height:844 });
   await expect(page.locator(".orientation-gate")).toBeVisible();
   await expect(page.locator(".orientation-gate h2")).toHaveText("Turn your device");
-  await expect(page.locator(".orientation-hint")).toHaveText("Rotate to continue");
+  await expect(page.locator(".orientation-hint")).toHaveText("Rotate to landscape to continue");
   await expect.poll(() => page.locator(".game-shell").evaluate(element => element.inert)).toBe(true);
   const time = await page.locator(".game-shell").getAttribute("data-simulation-time");
   const saved = await page.evaluate(() => localStorage.getItem("fair-winds-progress-v1"));
