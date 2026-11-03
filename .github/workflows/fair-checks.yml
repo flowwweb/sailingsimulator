@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: 80110b181a0c209f55b01238c40e01a8dca740ad
+          SOURCE_COMMIT: 9ab9a4c4cb29df5e0586ebca02fa087c040df954
         run: |
           set -euo pipefail
           umask 077
@@ -52,12 +52,12 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "80110b181a0c209f55b01238c40e01a8dca740ad" and .tree.sha == "0594333f5486f94cdc7160c2f4b064324e774860"' "$work/commit.json"
+          jq -e '.sha == "9ab9a4c4cb29df5e0586ebca02fa087c040df954" and .tree.sha == "544f28b31fe69004b55cdfa53c54a0f995f311ff"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "80110b181a0c209f55b01238c40e01a8dca740ad",
-            "tree": "0594333f5486f94cdc7160c2f4b064324e774860",
+            "commit": "9ab9a4c4cb29df5e0586ebca02fa087c040df954",
+            "tree": "544f28b31fe69004b55cdfa53c54a0f995f311ff",
             "publishedChangesCovered": 23,
             "files": [
               {
@@ -302,9 +302,9 @@ jobs:
               },
               {
                 "path": "src/game/first-buoy.ts",
-                "bytes": 8283,
-                "sha256": "26a624fd427c48ef1f8e9bbfbac37dca438d3b1343f1a9a147d70d4a226cab41",
-                "blobSha1": "59c70697c8414c8062997b9990f9af09c788a100"
+                "bytes": 8282,
+                "sha256": "a54125bbf139bcef866a52a3e5d64cc3ce09eee76581375b91a4da72ac2c0b55",
+                "blobSha1": "04af939d793cc4f2228452bca7a8d2dcf629234a"
               },
               {
                 "path": "src/game/hazards.test.ts",
@@ -806,9 +806,9 @@ jobs:
               },
               {
                 "path": "tests/three-buoy-source.test.mjs",
-                "bytes": 7000,
-                "sha256": "1327727226b3a10e9b68a5afd9f79b493e136f5e0814d6f86f59c7f0fc7e5f6c",
-                "blobSha1": "95e4622ab5f98519c5bc4796b94c43d791afd2b3"
+                "bytes": 7602,
+                "sha256": "c091caa75df8a96e048cd7e04e8e103ebf1e591678e2e7478a496b174a95fc95",
+                "blobSha1": "7ee17158d9b66b012554ac494129ffaa5038ccd3"
               },
               {
                 "path": "tests/title-render-scheduling.test.mjs",
@@ -831,7 +831,7 @@ jobs:
             ]
           }
           SOURCE
-          jq -e '.commit == "80110b181a0c209f55b01238c40e01a8dca740ad" and (.files | length) == 128' "$work/source-files.json"
+          jq -e '.commit == "9ab9a4c4cb29df5e0586ebca02fa087c040df954" and (.files | length) == 128' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -855,7 +855,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: '80110b181a0c209f55b01238c40e01a8dca740ad', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: '9ab9a4c4cb29df5e0586ebca02fa087c040df954', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -887,7 +887,7 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, '0594333f5486f94cdc7160c2f4b064324e774860');
+            assert.equal(source.tree, '544f28b31fe69004b55cdfa53c54a0f995f311ff');
             assert.equal(source.files.length, 128);
             process.chdir('/work/project');
             function verifySource() {
