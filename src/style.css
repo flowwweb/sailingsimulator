@@ -107,12 +107,16 @@ button {
 .orientation-gate { display: none; }
 @media (orientation: portrait) {
   .game-shell > :not(#lake) { visibility: hidden !important; }
-  .orientation-gate { position: fixed; z-index: 90; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: max(24px,env(safe-area-inset-top)) 20px max(24px,env(safe-area-inset-bottom)); background: linear-gradient(180deg,rgba(8,44,74,.24),rgba(8,44,74,.18) 35%,rgba(8,44,74,.8) 90%); color: #fef7db; text-align: center; }
-  .orientation-gate img { position: absolute; top: max(8%,env(safe-area-inset-top)); width: min(240px, 56vw); }
-  .orientation-gate .rotation-cue { width: min(46vw,190px); height: min(46vw,190px); margin-top: 24vh; color: #fdc353; }
-  .orientation-gate h2 { margin: 0; font-size: clamp(24px,7vw,32px); white-space: nowrap; }
-  .orientation-gate p { margin: 0; font-size: 18px; line-height: 1.6; color: #fef7db; }
+  .orientation-gate { position: fixed; z-index: 90; inset: 0; display: grid; grid-template-rows: 1fr auto; place-items: center; gap: 16px; padding: max(20px,env(safe-area-inset-top)) 20px max(32px,env(safe-area-inset-bottom)); background: rgba(0,39,76,.53); backdrop-filter: blur(4px); color: #fff; text-align: center; }
+  .orientation-instruction { align-self: center; width: 100%; }
+  .orientation-gate .rotation-cue { display: block; width: min(58vw,240px,32vh); height: auto; margin: 0 auto clamp(12px,3vh,26px); }
+  .rotation-arrow { transform-origin: 140px 40px; animation: rotate-cue 2s ease-in-out infinite; }
+  .orientation-gate h2 { margin: 0 0 8px; font-size: clamp(25px,7vw,42px); line-height: 1.1; }
+  .orientation-gate p { margin: 0; font-size: clamp(15px,4.2vw,22px); line-height: 1.35; }
+  .orientation-hint { padding-bottom: min(5vh,32px); }
 }
+@keyframes rotate-cue { 0%, 100% { opacity: .65; } 50% { opacity: 1; transform: translate(3px,3px); } }
+@media (prefers-reduced-motion: reduce) { .rotation-arrow { animation: none; } }
 
 button:focus-visible,
 input:focus-visible,
@@ -3621,6 +3625,7 @@ input:disabled {
 #conditions-panel .weather-details .range-field output { color: var(--settings-text); font-size: var(--settings-value); line-height: 1.2; }
 #conditions-panel .settings-section .range-endpoints { grid-row: 3; color: var(--settings-text); font-size: clamp(14px, 1.67vw, 28px); line-height: 1; }
 #conditions-panel .settings-tabs .ui-tab { font-size: clamp(16px, 1.91vw, 32px); font-weight: 400; border-bottom: 0; }
+#conditions-panel .settings-tabs .ui-tab, #conditions-panel select { border: 0; box-shadow: none; }
 #conditions-panel .settings-tabs .ui-tab.is-active { font-weight: 600; }
 #conditions-panel .settings-tabs .ui-tab:not(.is-active) { color: #f7f8f3; }
 #conditions-panel .settings-tab-icon, #conditions-panel #conditions-close svg { filter: drop-shadow(.35px 0 currentColor) drop-shadow(-.35px 0 currentColor); }

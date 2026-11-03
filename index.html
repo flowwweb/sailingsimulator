@@ -474,11 +474,19 @@
       </section>
     </main>
     <div id="fatal-error" class="fatal-error" role="alert" hidden></div>
-    <section class="orientation-gate" role="status" aria-label="Landscape orientation required">
-      <img src="/brand/fairwinds-full.svg" alt="Fair Winds" />
-      <svg class="fw-icon rotation-cue" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-rotate" /></svg>
-      <h2>Turn to landscape</h2>
-      <p>Your voyage awaits.</p>
+    <section class="orientation-gate" role="status">
+      <div class="orientation-instruction">
+        <svg class="rotation-cue" viewBox="0 0 240 150" fill="none" aria-hidden="true">
+          <g stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="12" y="8" width="70" height="134" rx="12"/><path d="M39 18h16"/>
+            <rect x="98" y="81" width="128" height="61" rx="12"/><path d="M108 103v17"/>
+          </g>
+          <path class="rotation-arrow" d="M99 16c36-1 65 16 69 51m-13-12 13 13 12-14" stroke="#ffc32f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h2>Turn your device</h2>
+        <p>Fair Winds is best in landscape</p>
+      </div>
+      <p class="orientation-hint">Rotate to continue</p>
     </section>
     <script type="module" src="/src/main.ts"></script>
   </body>
