@@ -60,6 +60,7 @@ import { SailingWorld } from "./render/world";
 import { classifyEncounter } from "./render/traffic-navigation";
 import { bindTabList, trapFocusWithin, type TabListController } from "./ui/primitives";
 import { loadBooleanPreference, saveBooleanPreference } from "./ui/preferences";
+import { trimGuide } from "./game/trim-guide";
 import {
   HARBOR_20,
   getBoatDefinition,
@@ -567,6 +568,12 @@ function bindInterface(): void {
   elements.settingsResume.addEventListener("click", () => setConditionsOpen(false));
   elements.settingsMainMenu.addEventListener("click", returnToTitle);
   elements.settingsResetBoat.addEventListener("click", resetBoat);
+  const trimGuideEnabled = required<HTMLInputElement>("#trim-guide-enabled");
+  trimGuideEnabled.checked = loadBooleanPreference("fair-winds-trim-guide", true);
+  trimGuideEnabled.addEventListener("change", () => {
+    if (!saveBooleanPreference("fair-winds-trim-guide", trimGuideEnabled.checked))
+      elements.status.textContent = "This setting applies for this session. Browser storage is unavailable.";
+  });
   elements.highContrastEnabled.checked = loadBooleanPreference(
     "fair-winds-high-contrast",
     false,
@@ -1461,11 +1468,23 @@ function updateHud(): void {
   elements.coach.textContent = coach;
   elements.statusCue.textContent = `${flow}. ${coach}. ${elements.motion.textContent}`;
   elements.marker.style.top = `${state.sheet * 100}%`;
-  required(".trim-track").style.setProperty("--sheet-position", `${state.sheet * 100}%`);
+  const trimTrack = required(".trim-track");
+  trimTrack.style.setProperty("--sheet-position", `${state.sheet * 100}%`);
+  const guide = required<HTMLInputElement>("#trim-guide-enabled").checked
+    ? trimGuide(diagnostics.apparentWindAngle, diagnostics.apparentWindSpeed, state.sailDeployment, diagnostics.idealBoomAngle)
+    : null;
+  trimTrack.classList.toggle("has-trim-guide", Boolean(guide));
+  if (guide) {
+    trimTrack.style.setProperty("--trim-low", `${guide.low * 100}%`);
+    trimTrack.style.setProperty("--trim-high", `${guide.high * 100}%`);
+    trimTrack.style.setProperty("--trim-amber-low", `${Math.max(0, guide.low - 0.1) * 100}%`);
+    trimTrack.style.setProperty("--trim-amber-high", `${Math.min(1, guide.high + 0.1) * 100}%`);
+  }
   required<HTMLInputElement>("#hud-sheet").value = String(state.sheet);
-  required<HTMLInputElement>("#hud-sheet").setAttribute("aria-valuetext", `${elements.sailPlanLabel.textContent} · ${Math.round(state.sheet * 100)}% eased`);
+  const guideText = guide ? state.sheet < guide.low ? "sheet too far in" : state.sheet > guide.high ? "sheet too far eased" : "within useful range" : "";
+  required<HTMLInputElement>("#hud-sheet").setAttribute("aria-valuetext", `${elements.sailPlanLabel.textContent} · ${Math.round(state.sheet * 100)}% eased${guideText ? ` · ${guideText}` : ""}`);
   required<HTMLOutputElement>("#trim-value").value = `${Math.round(state.sheet * 100)}%`;
-  elements.target.style.top = `${sheetForBoomAngle(diagnostics.idealBoomAngle) * 100}%`;
+  elements.target.style.top = `${(guide?.target ?? sheetForBoomAngle(diagnostics.idealBoomAngle)) * 100}%`;
   elements.boom.textContent = `Boom ${boomDegrees}° ${boomSide}`;
   syncSailControls();
   updateLesson();

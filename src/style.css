@@ -4609,6 +4609,8 @@ input:disabled {
   .trim-in-label { display: block; font-size: 19px; color: white; }
   .trim-track { width: 5px; height: 180px; margin: 14px auto; background: linear-gradient(to bottom, white 0 var(--sheet-position,50%), #ffbd00 var(--sheet-position,50%) 100%); border-radius: 3px; }
   .trim-track input.hud-sheet { position: absolute; top: 0; left: 50%; width: 44px; min-width: 44px; height: 100%; margin: 0; padding: 0; opacity: 0; transform: translateX(-50%); writing-mode: vertical-lr; direction: ltr; cursor: ns-resize; pointer-events: auto; z-index: 3; }
+  .trim-track.has-trim-guide { background: linear-gradient(to bottom, #df5650 0 var(--trim-amber-low), #f0af47 var(--trim-amber-low) var(--trim-low), #67ce8a var(--trim-low) var(--trim-high), #f0af47 var(--trim-high) var(--trim-amber-high), #df5650 var(--trim-amber-high) 100%); }
+  .trim-track.has-trim-guide #trim-target { display: block; left: 50%; width: 19px; height: 3px; background: white; border: 0; border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none; }
   .trim-track:focus-within { outline: 2px solid #ffbd00; outline-offset: 6px; }
   .trim-marker { width: 20px; height: 20px; border-radius: 50%; background: white; border: 1px solid #a5c2cf; box-shadow: 0 2px 5px #00203455; }
   .trim-scale, .trim-instrument .trim-scale span:last-child { display: block; color: white; font-size: 19px; }
