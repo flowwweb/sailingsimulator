@@ -1453,7 +1453,13 @@ function updateHud(): void {
     elements.status.textContent = `${flow}. ${coach}.`;
     lastFlow = flow;
   }
-  if (firstBuoy?.failed) elements.status.textContent = "Journey failed. Open status to retry.";
+  if (firstBuoy) {
+    elements.status.textContent = firstBuoy.failed
+      ? "Journey failed. Open status to retry."
+      : firstBuoy.completed
+        ? "Juniper buoy reached under control. Journey complete."
+        : "Sail to Juniper buoy.";
+  }
   if (storageUnavailable && !elements.status.textContent?.includes(STORAGE_WARNING)) {
     elements.status.textContent += ` ${STORAGE_WARNING}`;
   }

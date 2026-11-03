@@ -34,10 +34,10 @@ async function expectFreshJourney(page: Page) {
   await expect(approach).toBeVisible();
   await expect(approach).toHaveText(/^Juniper buoy · \d+ m · \d{3}°$/);
   await expect(page.locator("#minimap")).toBeVisible();
-  // School Water starts about 362 m from the existing Juniper buoy.
+  // Start about 56 m from the buoy, leaving about 41 m to the arrival zone.
   const distance = Number.parseFloat((await approach.innerText()).split(" · ")[1]!);
-  expect(distance).toBeGreaterThan(340);
-  expect(distance).toBeLessThan(380);
+  expect(distance).toBeGreaterThan(54);
+  expect(distance).toBeLessThan(58);
   if (await page.locator("#status-toggle").getAttribute("aria-expanded") !== "true") {
     await page.locator("#status-toggle").click();
   }

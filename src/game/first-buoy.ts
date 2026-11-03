@@ -4,7 +4,7 @@ import { FAIR_WINDS_WORLD, type WorldActivity } from "./world-definition";
 // Provisional teaching/continuity bounds in metres and m/s, not navigation rules.
 export const FIRST_BUOY = {
   id: "intro.buoy-1", revision: 1, title: "Reach the first buoy", seed: 24001,
-  start: { x: 250, z: 50 }, startHeadingDegrees: 160, radiusM: 15, minTravelM: 30,
+  start: { x: 191, z: -257 }, startHeadingDegrees: 160, radiusM: 15, minTravelM: 30,
   maxStepSpeedMps: 12, maxArrivalSpeedMps: 4,
 } as const;
 

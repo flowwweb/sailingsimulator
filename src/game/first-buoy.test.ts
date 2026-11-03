@@ -30,6 +30,10 @@ function sail(journey: FirstBuoyJourney, from = 50, to = 14, overrides: Partial<
 describe("first buoy witnessed arrival", () => {
   it("binds the existing training mark and earns one controlled outside-to-inside arrival", () => {
     expect(FIRST_BUOY_COURSE).toMatchObject({ x: 210, z: -310, kind: "lesson" });
+    const distance = Math.hypot(FIRST_BUOY.start.x - FIRST_BUOY_COURSE.x, FIRST_BUOY.start.z - FIRST_BUOY_COURSE.z);
+    expect(distance).toBeGreaterThan(54);
+    expect(distance).toBeLessThan(58);
+    expect(distance - FIRST_BUOY.radiusM).toBeGreaterThan(FIRST_BUOY.minTravelM);
     const journey = new FirstBuoyJourney();
     expect(sail(journey)).toBe(1);
     expect(journey.completed).toBe(true);
