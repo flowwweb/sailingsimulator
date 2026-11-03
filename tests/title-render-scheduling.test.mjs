@@ -6,7 +6,7 @@ const source = readFileSync(new URL("../src/render/world.ts", import.meta.url), 
 const start = source.indexOf("    const atmosphereDue =");
 const end = source.indexOf("    this.renderer.render(this.scene, this.camera);", start);
 assert.ok(start >= 0 && end > start, "render scheduling block exists");
-const schedule = new Function("weather", "titleScene", "titleScreen", source.slice(start, end));
+const schedule = new Function("weather", "titleScene", "titleScreen", "frameDt", source.slice(start, end));
 
 function run(fps, titleScreen) {
   const frames = [];
@@ -22,13 +22,13 @@ function run(fps, titleScreen) {
       reflectionDue: world.renderClock - world.lastReflectionAt >= world.reflectionInterval,
       deferredBefore: world.titleReflectionDeferred,
       hadReflection: Number.isFinite(world.lastReflectionAt) });
-    schedule.call(world, {}, "arrival", titleScreen);
+    schedule.call(world, {}, "arrival", titleScreen, 1 / fps);
   }
   return frames;
 }
 
 test("title reflections defer at most one frame when a shadow update coincides", () => {
-  for (const fps of [10, 30, 60]) {
+  for (const fps of [30, 60]) {
     const frames = run(fps, true);
     assert.ok(frames.some(frame => frame.reflection));
     for (let i = 0; i < frames.length; i++) {
@@ -36,6 +36,14 @@ test("title reflections defer at most one frame when a shadow update coincides",
         assert.equal(frames[i].reflection, false);
         if (i + 1 < frames.length) assert.equal(frames[i + 1].reflection, true);
       }
+    }
+  }
+});
+
+test("low frame rates never defer a due reflection", () => {
+  for (const fps of [10, 15]) {
+    for (const frame of run(fps, true)) {
+      if (frame.reflectionDue) assert.equal(frame.reflection, true);
     }
   }
 });

@@ -484,7 +484,7 @@ export class SailingWorld {
       this.lastAtmosphereAt = this.renderClock;
     }
     if (this.renderClock - this.lastReflectionAt >= this.reflectionInterval) {
-      if (titleScreen && atmosphereDue && Number.isFinite(this.lastReflectionAt) && !this.titleReflectionDeferred) {
+      if (titleScreen && frameDt < 1 / 15 && atmosphereDue && Number.isFinite(this.lastReflectionAt) && !this.titleReflectionDeferred) {
         this.titleReflectionDeferred = true;
       } else {
         this.updateReflection();
