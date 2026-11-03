@@ -43,6 +43,7 @@ import {
   recordActivityCompletion,
   recordAcademyObjective,
   recordFirstBuoyCompletion,
+  sailingRank,
   nextLessonObjective,
   type SailingProgress,
 } from "./game/progress";
@@ -363,6 +364,7 @@ function createTitleWeatherConfig(): WeatherConfig {
 }
 
 function bindInterface(): void {
+  required("#completion-continue").addEventListener("click", closeCompletion);
   elements.statusToggle.addEventListener("click", () => setStatusOpen(Boolean(elements.statusDetails.hidden)));
   required(".sailing-status").addEventListener("keydown", (event) => {
     if (event.code === "Space" || event.code === "Enter") event.stopPropagation();
@@ -381,6 +383,11 @@ function bindInterface(): void {
     if (isChartOpen()) renderChart();
   });
   window.addEventListener("keydown", (event) => {
+    if (!required("#completion-screen").hidden) {
+      if (event.code === "Tab") trapFocusWithin(required(".completion-content"), event);
+      else if (event.code === "Escape") { event.preventDefault(); closeCompletion(); }
+      return;
+    }
     if (paused && !isConditionsOpen()) {
       if (event.code === "Escape" && !event.repeat) {
         event.preventDefault();
@@ -966,7 +973,7 @@ function loop(now: number): void {
   }
   if (!portrait) presentationTime += frameDt;
   if (input.consumeMute()) toggleMute();
-  if (input.consumeConditions()) setConditionsOpen(!isConditionsOpen());
+  if (input.consumeConditions() && required("#completion-screen").hidden) setConditionsOpen(!isConditionsOpen());
   const simulationPaused = document.hidden || portrait || isSimulationPaused();
   if (simulationPaused) { academy.interrupt(); firstBuoy?.interrupt(); input.releaseAll(); }
   if (canControlBoat() && !steeringHintOffered && window.matchMedia("(pointer: coarse)").matches) {
@@ -1128,22 +1135,28 @@ function loop(now: number): void {
           if (droppedFrame && !unsafe) firstBuoy.interrupt();
           else if (firstBuoy.update(fixedStep, { ...observeLesson(state, diagnostics, controls),
             position: state.position, heading: state.heading, unsafe })) {
+            const before = sailingRank(progress);
             progress = recordFirstBuoyCompletion(progress);
             persistProgress();
             elements.status.textContent = "Juniper buoy reached under control. Journey complete.";
+            showCompletion(FIRST_BUOY.title, before);
           }
         }
         if (!eligible || firstBuoy) academy.interrupt();
         else {
           const earnedObjective = academy.objectiveIndex();
           if (academy.update(fixedStep / simulationTimeScale, observeLesson(state, diagnostics, controls))) {
+            const before = sailingRank(progress);
             progress = recordAcademyObjective(progress, earnedObjective);
             persistProgress();
             const view = academy.view();
             elements.status.textContent = view.stage === "lesson-complete"
               ? `${view.title} complete. All three targets earned.`
               : `${view.title}. ${view.instruction}`;
-            if (view.stage === "lesson-complete") lessonCompletedAt = simulationTime;
+            if (view.stage === "lesson-complete") {
+              lessonCompletedAt = simulationTime;
+              showCompletion(view.title, before);
+            }
           }
         }
         updateActivitySession(fixedStep);
@@ -1941,14 +1954,37 @@ function canControlBoat(): boolean {
 function isSimulationPaused(): boolean {
   return started && (
     paused ||
+    !required("#completion-screen").hidden ||
     developmentPreviewFrozen ||
     isConditionsOpen() ||
     isChartOpen()
   );
 }
 
+function showCompletion(title: string, before: ReturnType<typeof sailingRank>): void {
+  const after = sailingRank(progress);
+  const earned = after.xp - before.xp;
+  required("#completion-heading").textContent = title;
+  required("#completion-reward").textContent = `${earned ? `+${earned} XP earned` : "Previously completed"}${storageUnavailable ? ` ${STORAGE_WARNING}` : ""}`;
+  required("#completion-level").textContent = `${after.level > before.level ? "Level up! · " : ""}Level ${after.level} · ${after.rank}`;
+  required("#completion-xp").textContent = `${after.levelXp} / 100 XP to next level · ${after.xp} XP total`;
+  const bar = required(".completion-track");
+  bar.setAttribute("aria-valuenow", String(after.levelXp));
+  required(".completion-track span").style.width = `${after.levelXp}%`;
+  input.releaseAll();
+  accumulator = 0;
+  required("#completion-screen").hidden = false;
+  required<HTMLButtonElement>("#completion-continue").focus({ preventScroll: true });
+}
+
+function closeCompletion(): void {
+  required("#completion-screen").hidden = true;
+  elements.statusToggle.focus({ preventScroll: true });
+}
+
 function fillLogbook(stats: HTMLElement, list: HTMLElement): void {
-  stats.textContent = `${progress.voyages} voyages · ${formatChartDistance(progress.distanceSailed)} sailed`;
+  const rank = sailingRank(progress);
+  stats.textContent = `${rank.rank} · Level ${rank.level} · ${rank.xp} XP · ${progress.voyages} voyages · ${formatChartDistance(progress.distanceSailed)} sailed`;
   if (storageUnavailable) stats.textContent += ` ${STORAGE_WARNING}`;
   list.replaceChildren();
   const introduction = document.createElement("li");

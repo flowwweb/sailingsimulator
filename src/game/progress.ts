@@ -103,6 +103,16 @@ export function recordFirstBuoyCompletion(progress: SailingProgress): SailingPro
   return { ...progress, completedIntroductions: { ...progress.completedIntroductions, [FIRST_BUOY.id]: FIRST_BUOY.revision } };
 }
 
+/** XP is derived from distinct completed lessons, so replay and reload cannot duplicate it. */
+export function sailingRank(progress: SailingProgress): { xp: number; level: number; rank: string; levelXp: number } {
+  const introduction = progress.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision ? 1 : 0;
+  const lessons = new Set((progress.completedLessons ?? []).filter((lesson) => Number.isInteger(lesson) && lesson >= 0 && lesson <= 2)).size;
+  const xp = (introduction + lessons) * 50;
+  const level = Math.floor(xp / 100) + 1;
+  const rank = ["Newcomer", "Crew", "Sailor"][Math.min(level - 1, 2)] ?? "Sailor";
+  return { xp, level, rank, levelXp: xp % 100 };
+}
+
 export function recordActivityCompletion(
   progress: SailingProgress,
   activityId: string,

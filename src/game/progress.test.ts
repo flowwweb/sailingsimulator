@@ -6,10 +6,21 @@ import {
   recordAcademyObjective,
   nextLessonObjective,
   recordFirstBuoyCompletion,
+  sailingRank,
 } from "./progress";
 import { FIRST_BUOY } from "./first-buoy";
 
 describe("sailing progress", () => {
+  it("derives XP from distinct saved completions and never re-awards a replay", () => {
+    let progress = createProgress();
+    expect(sailingRank(progress)).toMatchObject({ xp: 0, level: 1 });
+    progress = recordFirstBuoyCompletion(progress);
+    expect(sailingRank(parseProgress(JSON.stringify(progress)))).toMatchObject({ xp: 50, level: 1, levelXp: 50 });
+    progress = recordFirstBuoyCompletion(progress);
+    for (const target of [0, 1, 2]) progress = recordAcademyObjective(progress, target);
+    expect(sailingRank(progress)).toMatchObject({ xp: 100, level: 2, rank: "Crew" });
+    expect(sailingRank(recordAcademyObjective(parseProgress(JSON.stringify(progress)), 2)).xp).toBe(100);
+  });
   it("migrates v1 drills as practice without awarding a new introduction", () => {
     const saved = parseProgress(JSON.stringify({ ...createProgress(), version: 1, academyCompleted: true,
       completedIntroductions: { [FIRST_BUOY.id]: 1 }, activeIntroduction: FIRST_BUOY.id, voyages: 3, distanceSailed: 900 }));
