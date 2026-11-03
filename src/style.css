@@ -4451,7 +4451,7 @@ input:disabled {
 .menu-back { position: absolute; top: 12px; left: 12px; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: #fff; font-size: 36px; box-shadow: none; }
 .lesson-chooser:not([hidden]) { display: flex; flex-direction: column; overflow: hidden; }
 .lesson-chooser-header { position: relative; flex-shrink: 0; display: flow-root; padding-top: 8px; }
-.lesson-chooser-body { width: min(1040px,100%); min-height: 0; margin-inline: auto; padding: 4px; overflow-y: auto; overscroll-behavior: contain; }
+.lesson-chooser-body { width: min(1040px,100%); min-height: 0; margin-inline: auto; padding: 8px; overflow-y: auto; overscroll-behavior: contain; }
 .lesson-chooser-header h2 { padding-inline: 44px; }
 .lesson-chooser .menu-back { display: flex; position: absolute; top: 0; left: 0; z-index: 2; margin: 0; border-radius: 6px; background: #06273f; }
 .lesson-choices { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; }
