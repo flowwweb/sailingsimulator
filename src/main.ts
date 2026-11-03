@@ -682,7 +682,7 @@ function openLessonChooser(opener: HTMLButtonElement = elements.continueLesson):
   elements.lessonChooser.hidden = false;
   required(".welcome-lockup").hidden = true;
   syncLessonTargets();
-  required("[data-lesson].is-selected").focus();
+  required<HTMLButtonElement>("#start-first-buoy").focus();
 }
 
 function closeTitleDialog(restoreFocus = true): void {

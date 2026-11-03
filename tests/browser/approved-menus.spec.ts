@@ -53,6 +53,12 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.locator("#set-sail").click();
     const chooser = page.locator("#lesson-chooser");
     await expect(chooser).toBeVisible();
+    await expect(page.locator("#start-first-buoy")).toBeFocused();
+    await expect(chooser).toHaveCSS("border-style", "none");
+    await page.keyboard.press("Escape");
+    await expect(chooser).toBeHidden();
+    await expect(page.locator("#set-sail")).toBeFocused();
+    await page.locator("#set-sail").click();
     await expect(page.locator("[data-lesson]")).toHaveCount(3);
     for (const card of await page.locator("[data-lesson]").all()) {
       const cardBox = (await card.boundingBox())!;
