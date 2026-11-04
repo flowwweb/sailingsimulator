@@ -1137,7 +1137,6 @@ function loop(now: number): void {
   if (portrait || document.hidden) interruptLessonAttempt();
   if (droppedFrame) {
     academy.interrupt();
-    firstBuoy?.interrupt();
     dummyRecovery?.interrupt();
     weatherShelter?.interrupt();
     accumulator = 0;
@@ -1330,8 +1329,7 @@ function loop(now: number): void {
         if (firstBuoy) {
           const unsafe = Boolean(incident) || nextIncident.severity === "touch" || nextIncident.severity === "impact"
             || nextIncident.severity === "stranded" || nextIncident.kind === "docking" || Boolean(dockedAt);
-          if (droppedFrame && !unsafe) firstBuoy.interrupt();
-          else if (firstBuoy.update(fixedStep, { ...observeLesson(state, diagnostics, controls),
+          if (firstBuoy.update(fixedStep, { ...observeLesson(state, diagnostics, controls),
             position: state.position, heading: state.heading, unsafe })) {
             const before = sailingRank(progress);
             progress = recordFirstBuoyCompletion(progress);

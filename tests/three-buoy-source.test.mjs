@@ -17,12 +17,12 @@ const code = stripTypeScriptTypes(source, { mode: "strip" }).replace(/^import .*
 const { FirstBuoyJourney, FIRST_BUOY, FIRST_BUOY_MARKS, firstBuoyWorld } = runInNewContext(
   `${code}\n({ FirstBuoyJourney, FIRST_BUOY, FIRST_BUOY_MARKS, firstBuoyWorld });`, { FAIR_WINDS_WORLD: { objects } });
 
-function driver(journey) {
+function driver(journey, dispatch = (dt, observation) => journey.update(dt, observation)) {
   let position = { x: FIRST_BUOY.start.x, y: FIRST_BUOY.start.z };
   let tick = 0;
   const sample = (p, overrides = {}) => {
     tick++;
-    return journey.update(1 / 60, { position: p, heading: tick * .0005, attached: .9, stall: 0,
+    return dispatch(1 / 60, { position: p, heading: tick * .0005, attached: .9, stall: 0,
       pointOfSail: "Beam reach", tackCount: 0, gybeCount: 0, reefed: false, heelRadians: .1,
       luff: 0, sailDeployment: 1, sailsRaised: true, forwardSpeed: 3, driveForce: 100,
       sheet: .5 + .1 * Math.sin(tick / 400), sheetRate: .2, rudder: .2,
@@ -157,4 +157,54 @@ test("unsafe contact or a position jump fails without credit", () => {
     assert.equal(journey.failed, true);
     assert.equal(journey.completed, false);
   }
+});
+
+
+test("dropped render frames preserve witnessed first-buoy progress; real interruptions still clear it", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const dropped = main.slice(main.indexOf("  if (droppedFrame) {"), main.indexOf("  if (!portrait) presentationTime"));
+  assert.doesNotMatch(dropped, /firstBuoy/);
+  assert.ok(main.includes("accumulator + frameDt * simulationTimeScale"));
+  assert.ok(main.includes("fixedStep * 5 * simulationTimeScale"));
+  assert.match(main, /window.addEventListener\("blur", interruptLessonAttempt\)/);
+  assert.match(main, /document.addEventListener\("visibilitychange", interruptLessonAttempt\)/);
+  assert.ok(main.includes("if (portrait || document.hidden) interruptLessonAttempt()"));
+  const start = main.indexOf("        if (firstBuoy) {", main.indexOf("const eligible ="));
+  const end = main.indexOf("        if (dummyRecovery) {", start);
+  assert.ok(start >= 0 && end > start);
+  const branch = stripTypeScriptTypes(main.slice(start, end), { mode: "transform" });
+  const journey = new FirstBuoyJourney();
+  let calls = 0;
+  const frameLengths = [0.084, 0.120, 1];
+  assert.ok(main.includes("const frameDt = Math.min(elapsed, 0.1)"));
+  const ctx = { firstBuoy: journey, fixedStep: 1 / 60, observeLesson: () => ctx.observation, state: {}, diagnostics: {}, controls: {}, incident: undefined, dockedAt: undefined, nextIncident: { severity: "none", kind: "none" }, droppedFrame: true };
+  const dispatch = (dt, observation) => {
+    ctx.observation = observation; ctx.state = { position: observation.position, heading: observation.heading };
+    ctx.nextIncident = observation.unsafe ? { severity: "touch", kind: "none" } : { severity: "none", kind: "none" };
+    // The actual first-buoy dispatch runs on each retained fixed step, regardless of frame duration.
+    const elapsed = frameLengths[calls % frameLengths.length];
+    ctx.droppedFrame = elapsed > 5 / 60;
+    assert.ok(ctx.droppedFrame);
+    assert.ok(Math.min(elapsed, 0.1, 5 / 60) <= 5 / 60);
+    calls++; return runInNewContext(branch, ctx);
+  };
+  const boat = driver(journey, dispatch), target = FIRST_BUOY_MARKS[0];
+  boat.line(target.x, target.z + 14.5);
+  assert.match(journey.objective(), /Round/);
+  for (let i = 1; i <= 1000; i++) {
+    const angle = Math.PI / 2 + Math.PI * i / 1000;
+    boat.line(target.x + 14.5 * Math.cos(angle), target.z + 14.5 * Math.sin(angle));
+  }
+  boat.line(target.x, target.z - 15.5, true);
+  assert.equal(journey.markIndex, 1);
+  assert.ok(calls > 1000);
+  const contact = new FirstBuoyJourney();
+  ctx.firstBuoy = contact;
+  const other = driver(contact, dispatch);
+  other.sample(other.position(), { unsafe: true });
+  assert.equal(contact.failed, true);
+  const jump = new FirstBuoyJourney(); ctx.firstBuoy = jump;
+  const jumping = driver(jump, dispatch), p = jumping.position();
+  jumping.sample({ x: p.x + 100, y: p.y });
+  assert.equal(jump.failed, true);
 });
