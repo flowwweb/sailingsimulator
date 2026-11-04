@@ -72,4 +72,18 @@ describe("ambient traffic navigation", () => {
       expect(advisory.advice).toBe("Traffic nearby · maintain lookout");
     }
   });
+
+  it("keeps a close vessel visible even while moving away", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 0 };
+    const advisory = classifyEncounter(own, { x: 2, z: 0, heading: Math.PI / 2, speed: 2 });
+    expect(advisory.type).toBe("traffic");
+    expect(advisory.advice).toBe("Traffic nearby · maintain lookout");
+  });
+
+  it("uses actual motion instead of heading when the boat is making leeway", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 2, velocity: { x: 2, z: 0 } };
+    const other = { x: 20, z: 0, heading: 0, speed: 0 };
+    expect(classifyEncounter(own, other).advice).toBe("Traffic closing · maintain lookout");
+    expect(classifyEncounter({ ...own, velocity: { x: -2, z: 0 } }, other).type).toBe("clear");
+  });
 });

@@ -1786,6 +1786,7 @@ function updateNavigation(): void {
     z: state.position.y,
     heading: state.heading,
     speed: Math.hypot(state.velocity.x, state.velocity.y),
+    velocity: { x: state.velocity.x, z: state.velocity.y },
   };
   const advisories = world
     .trafficSnapshot()

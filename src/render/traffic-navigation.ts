@@ -3,6 +3,7 @@ export interface TrafficPose {
   z: number;
   heading: number;
   speed: number;
+  velocity?: { x: number; z: number };
 }
 
 export interface TrafficCommand {
@@ -69,11 +70,11 @@ export function classifyEncounter(
   const distance = Math.hypot(dx, dz);
   const unitX = distance > 0 ? dx / distance : 0;
   const unitZ = distance > 0 ? dz / distance : 0;
-  const ownVelocity = {
+  const ownVelocity = own.velocity ?? {
     x: Math.sin(own.heading) * own.speed,
     z: Math.cos(own.heading) * own.speed,
   };
-  const otherVelocity = {
+  const otherVelocity = other.velocity ?? {
     x: Math.sin(other.heading) * other.speed,
     z: Math.cos(other.heading) * other.speed,
   };
@@ -85,7 +86,7 @@ export function classifyEncounter(
     role: EncounterAdvisory["role"],
     advice: string,
   ): EncounterAdvisory => ({ type, role, distance, advice });
-  if (distance > advisoryRange || rangeRate > 0.15) {
+  if (distance > advisoryRange || (distance > 10 && rangeRate > 0.15)) {
     return result("clear", "clear", "No nearby closing traffic");
   }
   // Ambient poses omit mainsail side and vessel status, so they cannot establish a COLREG role.
