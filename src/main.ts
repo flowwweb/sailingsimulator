@@ -285,6 +285,7 @@ let pauseOpener: HTMLElement = elements.conditionsToggle;
 let titleExitTimeout: number | undefined;
 let lessonChooserOpener: HTMLButtonElement = elements.setSail;
 let lastFlow = "";
+let lastFirstBuoyHeadline = "";
 let lastManeuverCount = 0;
 let lessonCompletedAt = 0;
 let incident: IncidentResult | undefined;
@@ -1750,13 +1751,14 @@ function updateHud(): void {
   if (firstBuoy && !firstBuoy.failed && !firstBuoy.completed) {
     const objective = firstBuoy.objective();
     const detail = elements.status.textContent ?? "";
-    if (detail && !detail.startsWith("Sail to ") && !detail.startsWith("Round Juniper buoy")) {
+    if (detail && detail !== lastFirstBuoyHeadline && !detail.startsWith("Sail to ") && !detail.startsWith("Round Juniper buoy")) {
       elements.statusMessage.textContent = detail === "Attached. Flow attached."
         ? "Sail looks steady. Watch your course and speed."
         : detail;
     }
     const headline = storageUnavailable ? `${objective} ${STORAGE_WARNING}` : objective;
     if (elements.status.textContent !== headline) elements.status.textContent = headline;
+    lastFirstBuoyHeadline = headline;
   } else {
     if (firstBuoy) elements.status.textContent = firstBuoy.failed
       ? "Journey failed. Open status to retry."
@@ -2144,6 +2146,7 @@ function prepareLessonAttempt(kind: "drill" | "first-buoy" | "dummy" | "crossing
   resetRadio();
   interruptLessonAttempt();
   firstBuoy = kind === "first-buoy" ? new FirstBuoyJourney() : undefined;
+  lastFirstBuoyHeadline = "";
   if (firstBuoy) {
     elements.status.textContent = "Ready to sail.";
     elements.statusMessage.textContent = "";

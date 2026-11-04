@@ -233,3 +233,26 @@ test("dropped render frames preserve witnessed first-buoy progress; real interru
   jumping.sample({ x: p.x + 100, y: p.y });
   assert.equal(jump.failed, true);
 });
+
+test("actual missed-buoy state clears from the HUD feedback after sailing out", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const start = main.indexOf("  const completedManeuver =", main.indexOf("function updateHud(): void {"));
+  const end = main.indexOf("\n}", start);
+  assert.ok(start >= 0 && end > start);
+  const status = `function updateStatus() {\n${main.slice(start, end)}\n}`;
+  const journey = new FirstBuoyJourney(), boat = driver(journey), first = FIRST_BUOY_MARKS[0];
+  const elements = { status: { textContent: "Sail to Juniper buoy." }, statusMessage: { textContent: "Tack complete." }, statusFeedback: { textContent: "" } };
+  const ctx = { firstBuoy: journey, anchorage: undefined, dummyRecovery: undefined, crossing: undefined, weatherShelter: undefined,
+    elements, state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0, lastFirstBuoyHeadline: "Sail to Juniper buoy.",
+    lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true, dockedAt: undefined,
+    storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
+  boat.line(first.x, first.z + 14.5, false, { forwardSpeed: 4.1 });
+  assert.match(journey.objective(), /Slow down before the buoy/);
+  runInNewContext(status + " updateStatus();", ctx);
+  assert.match(elements.status.textContent, /Slow down before the buoy/);
+  boat.line(first.x, first.z + 15.5);
+  assert.equal(journey.objective(), "Sail to Juniper buoy.");
+  runInNewContext(status + " updateStatus();", ctx);
+  assert.equal(elements.status.textContent, "Sail to Juniper buoy. Storage unavailable");
+  assert.equal(elements.statusFeedback.textContent, "Tack complete. Storage unavailable");
+});

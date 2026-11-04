@@ -33,7 +33,7 @@ test("objective and failure take priority only in the first-buoy lesson", () => 
     [undefined, "Attached. Flow attached."],
   ]) {
     const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-    const context = { anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, firstBuoy, state: { maneuverCount: 0, lastManeuver: "none" },
+    const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, firstBuoy, state: { maneuverCount: 0, lastManeuver: "none" },
       lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
       dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
     runInNewContext(status, context);
@@ -48,7 +48,7 @@ test("objective and failure take priority only in the first-buoy lesson", () => 
 test("crossing status makes the active instruction and failure visible", () => {
   for (const [stage, expected] of [["build-speed", "Sail northeast to begin the crossing."], ["crossing", "Keep clear of the starboard-tack boat."], ["failed", "Crossing failed. Open status to retry."], ["complete", "Crossing complete."]]) {
     const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-    const context = { anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: { stage }, elements, firstBuoy: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
+    const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: { stage }, elements, firstBuoy: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
       lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
       dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
     runInNewContext(status, context);
@@ -58,7 +58,7 @@ test("crossing status makes the active instruction and failure visible", () => {
 
 test("weather failure remains visible through sail feedback and clears its destination", () => {
   const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-  const context = { anchorage: undefined, dummyRecovery: undefined, crossing: undefined, firstBuoy: undefined,
+  const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, crossing: undefined, firstBuoy: undefined,
     weatherShelter: { stage: "failed" }, activityView: { instruction: "Contact interrupted this attempt. Recover the boat, then retry.", completed: false },
     activitySession: { activity: { id: "weather-shelter" } }, elements,
     state: { maneuverCount: 1, lastManeuver: "tack" }, lastManeuverCount: 0,
@@ -85,7 +85,7 @@ test("anchorage and weather use their own active chart destinations", () => {
   assert.ok(start >= 0 && end > start);
   const course = hud.slice(start, end).replace("function activeCourse(): WorldActivity | undefined", "function activeCourse()");
   const anchorActivity = { id: "anchorage-practice" };
-  const context = { anchorage: { stage: "holding" }, weatherShelter: undefined, dummyRecovery: undefined, firstBuoy: undefined,
+  const context = { lastFirstBuoyHeadline: "", anchorage: { stage: "holding" }, weatherShelter: undefined, dummyRecovery: undefined, firstBuoy: undefined,
     FAIR_WINDS_WORLD: { activities: [anchorActivity] }, activityView: undefined, activitySession: undefined };
   assert.equal(runInNewContext(`${course}; activeCourse();`, context), anchorActivity);
   context.anchorage.stage = "complete";
@@ -98,7 +98,7 @@ test("anchorage and weather use their own active chart destinations", () => {
 test("first-buoy objective retains action feedback and storage warning across updates", () => {
   for (const message of ["Sound muted.", "Reefed mainsail.", "Tack complete."]) {
     const elements = { status: { textContent: message }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-    const context = { anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." },
+    const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." },
       state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0,
       lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
       dockedAt: undefined, storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
@@ -116,7 +116,7 @@ test("first-buoy objective retains actual maneuver and flow transitions", () => 
     [{ maneuverCount: 0, lastManeuver: "none" }, "Attached", "Luffing", "Sheet in or bear away", "Luffing. Sheet in or bear away."],
   ]) {
     const elements = { status: { textContent: "Sail to Juniper buoy." }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-    const context = { anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." }, state,
+    const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." }, state,
       lastManeuverCount: 0, lastFlow, flow, coach, started: true, dockedAt: undefined,
       storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
     runInNewContext(`${status} updateStatus();`, context);
@@ -138,7 +138,7 @@ test("opening details and restarting a lesson do not lose or reuse feedback", ()
   const elements = { status: { textContent: "Sound muted." }, statusMessage: { textContent: "" },
     statusFeedback: { textContent: "" }, statusDetails: { hidden: true },
     statusToggle: { setAttribute() {}, focus() {} } };
-  const context = { anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, input: { releaseAll() {} }, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." },
+  const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, input: { releaseAll() {} }, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." },
     state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0,
     lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable",
@@ -216,4 +216,19 @@ test("a slow frame while status is open does not clear lesson witnesses", () => 
   ctx.elements.statusDetails.hidden = true;
   runInNewContext(hud.slice(begin, end), ctx);
   assert.equal(interruptions, 0);
+});
+
+test("missed buoy cue clears on exit without becoming sail feedback", () => {
+  let objective = "Slow down before the buoy. Sail outside the buoy zone, then approach again.";
+  const elements = { status: { textContent: "Sail to Juniper buoy." }, statusMessage: { textContent: "Tack complete. Build speed on the new side and retrim." }, statusFeedback: { textContent: "" } };
+  const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements,
+    firstBuoy: { failed: false, completed: false, objective: () => objective }, state: { maneuverCount: 0, lastManeuver: "none" },
+    lastManeuverCount: 0, lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
+    dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
+  runInNewContext(`${status} updateStatus();`, context);
+  assert.equal(elements.status.textContent, objective);
+  objective = "Sail to Juniper buoy.";
+  runInNewContext(`${status} updateStatus();`, context);
+  assert.equal(elements.status.textContent, objective);
+  assert.equal(elements.statusFeedback.textContent, "Tack complete. Build speed on the new side and retrim.");
 });
