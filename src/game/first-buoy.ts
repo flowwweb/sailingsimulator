@@ -63,6 +63,7 @@ export class FirstBuoyJourney {
   private travelM = 0;
   private helmStart?: number;
   private steered = false;
+  private arrivalCue = "";
 
   interrupt(): void {
     this.previous = undefined;
@@ -71,6 +72,7 @@ export class FirstBuoyJourney {
     this.steered = false;
     this.rounding = false;
     this.roundAngle = 0;
+    this.arrivalCue = "";
   }
 
   activeCourse(): WorldActivity | undefined {
@@ -78,7 +80,9 @@ export class FirstBuoyJourney {
   }
 
   objective(): string {
-    return this.rounding ? "Round Juniper buoy, keeping it to port." : `Sail to ${this.activeCourse()?.title ?? "the next buoy"}.`;
+    return this.rounding ? "Round Juniper buoy, keeping it to port."
+      : this.arrivalCue ? `${this.arrivalCue} Sail outside the buoy zone, then approach again.`
+      : `Sail to ${this.activeCourse()?.title ?? "the next buoy"}.`;
   }
 
   update(dt: number, observation: FirstBuoyObservation): boolean {
@@ -113,12 +117,26 @@ export class FirstBuoyJourney {
     const target = FIRST_BUOY_MARKS[this.markIndex]!;
     const priorDistance = distance(previous.position, target);
     const currentDistance = distance(o.position, target);
+    if (currentDistance > FIRST_BUOY.radiusM) this.arrivalCue = "";
     const entered = priorDistance > FIRST_BUOY.radiusM && currentDistance <= FIRST_BUOY.radiusM;
     // Provisional arrival bounds: m/s forward speed, sail fractions, and rad/s yaw.
     const controlled = o.sailsRaised && o.sailDeployment > 0.6
       && o.forwardSpeed > 0.3 && o.forwardSpeed <= FIRST_BUOY.maxArrivalSpeedMps
       && o.driveForce > 0 && o.luff < 0.3 && o.stall < 0.3
       && Math.abs(o.yawRate) < 0.12 && o.pointOfSail !== "No-go zone";
+    if (entered) {
+      this.arrivalCue = !o.sailsRaised || o.sailDeployment <= 0.6 ? "Raise the sail fully."
+        : o.pointOfSail === "No-go zone" ? "Turn away from the wind."
+        : o.forwardSpeed <= 0.3 ? "Build a little more speed."
+        : o.forwardSpeed > FIRST_BUOY.maxArrivalSpeedMps ? "Slow down before the buoy."
+        : Math.abs(o.yawRate) >= 0.12 ? "Steer more steadily."
+        : o.luff >= 0.3 ? "Adjust the sail to stop it fluttering."
+        : o.stall >= 0.3 ? "Ease the sail for a smoother approach."
+        : o.driveForce <= 0 ? "Adjust your course and sail to keep moving."
+        : this.markIndex === 0 && !this.steered ? "Steer the boat toward the buoy."
+        : this.markIndex === 0 && this.travelM < FIRST_BUOY.minTravelM ? "Take a longer approach."
+        : "";
+    }
     if (this.markIndex === 0) {
       if (entered && this.steered && this.travelM >= FIRST_BUOY.minTravelM && controlled) {
         this.rounding = true;
@@ -155,7 +173,7 @@ export class FirstBuoyJourney {
     const remaining = distance(position, target);
     if (!Number.isFinite(remaining)) return { progress: 0, instruction: "Waiting for the boat position." };
     if (this.rounding) return { progress: 0.25, instruction: "Round Juniper buoy, keeping it on your port side." };
-    if (remaining <= FIRST_BUOY.radiusM) return { progress: this.markIndex / 3, instruction: "Sail outside the buoy zone, then approach again under control." };
+    if (remaining <= FIRST_BUOY.radiusM) return { progress: this.markIndex / 3, instruction: `${this.arrivalCue ? `${this.arrivalCue} ` : ""}Sail outside the buoy zone, then approach again under control.` };
     const initialDistance = this.markIndex === 0 ? distance({ x: FIRST_BUOY.start.x, y: FIRST_BUOY.start.z }, target) : 42;
     return {
       progress: Math.max(this.markIndex / 3, Math.min((this.markIndex + 0.95) / 3, (this.markIndex + (initialDistance - remaining) / (initialDistance - FIRST_BUOY.radiusM)) / 3)),

@@ -54,6 +54,30 @@ function reachFirst(journey, direction = 1, overrides = {}) {
   return boat;
 }
 
+test("missed arrivals explain the actual condition and how to retry", () => {
+  const cases = [
+    [{ sailsRaised: false }, "Raise the sail fully."],
+    [{ pointOfSail: "No-go zone" }, "Turn away from the wind."],
+    [{ forwardSpeed: 0.2 }, "Build a little more speed."],
+    [{ forwardSpeed: 4.1 }, "Slow down before the buoy."],
+    [{ yawRate: 0.12 }, "Steer more steadily."],
+    [{ luff: 0.3 }, "Adjust the sail to stop it fluttering."],
+    [{ stall: 0.3 }, "Ease the sail for a smoother approach."],
+    [{ driveForce: 0 }, "Adjust your course and sail to keep moving."],
+    [{ rudder: 0 }, "Steer the boat toward the buoy."],
+  ];
+  for (const [overrides, cue] of cases) {
+    const journey = new FirstBuoyJourney(), boat = driver(journey), target = FIRST_BUOY_MARKS[0];
+    boat.line(target.x, target.z + 14.5, false, overrides);
+    assert.equal(journey.completed, false);
+    assert.match(journey.objective(), /Sail outside the buoy zone, then approach again/);
+    assert.ok(journey.objective().startsWith(cue), journey.objective());
+    assert.ok(journey.view(boat.position()).instruction.startsWith(cue));
+    boat.line(target.x, target.z + 16);
+    assert.ok(journey.objective().startsWith("Sail to "));
+  }
+});
+
 test("three marks are nearby and in navigable water", () => {
   const bathymetry = readFileSync(new URL("../src/game/bathymetry.ts", import.meta.url), "utf8");
   const js = stripTypeScriptTypes(bathymetry, { mode: "strip" }).replace(/^export /gm, "");
