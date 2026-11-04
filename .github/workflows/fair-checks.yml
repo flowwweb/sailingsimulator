@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: 94ac1ad88ddf7bc17fbe3c32a0db3eaa999c6a93
+          SOURCE_COMMIT: 101677e064fb47456c799c8a39fa05d51f57ab16
         run: |
           set -euo pipefail
           umask 077
@@ -52,12 +52,12 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "94ac1ad88ddf7bc17fbe3c32a0db3eaa999c6a93" and .tree.sha == "43517180b7581c28ebf23c2cab48811c68e5bc63"' "$work/commit.json"
+          jq -e '.sha == "101677e064fb47456c799c8a39fa05d51f57ab16" and .tree.sha == "48a1bdda5edcc705d540a4fab63689ebaa86b702"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "94ac1ad88ddf7bc17fbe3c32a0db3eaa999c6a93",
-            "tree": "43517180b7581c28ebf23c2cab48811c68e5bc63",
+            "commit": "101677e064fb47456c799c8a39fa05d51f57ab16",
+            "tree": "48a1bdda5edcc705d540a4fab63689ebaa86b702",
             "publishedChangesCovered": 23,
             "files": [
               {
@@ -170,9 +170,9 @@ jobs:
               },
               {
                 "path": "src/audio/game-audio.ts",
-                "bytes": 32937,
-                "sha256": "694bc475d6ce8754c2a05a19cda998172f8fb47dde235ebaf362033029925a09",
-                "blobSha1": "dfcc344415f0017712ed4a2dbbb48d97ab643e8e"
+                "bytes": 33013,
+                "sha256": "af0f98ef08a28f1e23d6b044b891ddf31d246e93565afe861b9a22274d94b91a",
+                "blobSha1": "652a7760921d1b78f4d8ade560f3e0d9a0d18701"
               },
               {
                 "path": "src/audio/mix.test.ts",
@@ -326,15 +326,15 @@ jobs:
               },
               {
                 "path": "src/game/first-buoy.test.ts",
-                "bytes": 5714,
-                "sha256": "bb6c89c7a1d764f71c5d66df992cb2aed2420113bb07400d72653e2762e5d24a",
-                "blobSha1": "0fd7cb9103e4d989fd777e5dcc53864aa5a5787c"
+                "bytes": 5767,
+                "sha256": "e46f8012b2be812796d9613d460e194a2dc82d8176760a703cb1d21ab5582545",
+                "blobSha1": "923d188e0c9983bc9f3d758b1e901f6d79237fe0"
               },
               {
                 "path": "src/game/first-buoy.ts",
-                "bytes": 8287,
-                "sha256": "b20a6c0723ecfb70ec4f40bc88ad55b10f6e31dfc8c7ef1ecc702a3fc1440d19",
-                "blobSha1": "a327e7309acfafdb94af5a96fda63ff96dbfd99a"
+                "bytes": 7986,
+                "sha256": "9f4b1450d7f7613dbefb1b39c198643efdc28924fb1c4867a1e2a5502bf9ed40",
+                "blobSha1": "47408cf82d1d36d1b1e26ef318b057722ca090a4"
               },
               {
                 "path": "src/game/harbor-radio.test.ts",
@@ -470,9 +470,9 @@ jobs:
               },
               {
                 "path": "src/main.ts",
-                "bytes": 110895,
-                "sha256": "7a000bba1e1c6637e50cddbcc789f800b014c02867d347ab49a764f11eae50ec",
-                "blobSha1": "68c6003cc969cccc42a4fd966841e3bbe194b9ec"
+                "bytes": 110803,
+                "sha256": "a10fe18db872cdc371042036a31c3fac0610a4d1105cc0219738c3a59fc04e36",
+                "blobSha1": "08d0101a842df575cfeeed07897f3336486d1fed"
               },
               {
                 "path": "src/render/ambient-life.ts",
@@ -739,6 +739,12 @@ jobs:
                 "blobSha1": "ab4214420afb91f54486ab298b216479704dae58"
               },
               {
+                "path": "tests/audio-sampling-source.test.mjs",
+                "bytes": 1384,
+                "sha256": "eec3b3c3cfbd663acc586a4e8ffd07476c420bb8e5006ce22898174ecde99c60",
+                "blobSha1": "611b9421a83af507702125fd9c23c434197c6a5a"
+              },
+              {
                 "path": "tests/browser/approved-menus.spec.ts",
                 "bytes": 9245,
                 "sha256": "edc9d541968fe41bf4f337b97a77e9ee8d495e269bfeb7d8cfbfcb22b53f5863",
@@ -896,9 +902,9 @@ jobs:
               },
               {
                 "path": "tests/three-buoy-source.test.mjs",
-                "bytes": 7683,
-                "sha256": "2eeafda52972201209a4c5c2a05634da4099f8cf14e3e598e94cc3a2e3e8154f",
-                "blobSha1": "0b56e83da05660bcfe66c3d99c865d2acfa8f324"
+                "bytes": 7915,
+                "sha256": "f56880e54b786e8b2856f13e294e23db36e2e7cc8c259543c5c7934b8a4fc86e",
+                "blobSha1": "435dd6cf52bcff7e23315ce87e64cb0667865ea4"
               },
               {
                 "path": "tests/title-render-scheduling.test.mjs",
@@ -927,7 +933,7 @@ jobs:
             ]
           }
           SOURCE
-          jq -e '.commit == "94ac1ad88ddf7bc17fbe3c32a0db3eaa999c6a93" and (.files | length) == 144' "$work/source-files.json"
+          jq -e '.commit == "101677e064fb47456c799c8a39fa05d51f57ab16" and (.files | length) == 145' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -951,7 +957,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: '94ac1ad88ddf7bc17fbe3c32a0db3eaa999c6a93', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: '101677e064fb47456c799c8a39fa05d51f57ab16', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -983,8 +989,8 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, '43517180b7581c28ebf23c2cab48811c68e5bc63');
-            assert.equal(source.files.length, 144);
+            assert.equal(source.tree, '48a1bdda5edcc705d540a4fab63689ebaa86b702');
+            assert.equal(source.files.length, 145);
             process.chdir('/work/project');
             function verifySource() {
               assert.deepEqual(filesIn('.', ['node_modules', 'dist']), source.files.map(f => f.path).sort(), 'Unexpected source/config file');
@@ -1121,7 +1127,7 @@ jobs:
             report.dependencyGates = 'PASS_AUDIT_AND_INSTALLED_SIGNATURE_COVERAGE_NOT_MALWARE_CLEARANCE';
             npm('unit-tests', ['run', 'test'], 120000);
             verifySource();
-            const contracts = spawnSync(process.execPath, ["--test","tests/first-buoy-source.test.mjs","tests/progression-source.test.mjs","tests/three-buoy-source.test.mjs","tests/title-render-scheduling.test.mjs","tests/radio-flow-source.test.mjs","tests/radio-voice-source.test.mjs","tests/dummy-recovery-source.test.mjs","tests/weather-cache-source.test.mjs"], { env, encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024 });
+            const contracts = spawnSync(process.execPath, ["--test","tests/first-buoy-source.test.mjs","tests/progression-source.test.mjs","tests/three-buoy-source.test.mjs","tests/title-render-scheduling.test.mjs","tests/radio-flow-source.test.mjs","tests/radio-voice-source.test.mjs","tests/dummy-recovery-source.test.mjs","tests/weather-cache-source.test.mjs","tests/audio-sampling-source.test.mjs"], { env, encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024 });
             report.stages.push({ stage: 'source-contract-tests', status: contracts.status, error: contracts.error?.message, stdout: contracts.stdout, stderr: contracts.stderr });
             assert.equal(contracts.error, undefined); assert.equal(contracts.status, 0);
             verifySource();
