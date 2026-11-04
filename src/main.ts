@@ -280,7 +280,7 @@ let wasPortrait = false;
 let completionAnimationFrame: number | undefined;
 let completionPendingRank: ReturnType<typeof sailingRank> | undefined;
 let completionRevealing = false;
-let completionNextLesson: number | undefined;
+let completionNextLesson: 1 | 2 | "crossing" | "dummy" | "anchorage" | undefined;
 let pauseOpener: HTMLElement = elements.conditionsToggle;
 let titleExitTimeout: number | undefined;
 let lessonChooserOpener: HTMLButtonElement = elements.setSail;
@@ -2535,8 +2535,13 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
   const earned = after.xp - before.xp;
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
   completionPendingRank = after.level > before.level ? after : undefined;
-  const nextStart = dummyRecovery || crossing || anchorage ? 3 : firstBuoy ? 0 : academy.view().lesson + 1;
-  completionNextLesson = [0, 1, 2].find((lesson) => lesson >= nextStart && !progress.completedLessons?.includes(lesson));
+  completionNextLesson = anchorage ? undefined
+    : dummyRecovery ? "anchorage"
+    : crossing ? "dummy"
+    : firstBuoy ? 1
+    : academy.view().lesson === 0 ? 1
+    : academy.view().lesson === 1 ? 2
+    : "crossing";
   const threshold = { ...before, xp: before.xp - before.levelXp + 100, levelXp: 100 };
   setCompletionSemanticProgress(completionPendingRank ? threshold : after);
   completionRevealing = false;
@@ -2576,8 +2581,13 @@ function advanceCompletion(): void {
     const next = completionNextLesson;
     closeCompletion();
     if (next !== undefined) {
-      academy.restoreObjective(nextLessonObjective(progress, next));
-      prepareLessonAttempt();
+      if (next === "crossing") startCrossing();
+      else if (next === "dummy") startDummyRecovery();
+      else if (next === "anchorage") selectChartActivity("anchorage-practice");
+      else {
+        academy.restoreObjective(nextLessonObjective(progress, next));
+        prepareLessonAttempt();
+      }
     }
     return;
   }

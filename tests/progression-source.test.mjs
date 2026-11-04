@@ -167,11 +167,11 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(callback, undefined);
   assert.equal(required("#completion-level-number").textContent, "Level 2");
   context.academy = { restoreObjective(index) { context.next = index; } };
-  context.nextLessonObjective = () => 0;
+  context.nextLessonObjective = (_progress, lesson) => lesson * 3;
   context.prepareLessonAttempt = () => { context.startedNext = true; };
   runInNewContext("advanceCompletion();", context);
   assert.equal(required("#completion-screen").hidden, true);
-  assert.equal(context.next, 0);
+  assert.equal(context.next, 3);
   assert.equal(context.startedNext, true);
 });
 
@@ -227,7 +227,7 @@ test("reduced motion and replay show the final rank without scheduling animation
   assert.equal(scheduled, 0);
   context.progress = { completedLessons: [0, 1, 2] };
   runInNewContext(`showCompletion("First buoy", { xp: 100, level: 2, rank: "Deckhand", levelXp: 0 });`, context);
-  assert.equal(required("#completion-continue").textContent, "Continue sailing");
+  assert.equal(required("#completion-continue").textContent, "Next lesson");
 });
 
 test("anchorage completion grants one saved level and a distinct final rank", () => {
@@ -245,4 +245,27 @@ test("anchorage completion grants one saved level and a distinct final rank", ()
   assert.equal(result.saved.xp, 100); assert.equal(result.replay.xp, 100);
   assert.equal(result.invalid.xp, 0); assert.equal(result.legacy.xp, 0);
   assert.equal(result.final.level, 8); assert.equal(result.final.rank, "Captain");
+});
+
+test("completion advances through the visible six lessons even on replay", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const start = main.indexOf("function renderCompletionProgress(");
+  const end = main.indexOf("\n}", main.indexOf("function closeCompletion(", start)) + 2;
+  const functions = stripTypeScriptTypes(main.slice(start, end), { mode: "strip" });
+  for (const [from, expected] of [["buoy", "academy:1"], ["points", "academy:2"], ["maneuvers", "crossing"], ["crossing", "dummy"], ["dummy", "anchorage"], ["anchorage", "sailing"]]) {
+    const nodes = new Map();
+    const required = selector => { if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", style: {}, dataset: {}, setAttribute() {}, focus() {} }); return nodes.get(selector); };
+    let actual = "sailing";
+    const context = { required, anchorage: from === "anchorage" ? {} : undefined, dummyRecovery: from === "dummy" ? {} : undefined,
+      crossing: from === "crossing" ? {} : undefined, firstBuoy: from === "buoy" ? {} : undefined,
+      academy: { view: () => ({ lesson: from === "points" ? 1 : 2 }), restoreObjective: index => { actual = `academy:${index / 3}`; } },
+      nextLessonObjective: (_progress, lesson) => lesson * 3, prepareLessonAttempt() {}, startCrossing() { actual = "crossing"; },
+      startDummyRecovery() { actual = "dummy"; }, selectChartActivity(id) { actual = id === "anchorage-practice" ? "anchorage" : id; },
+      elements: { gameShell: { inert: false }, statusToggle: { focus() {} } }, input: { releaseAll() {} }, window: { matchMedia: () => ({ matches: false }) },
+      completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false, completionNextLesson: undefined,
+      cancelAnimationFrame() {}, setRadioOpen() {}, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: { completedLessons: [0, 1, 2] }, accumulator: 0,
+      sailingRank: () => ({ xp: 700, level: 8, rank: "Captain", levelXp: 0 }) };
+    runInNewContext(`${functions}\nshowCompletion("Replay", { xp: 700, level: 8, rank: "Captain", levelXp: 0 }); advanceCompletion();`, context);
+    assert.equal(actual, expected, from);
+  }
 });
