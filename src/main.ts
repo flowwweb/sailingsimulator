@@ -1382,6 +1382,8 @@ function loop(now: number): void {
     for (const mark of FIRST_BUOY_MARKS) {
       world.setWorldObjectVisible(mark.id, !firstBuoy || mark.id === firstBuoy.activeCourse()?.id);
     }
+    if (performanceStats) world.renderer.info.reset();
+    const renderStart = performanceStats ? performance.now() : 0;
     world.render(
       renderPrevious,
       renderCurrent,
@@ -1396,7 +1398,7 @@ function loop(now: number): void {
     );
     if (performanceStats && !document.hidden) {
       const { calls, triangles } = world.renderer.info.render;
-      performanceStats.record(elapsed * 1000, performance.now() - renderStart, calls, triangles);
+      performanceStats.record(now, { cpuMs: performance.now() - renderStart, calls, triangles });
     }
     if (!started && titleFrameContext) {
       try {
@@ -1412,6 +1414,8 @@ function loop(now: number): void {
       }
     }
     finishBoot();
+  } else if (performanceStats && !document.hidden) {
+    performanceStats.record(now);
   }
   if (started) updateCompass(renderCurrent.heading);
   audio.update(

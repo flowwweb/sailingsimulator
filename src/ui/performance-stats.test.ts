@@ -2,23 +2,25 @@ import { describe, expect, it } from "vitest";
 import { PerformanceStats } from "./performance-stats";
 
 describe("opt-in performance statistics", () => {
-  it("summarizes actual frame intervals and both average and peak draw counts", () => {
+  it("reports callback cadence and averages only actual world renders", () => {
     const output = { textContent: "" } as HTMLElement;
     const stats = new PerformanceStats(output);
-    for (let i = 0; i < 19; i++) stats.record(20, 3, 10, 100);
-    stats.record(620, 20, 30, 200);
-    expect(output.textContent).toContain("FPS 20 · frame avg 50.0 ms · p95 20.0 ms");
-    expect(output.textContent).toContain("Render CPU 3.9 ms · GPU time not measured");
-    expect(output.textContent).toContain("Draws avg 11 / peak 30 · triangles avg 105");
+    stats.record(0);
+    for (let i = 1; i <= 19; i++) stats.record(i * 20, { cpuMs: 3, calls: 10, triangles: 100 });
+    stats.record(1000);
+    expect(output.textContent).toContain("Animation callbacks/s 20 · interval avg 50.0 ms · p95 20.0 ms");
+    expect(output.textContent).toContain("World renders 19 · CPU avg 3.0 ms · GPU time not measured");
+    expect(output.textContent).toContain("Draws avg 10 / peak 10 · triangles avg 100");
   });
 
-  it("discards samples on reset and ignores invalid frame intervals", () => {
+  it("drops the first interval after a visibility reset", () => {
     const output = { textContent: "" } as HTMLElement;
     const stats = new PerformanceStats(output);
-    stats.record(Number.NaN, 0, 0, 0);
-    stats.record(900, 0, 0, 0);
-    stats.reset();
-    stats.record(100, 1, 2, 3);
+    stats.record(0); stats.record(900); stats.reset();
+    stats.record(60_000); stats.record(60_100);
     expect(output.textContent).toBe("");
+    stats.record(61_000);
+    expect(output.textContent).toContain("Animation callbacks/s 2 · interval avg 500.0 ms");
+    expect(output.textContent).toContain("No world renders in this interval");
   });
 });
