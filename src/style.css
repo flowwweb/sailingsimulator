@@ -4832,3 +4832,8 @@ input:disabled {
 .anchor-controls { grid-column: 1 / -1; }
 .anchor-controls button[hidden] { display: none; }
 .game-shell[data-academy-stage^="anchorage-"] .lesson-card { flex-wrap: wrap; max-width: min(350px, calc(100vw - 40px)); }
+
+/* Quiet cue for the optional simulated marina call. */
+#radio-toggle { position: relative; }
+.radio-marina-hint { position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); color: #fff; font-size: 12px; line-height: 1.2; white-space: nowrap; text-shadow: 0 1px 4px #001b2a, 0 0 6px #001b2a; pointer-events: none; }
+.radio-marina-hint[hidden] { display: none; }

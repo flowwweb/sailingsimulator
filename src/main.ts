@@ -421,7 +421,7 @@ function bindInterface(): void {
     showRadioSubtitle(message);
   });
   required("#radio-call").addEventListener("click", () => {
-    const distance = harborDock ? Math.hypot(state.position.x - harborDock.x, state.position.y - harborDock.z) : NaN;
+    const distance = harborDistance();
     const message = harborRadio.call(distance);
     required("#radio-caption").textContent = message;
     showRadioSubtitle(message);
@@ -793,6 +793,24 @@ function setStatusOpen(open: boolean, restoreFocus = true): void {
   elements.statusDetails.hidden = !open;
   elements.statusToggle.setAttribute("aria-expanded", String(open));
   if (!open && restoreFocus) elements.statusToggle.focus();
+}
+
+function harborDistance(): number {
+  return harborDock ? Math.hypot(state.position.x - harborDock.x, state.position.y - harborDock.z) : NaN;
+}
+
+function updateRadioGuidance(): void {
+  const distance = harborDistance();
+  const next = harborRadio.nextStep(distance);
+  const guidance = required("#radio-next-step");
+  if (guidance.textContent !== next) guidance.textContent = next;
+  const toggle = required("#radio-toggle");
+  const hint = required("#radio-marina-hint");
+  const nearby = started && !firstBuoy && !incident && !harborRadio.completed && !harborRadio.awaiting
+    && required("#radio-panel").hidden && Number.isFinite(distance) && distance >= 0 && distance <= 400;
+  if (hint.hidden === nearby) hint.hidden = !nearby;
+  const label = nearby ? "Radio: call Juniper Marina" : "Radio";
+  if (toggle.getAttribute("aria-label") !== label) toggle.setAttribute("aria-label", label);
 }
 
 function setRadioOpen(open: boolean, restoreFocus = true): void {
@@ -1665,6 +1683,7 @@ function toggleSails(): void {
 }
 
 function updateHud(): void {
+  updateRadioGuidance();
   const speedKnots = Math.hypot(state.velocity.x, state.velocity.y) * 1.94384;
   const windKnots = diagnostics.apparentWindSpeed * 1.94384;
   const windAngle = Math.round(Math.abs(radiansToDegrees(diagnostics.apparentWindAngle)));
