@@ -347,7 +347,8 @@ export class LakeScenery {
     const euler = new THREE.Euler();
     for (let index = 0; index < count; index += 1) {
       const angle = random() * Math.PI * 2;
-      const radius = coastalTerrainBand(angle, 1).radius + random() * 90;
+      // Keep the largest scaled footprint on the permanent-land side.
+      const radius = coastalTerrainBand(angle, 1).radius + 20 + random() * 70;
       position.set(
         Math.sin(angle) * radius,
         -0.4 + random() * 7,
@@ -387,7 +388,8 @@ export class LakeScenery {
     for (let index = 0; index < count; index += 1) {
       const angle = random() * Math.PI * 2;
       const shore = coastalTerrainBand(angle, 1).radius;
-      const radius = shore + 4 + random() * 42;
+      // The full stone footprint must remain outside navigable water.
+      const radius = shore + 12 + random() * 34;
       const height = sampleCoastalTerrainHeight(angle, radius);
       position.set(
         Math.sin(angle) * radius,
