@@ -149,6 +149,32 @@ test("editing one weather control preserves settings the exercise temporarily ch
   assert.notEqual(result.before.rain, result.result.rain);
 });
 
+test("resetting the boat exits the exercise and restores the player's weather", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const extract = (name) => {
+    const start = main.indexOf(`function ${name}(`);
+    const end = main.indexOf("\n}", start) + 2;
+    assert.ok(start >= 0 && end > start);
+    return stripTypeScriptTypes(main.slice(start, end), { mode: "transform" });
+  };
+  const before = { wind: { speed: 5 } };
+  const context = { weatherShelter: {}, weatherShelterApplied: {}, weatherBeforeShelter: before,
+    weatherConfig: { wind: { speed: 10.5 } }, weather: {}, simulationTime: 1,
+    activitySession: { activity: { id: "weather-shelter" } }, activityView: {},
+    crossing: undefined, dummyRecovery: undefined, firstBuoy: undefined, started: true,
+    academy: { view: () => ({ stage: "free-sail" }) }, interruptLessonAttempt() {},
+    weatherSystem: { setConfig() {}, sample() { return { trueWind: {} }; } }, syncWeatherControls() {},
+    createGameState: () => ({}), computeSailAerodynamics: () => ({}), computeHeadsailAerodynamics: () => ({}),
+    state: {}, previousState: {}, diagnostics: {}, headsailDiagnostics: {}, activeBoat: {},
+    audio: { resetMotionState() {} }, lessonCompletedAt: 0, lastManeuverCount: 0,
+    clearDocking() {}, clearIncident() {}, world: { resetWake() {}, resetCamera() {} }, elements: { status: { textContent: "" } } };
+  runInNewContext(`${extract("stopWeatherShelter")}\n${extract("resetBoat")}\nresetBoat();`, context);
+  assert.equal(context.weatherConfig, before);
+  assert.equal(context.weatherShelter, undefined);
+  assert.equal(context.activitySession, undefined);
+  assert.match(context.elements.status.textContent, /Boat reset/);
+});
+
 test("leaving or editing the exercise restores preferences while a chosen preset stays exact", () => {
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   const extract = (name) => {
