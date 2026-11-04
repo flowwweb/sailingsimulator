@@ -1081,16 +1081,16 @@ function loop(now: number): void {
     previousState = state;
     if (started) {
       simulationTime += fixedStep;
-      if (firstBuoy && !firstBuoy.completed && !firstBuoy.failed && radioNotices.update(fixedStep, true, harborRadio.awaiting || !required("#radio-panel").hidden || radioSubtitleSeconds > 0)) {
+      if (!incident && firstBuoy && !firstBuoy.completed && !firstBuoy.failed && radioNotices.update(fixedStep, true, harborRadio.awaiting || !required("#radio-panel").hidden || radioSubtitleSeconds > 0)) {
         audio.playRadioSquelch();
-        showRadioSubtitle("Simulated VHF 16 · Sécurité. All stations: small sailing craft are exercising around the Juniper training buoys. Keep a lookout.");
+        showRadioSubtitle("Simulated VHF 16 · Sécurité, sécurité, sécurité. All stations, all stations, all stations. This is Juniper Coast Radio. Small sailing craft are exercising around the Juniper training buoys. Keep a lookout. Out.");
       }
       if (radioSubtitleSeconds > 0) {
         radioSubtitleSeconds = Math.max(0, radioSubtitleSeconds - fixedStep);
         if (!radioSubtitleSeconds) required("#radio-subtitle").hidden = true;
       }
       if (harborRadio.update(fixedStep)) {
-        const message = "Fair Winds, this is Juniper Marina. Proceed to the visitor berth. Over.";
+        const message = "Fair Winds, this is Juniper Marina. Your call is received. Out.";
         required("#radio-caption").textContent = message;
         showRadioSubtitle(message);
         required<HTMLSelectElement>("#radio-channel").disabled = false;
@@ -1404,6 +1404,7 @@ function recoverBoat(): void {
 }
 
 function beginIncident(result: IncidentResult): void {
+  resetRadio();
   interruptLessonAttempt();
   incident = result;
   incidentElapsed = 0;
@@ -2065,7 +2066,7 @@ function isChartOpen(): boolean {
 }
 
 function canControlBoat(): boolean {
-  return bootComplete && started && !incident && !document.hidden && !window.matchMedia("(orientation: portrait)").matches && !isSimulationPaused() && Boolean(elements.statusDetails.hidden) && required("#radio-panel").hidden;
+  return bootComplete && started && !incident && !document.hidden && !window.matchMedia("(orientation: portrait)").matches && !isSimulationPaused() && Boolean(elements.statusDetails.hidden);
 }
 
 function isSimulationPaused(): boolean {
