@@ -43,27 +43,24 @@ describe("observed lesson performance", () => {
     const a = enter(2); hold(a, recover); expect(a.view().stage).toBe("recover");
     a.update(1 / 60, stall); hold(a, recover); expect(a.view().stage).toBe("lesson-complete");
   });
-  it("close-hauled requires heading up and inward trim, retaining both actions after release", () => {
-    const initial = { ...base, apparentWindAngle: degrees(70), sheet: 0.6 };
-    const reached = { ...base, pointOfSail: "Close-hauled", apparentWindAngle: degrees(48), rudder: 0.2 };
-    for (const sheet of [{ sheet: 0.6, sheetRate: 0 }, { sheet: 0.7, sheetRate: 1 }]) {
-      const a = enter(3, initial);
-      hold(a, { ...reached, ...sheet });
-      expect(a.objectiveIndex()).toBe(3);
+  it.each([[3, "Close-hauled", 48, 70], [4, "Beam reach", 90, 48], [5, "Broad reach", 128, 90]])("target %i rewards steering to the new course with drawing sail, even without moving the sheet", (index, point, angle, entryAngle) => {
+    const initial = { ...base, apparentWindAngle: degrees(Number(entryAngle)) };
+    const reached = { ...base, pointOfSail: String(point), apparentWindAngle: degrees(Number(angle)), rudder: 0.2 };
+    const noSteering = enter(Number(index), initial);
+    hold(noSteering, { ...reached, rudder: 0 }); expect(noSteering.objectiveIndex()).toBe(Number(index));
+    const noTurn = enter(Number(index), initial);
+    hold(noTurn, { ...reached, apparentWindAngle: initial.apparentWindAngle }); expect(noTurn.objectiveIndex()).toBe(Number(index));
+    for (const fault of [{ luff: 0.4 }, { stall: 0.4 }, { driveForce: 0 }, { yawRate: 0.2 }]) {
+      const a = enter(Number(index), initial); hold(a, { ...reached, ...fault });
+      expect(a.objectiveIndex()).toBe(Number(index)); expect(a.view().progress).toBe(0);
     }
-    const noSteering = enter(3, initial);
-    hold(noSteering, { ...reached, rudder: 0, sheet: 0.55, sheetRate: -1 });
-    expect(noSteering.objectiveIndex()).toBe(3);
-    const a = enter(3, initial);
-    a.update(1 / 60, { ...reached, sheet: 0.55, sheetRate: -1 });
-    hold(a, { ...reached, sheet: 0.55, sheetRate: 0, rudder: 0 });
-    expect(a.objectiveIndex()).toBe(4);
-  });
-  it.each([[4, "Beam reach", 90, 48], [5, "Broad reach", 128, 90]])("target %i needs course and easing changes", (index, point, angle, entryAngle) => {
-    const a = enter(Number(index), { ...base, apparentWindAngle: degrees(Number(entryAngle)), sheet: 0.2 });
-    const reached = { ...base, pointOfSail: String(point), apparentWindAngle: degrees(Number(angle)), sheet: 0.6 };
-    hold(a, reached); expect(a.objectiveIndex()).toBe(Number(index));
-    hold(a, { ...reached, rudder: 0.2, sheetRate: 1 }); expect(a.objectiveIndex()).toBe(Number(index) + 1);
+    const a = enter(Number(index), initial);
+    a.update(1 / 60, reached);
+    hold(a, { ...reached, rudder: 0 });
+    expect(a.objectiveIndex()).toBe(Number(index) + 1);
+    const interrupted = enter(Number(index), initial);
+    interrupted.update(1 / 60, reached); interrupted.interrupt();
+    hold(interrupted, { ...reached, rudder: 0 }); expect(interrupted.objectiveIndex()).toBe(Number(index));
   });
   it.each([[6, "tackCount"], [7, "gybeCount"]] as const)("target %i rejects old counters and an unsettled boom", (index, counter) => {
     const old = { ...base, tackCount: 8, gybeCount: 12 }; const a = enter(index, old);
