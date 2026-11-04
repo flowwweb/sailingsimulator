@@ -408,6 +408,7 @@ function bindInterface(): void {
   window.addEventListener("pagehide", persistProgress);
   window.addEventListener("blur", interruptLessonAttempt);
   document.addEventListener("visibilitychange", interruptLessonAttempt);
+  document.addEventListener("visibilitychange", handleRadioVisibilityChange);
   window.addEventListener("resize", () => {
     world.resize();
     buildCompassTape();
@@ -725,6 +726,13 @@ function showRadioSubtitle(message: string, audioDuration = 0): void {
   subtitle.textContent = message;
   subtitle.hidden = false;
   radioSubtitleSeconds = Math.max(4, message.length / 15, audioDuration);
+}
+
+function handleRadioVisibilityChange(): void {
+  if (!document.hidden) return;
+  audio.stopRadioNotice();
+  radioSubtitleSeconds = 0;
+  required("#radio-subtitle").hidden = true;
 }
 
 function resetRadio(): void {

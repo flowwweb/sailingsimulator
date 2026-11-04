@@ -50,3 +50,23 @@ test("spoken notice keeps its subtitle visible for the audio duration", () => {
   assert.equal(subtitle.hidden, false);
   assert.equal(context.radioSubtitleSeconds, 17.1);
 });
+
+test("hiding the tab stops the voice and clears the subtitle without waiting for a frame", () => {
+  const source = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const begin = source.indexOf("function handleRadioVisibilityChange(");
+  const end = source.indexOf("\n}", begin) + 2;
+  assert.ok(begin >= 0 && end > begin);
+  const fn = stripTypeScriptTypes(source.slice(begin, end), { mode: "strip" });
+  const subtitle = { hidden: false };
+  let stops = 0;
+  const context = { document: { hidden: false }, audio: { stopRadioNotice: () => { stops++; } },
+    radioSubtitleSeconds: 12, required: () => subtitle };
+  runInNewContext(`${fn}\nhandleRadioVisibilityChange();`, context);
+  assert.equal(stops, 0);
+  assert.equal(subtitle.hidden, false);
+  context.document.hidden = true;
+  runInNewContext("handleRadioVisibilityChange();", context);
+  assert.equal(stops, 1);
+  assert.equal(subtitle.hidden, true);
+  assert.equal(context.radioSubtitleSeconds, 0);
+});
