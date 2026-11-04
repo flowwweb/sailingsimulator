@@ -559,10 +559,14 @@ function bindInterface(): void {
   required<HTMLButtonElement>("#anchor-haul").addEventListener("click", () => {
     if (!anchorage?.anchor || !canControlBoat()) return;
     const d = anchorDepth(anchorage.anchor.position.x, anchorage.anchor.position.y);
+    const before = sailingRank(progress);
     if (anchorage.haul(state, d) && anchorage.stage === "complete") {
       progress.completedAnchorage = true;
       persistProgress();
       syncChartActivityList();
+      updateHud();
+      showCompletion("Anchorage practice", before);
+      return;
     }
     updateHud();
   });
@@ -2526,7 +2530,7 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
   const earned = after.xp - before.xp;
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
   completionPendingRank = after.level > before.level ? after : undefined;
-  const nextStart = dummyRecovery || crossing ? 3 : firstBuoy ? 0 : academy.view().lesson + 1;
+  const nextStart = dummyRecovery || crossing || anchorage ? 3 : firstBuoy ? 0 : academy.view().lesson + 1;
   completionNextLesson = [0, 1, 2].find((lesson) => lesson >= nextStart && !progress.completedLessons?.includes(lesson));
   const threshold = { ...before, xp: before.xp - before.levelXp + 100, levelXp: 100 };
   setCompletionSemanticProgress(completionPendingRank ? threshold : after);

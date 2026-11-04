@@ -124,7 +124,7 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   };
   const statusToggle = { focus() { this.focused = true; } };
   let callback;
-  const context = { dummyRecovery: undefined, crossing: undefined, required, elements: { statusToggle, gameShell: { inert: false } }, input: { releaseAll() {} },
+  const context = { anchorage: undefined, dummyRecovery: undefined, crossing: undefined, required, elements: { statusToggle, gameShell: { inert: false } }, input: { releaseAll() {} },
     window: { matchMedia: () => ({ matches: false }) }, firstBuoy: {}, completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false,
     performance: { now: () => 0 }, requestAnimationFrame: (fn) => { callback = fn; return 1; }, cancelAnimationFrame() { callback = undefined; },
     setRadioOpen(open) { context.radioOpen = open; },
@@ -206,7 +206,7 @@ test("reduced motion and replay show the final rank without scheduling animation
     return nodes.get(selector);
   };
   let scheduled = 0;
-  const context = { dummyRecovery: undefined, crossing: undefined, required, elements: { gameShell: { inert: false }, statusToggle: { focus() {} } },
+  const context = { anchorage: undefined, dummyRecovery: undefined, crossing: undefined, required, elements: { gameShell: { inert: false }, statusToggle: { focus() {} } },
     input: { releaseAll() {} }, window: { matchMedia: () => ({ matches: true }) }, firstBuoy: {},
     completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false, requestAnimationFrame: () => { scheduled++; return 1; },
     cancelAnimationFrame() {}, setRadioOpen() {}, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 0,
@@ -228,4 +228,21 @@ test("reduced motion and replay show the final rank without scheduling animation
   context.progress = { completedLessons: [0, 1, 2] };
   runInNewContext(`showCompletion("First buoy", { xp: 100, level: 2, rank: "Deckhand", levelXp: 0 });`, context);
   assert.equal(required("#completion-continue").textContent, "Continue sailing");
+});
+
+test("anchorage completion grants one saved level and a distinct final rank", () => {
+  const result = evaluate(`(() => {
+    const earned = { ...createProgress(), completedAnchorage: true };
+    const saved = parseProgress(JSON.stringify(earned));
+    const all = { ...saved, completedCrossing: true, completedDummyRecovery: true,
+      completedLessons: [0, 1, 2], completedIntroductions: { [FIRST_BUOY.id]: FIRST_BUOY.revision } };
+    return { first: sailingRank(earned), saved: sailingRank(saved), replay: sailingRank({ ...saved, completedAnchorage: true }),
+      invalid: sailingRank(parseProgress(JSON.stringify({ ...createProgress(), completedAnchorage: "true" }))),
+      legacy: sailingRank(parseProgress(JSON.stringify({ ...createProgress(), version: 1, completedAnchorage: true }))),
+      final: sailingRank(all) };
+  })()`);
+  assert.equal(result.first.xp, 100); assert.equal(result.first.rank, "Deckhand");
+  assert.equal(result.saved.xp, 100); assert.equal(result.replay.xp, 100);
+  assert.equal(result.invalid.xp, 0); assert.equal(result.legacy.xp, 0);
+  assert.equal(result.final.level, 8); assert.equal(result.final.rank, "Captain");
 });

@@ -116,12 +116,12 @@ export function recordFirstBuoyCompletion(progress: SailingProgress): SailingPro
 export function sailingRank(progress: SailingProgress): { xp: number; level: number; rank: string; levelXp: number } {
   const introduction = progress.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision ? 1 : 0;
   const lessons = new Set((progress.completedLessons ?? []).filter((lesson) => Number.isInteger(lesson) && lesson >= 0 && lesson <= 2)).size;
-  return rankForXp((introduction + lessons + (progress.completedDummyRecovery === true ? 1 : 0) + (progress.completedCrossing === true ? 1 : 0)) * 100);
+  return rankForXp((introduction + lessons + (progress.completedDummyRecovery === true ? 1 : 0) + (progress.completedCrossing === true ? 1 : 0) + (progress.completedAnchorage === true ? 1 : 0)) * 100);
 }
 
 export function rankForXp(xp: number): { xp: number; level: number; rank: string; levelXp: number } {
   const level = Math.floor(xp / 100) + 1;
-  const rank = ["Newcomer", "Deckhand", "Crew", "Sailor", "Voyager", "Navigator", "Skipper"][Math.min(level - 1, 6)] ?? "Skipper";
+  const rank = ["Newcomer", "Deckhand", "Crew", "Sailor", "Voyager", "Navigator", "Skipper", "Captain"][Math.min(level - 1, 7)] ?? "Captain";
   return { xp, level, rank, levelXp: xp % 100 };
 }
 

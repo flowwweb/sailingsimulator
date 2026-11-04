@@ -20,7 +20,7 @@ export interface AnchorStep {
 const BOW_HEIGHT = 0.6;
 const SET_TIME = 3;
 const MIN_SCOPE = 5;
-const HOLD_ACCELERATION = 0.6;
+const HOLD_ACCELERATION = 1.5;
 
 export function bowPosition(boat: BoatState, halfLength: number): Vec2 {
   return {
@@ -62,10 +62,10 @@ export function stepAnchor(
   const stretch = Math.max(0, distance - horizontalRode);
   const outwardSpeed = boat.velocity.x * nx + boat.velocity.y * ny;
   const tension = stretch > 0 ? Math.max(0, 0.8 * stretch + 1.2 * outwardSpeed) : 0;
-  const setSeconds = scope >= MIN_SCOPE && tension > 0.025 && tension < 0.5
+  const setSeconds = scope >= MIN_SCOPE && tension > 0.025 && tension < 1.2
     ? anchor.setSeconds + step : 0;
   const set = anchor.set || setSeconds >= SET_TIME;
-  const capacity = scope < MIN_SCOPE ? 0.08 : set ? HOLD_ACCELERATION : 0.5;
+  const capacity = scope < MIN_SCOPE ? 0.08 : set ? HOLD_ACCELERATION : 1.2;
   const applied = Math.min(tension, capacity);
   const slip = Math.max(0, tension - capacity) * step * 0.8;
   const nextAnchor: AnchorState = {
@@ -83,6 +83,3 @@ export function stepAnchor(
     tension,
   };
 }
-
-
-
