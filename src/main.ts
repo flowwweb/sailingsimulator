@@ -523,7 +523,7 @@ function bindInterface(): void {
   });
   elements.continueLesson.addEventListener("click", () => {
     if (progress.activeIntroduction === FIRST_BUOY.id) { startFirstBuoy(); return; }
-    if (academy.view().objective === 3) { openLessonChooser(elements.continueLesson); return; }
+    if (academy.view().objective === 3 || academy.view().stage === "complete") { openLessonChooser(elements.continueLesson); return; }
     beginSailing(false);
     activitySession = undefined;
     activityView = undefined;
@@ -764,7 +764,7 @@ function syncTitleState(): void {
   elements.newJourney.hidden = !returning || complete;
   required("#returning-lesson").textContent = LESSON_TITLES[lesson]!;
   required("#returning-target").textContent = complete
-    ? `${progress.academyCompleted ? "Academy" : "Lesson"} complete · All ${progress.academyCompleted ? "nine" : "three"} targets earned`
+    ? progress.academyCompleted ? "Sailing skills complete · All nine skill targets earned" : "Lesson complete · All three targets earned"
     : `Target ${view.objective + 1} of 3 · ${targetLabels[view.objective]}`;
   elements.continueLesson.firstChild!.textContent = complete ? "Choose lesson" : "Continue lesson";
   if (progress.activeIntroduction === FIRST_BUOY.id) {

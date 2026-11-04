@@ -135,3 +135,21 @@ test("academy labels match the six-lesson chooser and distinguish trim practice"
   assert.equal(runInNewContext("academy.view().eyebrow", ctx), "Lesson 2 of 6 complete");
   assert.ok(main.includes('lessonView.lesson === 0 ? "Sail trim practice"'));
 });
+
+test("completed sailing skills open the chooser from the title", () => {
+  const start = main.indexOf('  elements.continueLesson.addEventListener("click", () => {');
+  const end = main.indexOf('\n  });', start) + 6;
+  assert.ok(start >= 0 && end > start);
+  const handler = main.slice(start, end);
+  let callback, chooser = 0, sailed = 0;
+  const academy = { view: () => ({ stage: "complete", objective: 0 }) };
+  const ctx = { academy, progress: {}, FIRST_BUOY: { id: "intro.buoy-1" },
+    elements: { continueLesson: { addEventListener(_event, fn) { callback = fn; } } },
+    openLessonChooser() { chooser++; }, beginSailing() { sailed++; } };
+  runInNewContext(handler, ctx); callback();
+  assert.equal(chooser, 1); assert.equal(sailed, 0);
+  academy.view = () => ({ stage: "lesson-complete", objective: 3 }); callback();
+  assert.equal(chooser, 2); assert.equal(sailed, 0);
+  assert.ok(main.includes('"Sailing skills complete · All nine skill targets earned"'));
+  assert.ok(academyCode.includes('eyebrow: "Sailing skills complete"'));
+});
