@@ -1903,7 +1903,7 @@ export class SailingWorld {
     this.renderer.toneMappingExposure = lighting.exposure;
     const fogNear = titleScreen ? 600 : Math.max(120, 260 * weather.visibility);
     // Clear conditions reveal the existing distant ridges; poor visibility still hides them.
-    const fogFar = titleScreen ? 4_400 : Math.max(1_080, 4_000 * weather.visibility);
+    const fogFar = titleScreen ? 4_400 : Math.max(1_080, 2_000 * weather.visibility) + 2_000 * THREE.MathUtils.smoothstep(weather.visibility, 0.72, 1);
     if (this.scene.fog instanceof THREE.Fog) {
       this.scene.fog.color.copy(lighting.fog);
       this.scene.fog.near = fogNear;

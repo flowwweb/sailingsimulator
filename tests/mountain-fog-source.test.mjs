@@ -37,7 +37,7 @@ const world = read("render/world");
 const nearExpression = world.match(/const fogNear = titleScreen \? ([^;]+);/);
 const farExpression = world.match(/const fogFar = titleScreen \? ([^;]+);/);
 assert.ok(nearExpression && farExpression);
-const fog = (visibility, titleScreen = false) => runInNewContext(`({ near: ${nearExpression[0].replace('const fogNear = ', '').replace(';', '')}, far: ${farExpression[0].replace('const fogFar = ', '').replace(';', '')} })`, { titleScreen, weather: { visibility }, Math });
+const fog = (visibility, titleScreen = false) => runInNewContext(`({ near: ${nearExpression[0].replace('const fogNear = ', '').replace(';', '')}, far: ${farExpression[0].replace('const fogFar = ', '').replace(';', '')} })`, { titleScreen, weather: { visibility }, Math, THREE });
 
 test("existing ridge geometry is not fully fogged from the first-lesson camera in clear weather", () => {
   const p = new Probe(); p.createDistantMountains();
@@ -60,9 +60,27 @@ test("existing ridge geometry is not fully fogged from the first-lesson camera i
     depths.sort((a, b) => a - b);
     assert.ok(depths.length > 100);
     const median = depths[Math.floor(depths.length / 2)];
+    assert.ok(median < 3500, `layer ${layer} median lies inside camera far plane`);
     assert.equal(1 - smoothstep(median, 260, 2000), 0, `layer ${layer} was fully fogged before`);
     assert.ok(1 - smoothstep(median, clear.near, clear.far) > .2, `layer ${layer} has clear-weather contrast`);
     assert.equal(1 - smoothstep(median, poor.near, poor.far), 0, `layer ${layer} remains hidden in poor visibility`);
   }
   assert.match(world, /this\.water\.material\.uniforms\.uFogFar!\.value = fogFar/);
+});
+
+
+test("existing shower and poor-visibility fog ranges are preserved", async () => {
+  const { WEATHER_PRESETS } = await import(url(read("weather/types")));
+  const source = read("weather/weather");
+  const match = source.match(/visibility: (clamp\(this\.config\.visibility - this\.config\.rain \* 0\.16, 0\.35, 1\))/);
+  assert.ok(match, "weather visibility expression missing");
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const visibility = runInNewContext(`(function () { return ${match[1]}; }).call({ config: preset })`, { clamp, preset: WEATHER_PRESETS["Passing shower"] });
+  assert.ok(Math.abs(visibility - .6208) < 1e-12);
+  assert.ok(Math.abs(fog(visibility).far - 1241.6) < 1e-9);
+  assert.equal(fog(.35).far, 1080);
+  assert.equal(fog(.72).far, 1440);
+  assert.ok(fog(.86).far > 1720 && fog(.86).far < 4000);
+  assert.match(world, /this\.water\.material\.uniforms\.uFogNear!\.value = fogNear/);
+  assert.match(world, /private readonly camera = new THREE\.PerspectiveCamera\(52, 1, 0\.1, 3_500\)/);
 });
