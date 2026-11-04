@@ -1138,7 +1138,6 @@ function loop(now: number): void {
   wasPortrait = portrait;
   if (portrait || document.hidden) interruptLessonAttempt();
   if (droppedFrame && !isSimulationPaused()) {
-    dummyRecovery?.interrupt();
     weatherShelter?.interrupt();
     accumulator = 0;
   }
@@ -1345,8 +1344,7 @@ function loop(now: number): void {
         }
         if (dummyRecovery) {
           const unsafe = Boolean(incident) || nextIncident.severity === "touch" || nextIncident.severity === "impact" || nextIncident.severity === "stranded" || nextIncident.kind === "docking" || Boolean(dockedAt);
-          if (droppedFrame && !unsafe) dummyRecovery.interrupt();
-          else dummyRecovery.update(fixedStep, { x: state.position.x, z: state.position.y }, Math.hypot(state.velocity.x, state.velocity.y), unsafe, state.sheet, controls.sheetRate, state.heading, controls.rudder, state.yawRate);
+          dummyRecovery.update(fixedStep, { x: state.position.x, z: state.position.y }, Math.hypot(state.velocity.x, state.velocity.y), unsafe, state.sheet, controls.sheetRate, state.heading, controls.rudder, state.yawRate);
         }
         if (crossing) {
           const unsafe = Boolean(incident) || nextIncident.severity === "touch" || nextIncident.severity === "impact" || nextIncident.severity === "stranded" || nextIncident.kind === "docking" || Boolean(dockedAt);

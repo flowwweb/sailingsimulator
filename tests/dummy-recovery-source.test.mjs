@@ -82,3 +82,28 @@ test("either side is reachable without allowing hull overlap", () => {
   travel(contact, 41, 1.4);
   assert.equal(contact.stage, "failed");
 });
+
+test("dummy recovery advances on slow frames but still rejects unsafe contact and position jumps", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const droppedStart = main.indexOf("  if (droppedFrame && !isSimulationPaused()) {");
+  const droppedEnd = main.indexOf("  if (!portrait) presentationTime", droppedStart);
+  const begin = main.indexOf("        if (dummyRecovery) {", main.indexOf("const eligible ="));
+  const end = main.indexOf("        if (crossing) {", begin);
+  assert.ok(droppedStart >= 0 && droppedEnd > droppedStart && begin >= 0 && end > begin);
+  const branch = stripTypeScriptTypes(main.slice(droppedStart, droppedEnd) + "\n" + main.slice(begin, end), { mode: "transform" });
+  const ctx = { droppedFrame: true, isSimulationPaused: () => false, weatherShelter: undefined, accumulator: 0,
+    dummyRecovery: make(), incident: undefined, nextIncident: { severity: "none", kind: "none" }, dockedAt: undefined,
+    fixedStep: 1 / 60, state: {}, controls: {} };
+  const sample = (x, unsafe = false) => {
+    ctx.state = { position: { x, y: 0 }, velocity: { x: .4, y: 0 }, sheet: .5 + x * .002, heading: x * .002, yawRate: 0 };
+    ctx.controls = { sheetRate: 1, rudder: .2 };
+    ctx.nextIncident = { severity: unsafe ? "touch" : "none", kind: "none" };
+    runInNewContext(branch, ctx);
+  };
+  const line = (from, to) => { const dir = Math.sign(to - from); for (let x = from; dir * (to - x) > 0; x += dir * .1) sample(x); sample(to); };
+  line(5, 41); assert.equal(ctx.dummyRecovery.stage, "return");
+  line(41, 1.8); for (let i = 0; i < 190; i++) sample(1.8);
+  assert.equal(ctx.dummyRecovery.stage, "ready"); assert.equal(ctx.dummyRecovery.recover(), true);
+  ctx.dummyRecovery = make(); sample(5); sample(5, true); assert.equal(ctx.dummyRecovery.stage, "failed");
+  ctx.dummyRecovery = make(); sample(5); sample(100); assert.equal(ctx.dummyRecovery.stage, "failed");
+});
