@@ -34,6 +34,7 @@ import {
   hullContactWidthAt,
 } from "./hull-water-mask";
 import { buoyVisualSpec } from "./buoy-visual";
+import { createTrainingBuoy } from "./training-buoy";
 import { wakeSurfacePoints } from "./wake-surface";
 import type { TrafficPose } from "./traffic-navigation";
 import { populateFishingTown } from "./fishing-town";
@@ -74,6 +75,7 @@ export class SailingWorld {
   readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly worldObjects = new Map<string, THREE.Group>();
+  private readonly trainingBuoys: THREE.Group[] = [];
   private readonly camera = new THREE.PerspectiveCamera(52, 1, 0.1, 3_500);
   private readonly scenery = new LakeScenery();
   private readonly ambientLife = new AmbientLife();
@@ -384,6 +386,9 @@ export class SailingWorld {
   ): void {
     const titleScreen = titleScene !== undefined;
     this.trainingDummy.position.y = weather.tideLevel + 0.25;
+    for (const buoy of this.trainingBuoys) {
+      if (buoy.visible) buoy.position.y = weather.tideLevel + sampleWaveHeight(weather.waves, buoy.position.x, buoy.position.z, weather.time);
+    }
     this.renderClock += frameDt;
     if (titleScreen !== this.previousTitleScreen) this.cameraInitialized = false;
     this.previousTitleScreen = titleScreen;
@@ -1226,6 +1231,11 @@ export class SailingWorld {
     const shoal = lakeShoalFor(object.landformId ?? object.id);
     if (object.kind === "buoy") {
       const spec = buoyVisualSpec(object.buoyMark);
+      if (object.buoyMark === "training") {
+        group.add(createTrainingBuoy(spec.color));
+        this.trainingBuoys.push(group);
+        return;
+      }
       const markerMaterial = new THREE.MeshStandardMaterial({
         color: spec.color,
         emissive: spec.color,
