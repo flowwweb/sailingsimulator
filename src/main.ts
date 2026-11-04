@@ -61,6 +61,7 @@ import { classifyEncounter } from "./render/traffic-navigation";
 import { bindTabList, trapFocusWithin, type TabListController } from "./ui/primitives";
 import { loadBooleanPreference, saveBooleanPreference } from "./ui/preferences";
 import { trimGuide } from "./game/trim-guide";
+import { HarborRadio } from "./game/harbor-radio";
 import {
   HARBOR_20,
   getBoatDefinition,
@@ -222,6 +223,9 @@ const chart = new LakeChart(elements.chartCanvas);
 const miniChart = new LakeChart(elements.minimap);
 const academy = new SailingAcademy();
 let firstBuoy: FirstBuoyJourney | undefined;
+const harborRadio = new HarborRadio();
+let radioSubtitleSeconds = 0;
+const harborDock = FAIR_WINDS_WORLD.objects.find((object) => object.id === "juniper-cove-dock");
 let weatherConfig = loadWeatherConfig();
 const audio = new GameAudio(weatherConfig.seed);
 const weatherSystem = new WeatherSystem(weatherConfig);
@@ -371,6 +375,23 @@ function createTitleWeatherConfig(): WeatherConfig {
 }
 
 function bindInterface(): void {
+  required("#radio-toggle").addEventListener("click", () => setRadioOpen(required("#radio-panel").hidden));
+  required("#radio-close").addEventListener("click", () => setRadioOpen(false));
+  required<HTMLSelectElement>("#radio-channel").addEventListener("change", (event) => {
+    harborRadio.selectChannel(Number((event.currentTarget as HTMLSelectElement).value));
+    required("#radio-caption").textContent = "Listen on the selected channel before calling.";
+  });
+  required("#radio-listen").addEventListener("click", () => {
+    required("#radio-caption").textContent = harborRadio.listen();
+  });
+  required("#radio-call").addEventListener("click", () => {
+    const distance = harborDock ? Math.hypot(state.position.x - harborDock.x, state.position.y - harborDock.z) : NaN;
+    const wasAwaiting = harborRadio.awaiting;
+    const message = harborRadio.call(distance);
+    required("#radio-caption").textContent = message;
+    if (!wasAwaiting && harborRadio.awaiting) showRadioSubtitle(message);
+    required<HTMLSelectElement>("#radio-channel").disabled = harborRadio.awaiting;
+  });
   required("#completion-continue").addEventListener("click", advanceCompletion);
   elements.statusToggle.addEventListener("click", () => setStatusOpen(Boolean(elements.statusDetails.hidden)));
   required(".sailing-status").addEventListener("keydown", (event) => {
@@ -390,6 +411,11 @@ function bindInterface(): void {
     if (isChartOpen()) renderChart();
   });
   window.addEventListener("keydown", (event) => {
+    if (event.code === "Escape" && !required("#radio-panel").hidden && required("#radio-panel").contains(document.activeElement)) {
+      event.preventDefault();
+      setRadioOpen(false);
+      return;
+    }
     if (!required("#completion-screen").hidden) {
       if (event.code === "Tab") trapFocusWithin(required(".completion-content"), event);
       else if (event.code === "Escape") { event.preventDefault(); closeCompletion(); }
@@ -674,6 +700,27 @@ function setStatusOpen(open: boolean, restoreFocus = true): void {
   if (!open && restoreFocus) elements.statusToggle.focus();
 }
 
+function setRadioOpen(open: boolean, restoreFocus = true): void {
+  if (open && !started) return;
+  if (open) {
+    setStatusOpen(false, false);
+    if (isChartOpen()) setChartOpen(false, false);
+    if (isConditionsOpen()) setConditionsOpen(false, false);
+    input.releaseAll();
+  }
+  required("#radio-panel").hidden = !open;
+  required("#radio-toggle").setAttribute("aria-expanded", String(open));
+  if (open) required<HTMLSelectElement>("#radio-channel").focus();
+  else if (restoreFocus && started) required("#radio-toggle").focus();
+}
+
+function showRadioSubtitle(message: string): void {
+  const subtitle = required("#radio-subtitle");
+  subtitle.textContent = message;
+  subtitle.hidden = false;
+  radioSubtitleSeconds = Math.max(4, message.length / 15);
+}
+
 function syncLessonTargets(): void {
   const targets = required(".lesson-choice.is-selected .lesson-targets").textContent!.split("·");
   const list = required("#chosen-lesson-targets");
@@ -767,6 +814,12 @@ function beginSailing(newJourney: boolean): void {
 }
 
 function returnToTitle(): void {
+  setRadioOpen(false, false);
+  harborRadio.reset();
+  radioSubtitleSeconds = 0;
+  required("#radio-subtitle").hidden = true;
+  required<HTMLSelectElement>("#radio-channel").value = "16";
+  required<HTMLSelectElement>("#radio-channel").disabled = false;
   setPauseOpen(false, false);
   interruptLessonAttempt();
   persistProgress();
@@ -791,6 +844,12 @@ function syncHighContrast(): void {
 }
 
 function resetJourney(): void {
+  harborRadio.reset();
+  required<HTMLSelectElement>("#radio-channel").value = "16";
+  required<HTMLSelectElement>("#radio-channel").disabled = false;
+  radioSubtitleSeconds = 0;
+  required("#radio-subtitle").hidden = true;
+  setRadioOpen(false, false);
   firstBuoy = undefined;
   progress.activeIntroduction = undefined;
   simulationTime = 0;
@@ -1018,6 +1077,16 @@ function loop(now: number): void {
     previousState = state;
     if (started) {
       simulationTime += fixedStep;
+      if (radioSubtitleSeconds > 0) {
+        radioSubtitleSeconds = Math.max(0, radioSubtitleSeconds - fixedStep);
+        if (!radioSubtitleSeconds) required("#radio-subtitle").hidden = true;
+      }
+      if (harborRadio.update(fixedStep)) {
+        const message = "Fair Winds, this is Juniper Marina. Proceed to the visitor berth. Over.";
+        required("#radio-caption").textContent = message;
+        showRadioSubtitle(message);
+        required<HTMLSelectElement>("#radio-channel").disabled = false;
+      }
       weather = weatherSystem.sample(simulationTime);
       touchCooldown = Math.max(0, touchCooldown - fixedStep);
       if (incident) {
@@ -1987,7 +2056,7 @@ function isChartOpen(): boolean {
 }
 
 function canControlBoat(): boolean {
-  return bootComplete && started && !incident && !document.hidden && !window.matchMedia("(orientation: portrait)").matches && !isSimulationPaused() && Boolean(elements.statusDetails.hidden);
+  return bootComplete && started && !incident && !document.hidden && !window.matchMedia("(orientation: portrait)").matches && !isSimulationPaused() && Boolean(elements.statusDetails.hidden) && required("#radio-panel").hidden;
 }
 
 function isSimulationPaused(): boolean {
@@ -2019,6 +2088,7 @@ function setCompletionSemanticProgress(frame: ReturnType<typeof sailingRank>): v
 }
 
 function showCompletion(title: string, before: ReturnType<typeof sailingRank>): void {
+  setRadioOpen(false, false);
   const after = sailingRank(progress);
   const earned = after.xp - before.xp;
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
@@ -2118,6 +2188,7 @@ function showPauseMenu(focus: HTMLElement = elements.pauseResume): void {
 }
 
 function setPauseOpen(open: boolean, restoreFocus = true): void {
+  if (open) setRadioOpen(false, false);
   if (open && !started) return;
   if (open) {
     pauseOpener = document.activeElement instanceof HTMLElement ? document.activeElement : elements.conditionsToggle;
@@ -2137,6 +2208,7 @@ function setPauseOpen(open: boolean, restoreFocus = true): void {
 }
 
 function setChartOpen(open: boolean, restoreFocus = true): void {
+  if (open) setRadioOpen(false, false);
   if (open) setStatusOpen(false, false);
   if (open) interruptLessonAttempt();
   if (open && isConditionsOpen()) setConditionsOpen(false, false);
@@ -2164,6 +2236,7 @@ function setChartOpen(open: boolean, restoreFocus = true): void {
 }
 
 function setConditionsOpen(open: boolean, restoreFocus = true): void {
+  if (open) setRadioOpen(false, false);
   if (open) setStatusOpen(false, false);
   if (open) interruptLessonAttempt();
   if (open && isChartOpen()) setChartOpen(false, false);

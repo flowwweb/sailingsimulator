@@ -4709,6 +4709,13 @@ input:disabled {
 }
 .completion-screen { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: 20px; overflow: auto; background: #071e2abf; backdrop-filter: blur(6px); color: #fff8e9; text-align: center; }
 .completion-screen[hidden] { display: none; }
+.radio-panel { position: fixed; z-index: 25; top: 72px; right: 20px; width: min(340px, calc(100vw - 40px)); max-height: calc(100dvh - 92px); overflow: auto; padding: 18px; color: #fff; background: #062535db; border-radius: 12px; }
+.radio-panel[hidden] { display: none; }
+.radio-panel h2 { margin: 0 0 6px; }
+.radio-panel p { line-height: 1.4; }
+.radio-panel button, .radio-panel select { min-height: 44px; margin: 4px 4px 4px 0; }
+.radio-subtitle { position: fixed; z-index: 26; bottom: 10%; left: 50%; transform: translateX(-50%); width: min(680px, 85vw); color: white; text-align: center; text-shadow: 0 2px 5px #000, 0 0 12px #000; pointer-events: none; }
+.radio-subtitle[hidden] { display: none; }
 .completion-content { width: min(620px,100%); text-shadow: 0 2px 12px #071e2a; animation: completion-reveal .45s ease-out both; }
 @keyframes completion-reveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .completion-emblem { width: clamp(36px,5vw,56px); height: clamp(36px,5vw,56px); color: #f6bd53; }
