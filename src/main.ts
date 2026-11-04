@@ -62,6 +62,7 @@ import { bindTabList, trapFocusWithin, type TabListController } from "./ui/primi
 import { loadBooleanPreference, saveBooleanPreference } from "./ui/preferences";
 import { trimGuide } from "./game/trim-guide";
 import { HarborRadio } from "./game/harbor-radio";
+import { RadioNotices } from "./game/radio-notices";
 import {
   HARBOR_20,
   getBoatDefinition,
@@ -224,6 +225,7 @@ const miniChart = new LakeChart(elements.minimap);
 const academy = new SailingAcademy();
 let firstBuoy: FirstBuoyJourney | undefined;
 const harborRadio = new HarborRadio();
+const radioNotices = new RadioNotices();
 let radioSubtitleSeconds = 0;
 const harborDock = FAIR_WINDS_WORLD.objects.find((object) => object.id === "juniper-cove-dock");
 let weatherConfig = loadWeatherConfig();
@@ -382,14 +384,15 @@ function bindInterface(): void {
     required("#radio-caption").textContent = "Listen on the selected channel before calling.";
   });
   required("#radio-listen").addEventListener("click", () => {
-    required("#radio-caption").textContent = harborRadio.listen();
+    const message = harborRadio.listen();
+    required("#radio-caption").textContent = message;
+    showRadioSubtitle(message);
   });
   required("#radio-call").addEventListener("click", () => {
     const distance = harborDock ? Math.hypot(state.position.x - harborDock.x, state.position.y - harborDock.z) : NaN;
-    const wasAwaiting = harborRadio.awaiting;
     const message = harborRadio.call(distance);
     required("#radio-caption").textContent = message;
-    if (!wasAwaiting && harborRadio.awaiting) showRadioSubtitle(message);
+    showRadioSubtitle(message);
     required<HTMLSelectElement>("#radio-channel").disabled = harborRadio.awaiting;
   });
   required("#completion-continue").addEventListener("click", advanceCompletion);
@@ -721,6 +724,17 @@ function showRadioSubtitle(message: string): void {
   radioSubtitleSeconds = Math.max(4, message.length / 15);
 }
 
+function resetRadio(): void {
+  setRadioOpen(false, false);
+  harborRadio.reset();
+  radioNotices.reset();
+  radioSubtitleSeconds = 0;
+  required("#radio-subtitle").hidden = true;
+  required("#radio-caption").textContent = "Select the marina channel and listen before calling.";
+  required<HTMLSelectElement>("#radio-channel").value = "16";
+  required<HTMLSelectElement>("#radio-channel").disabled = false;
+}
+
 function syncLessonTargets(): void {
   const targets = required(".lesson-choice.is-selected .lesson-targets").textContent!.split("·");
   const list = required("#chosen-lesson-targets");
@@ -814,12 +828,7 @@ function beginSailing(newJourney: boolean): void {
 }
 
 function returnToTitle(): void {
-  setRadioOpen(false, false);
-  harborRadio.reset();
-  radioSubtitleSeconds = 0;
-  required("#radio-subtitle").hidden = true;
-  required<HTMLSelectElement>("#radio-channel").value = "16";
-  required<HTMLSelectElement>("#radio-channel").disabled = false;
+  resetRadio();
   setPauseOpen(false, false);
   interruptLessonAttempt();
   persistProgress();
@@ -844,12 +853,7 @@ function syncHighContrast(): void {
 }
 
 function resetJourney(): void {
-  harborRadio.reset();
-  required<HTMLSelectElement>("#radio-channel").value = "16";
-  required<HTMLSelectElement>("#radio-channel").disabled = false;
-  radioSubtitleSeconds = 0;
-  required("#radio-subtitle").hidden = true;
-  setRadioOpen(false, false);
+  resetRadio();
   firstBuoy = undefined;
   progress.activeIntroduction = undefined;
   simulationTime = 0;
@@ -1077,6 +1081,10 @@ function loop(now: number): void {
     previousState = state;
     if (started) {
       simulationTime += fixedStep;
+      if (firstBuoy && !firstBuoy.completed && !firstBuoy.failed && radioNotices.update(fixedStep, true, harborRadio.awaiting || !required("#radio-panel").hidden || radioSubtitleSeconds > 0)) {
+        audio.playRadioSquelch();
+        showRadioSubtitle("Simulated VHF 16 · Sécurité. All stations: small sailing craft are exercising around the Juniper training buoys. Keep a lookout.");
+      }
       if (radioSubtitleSeconds > 0) {
         radioSubtitleSeconds = Math.max(0, radioSubtitleSeconds - fixedStep);
         if (!radioSubtitleSeconds) required("#radio-subtitle").hidden = true;
@@ -1818,6 +1826,7 @@ function startFirstBuoy(): void {
 }
 
 function prepareLessonAttempt(kind: "drill" | "first-buoy" = "drill"): void {
+  resetRadio();
   interruptLessonAttempt();
   firstBuoy = kind === "first-buoy" ? new FirstBuoyJourney() : undefined;
   if (firstBuoy) {

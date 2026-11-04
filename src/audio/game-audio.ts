@@ -121,6 +121,11 @@ export class GameAudio {
     return this.settings.muted;
   }
 
+  playRadioSquelch(): void {
+    if (!this.context || this.context.state !== "running" || this.settings.muted) return;
+    this.playNoiseBurst(this.context.currentTime, { frequency: 1800, q: 0.8, duration: 0.18, level: 0.08, playbackRate: 1 });
+  }
+
   getSettings(): AudioSettings {
     return cloneAudioSettings(this.settings);
   }
