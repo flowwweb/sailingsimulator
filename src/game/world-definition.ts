@@ -433,6 +433,16 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       difficulty: "Moderate",
     },
     {
+      id: "weather-shelter",
+      title: "Forecast change",
+      kind: "mission",
+      x: 1_040,
+      z: -480,
+      area: "Juniper Cove",
+      objective: "Watch a rising-wind forecast, reef and return to the visitor berth under control.",
+      difficulty: "Moderate",
+    },
+    {
       id: "broadwater-crossing",
       title: "Broadwater crossing",
       kind: "exploration",

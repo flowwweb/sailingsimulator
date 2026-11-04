@@ -30,6 +30,7 @@ import { SailingAcademy, LESSON_TITLES } from "./game/academy";
 import { FIRST_BUOY, FIRST_BUOY_MARKS, FIRST_COURSE_ID, FirstBuoyJourney, firstBuoyWorld } from "./game/first-buoy";
 import { DummyRecovery } from "./game/dummy-recovery";
 import { CROSSING_OTHER_SPEED, CROSSING_PLAYER_HEADING, CrossingEncounter } from "./game/crossing-encounter";
+import { WeatherShelter } from "./game/weather-shelter";
 import { createLessonState, createLessonWeather, observeLesson, checkpointLesson, restoreLesson } from "./game/lesson-session";
 import {
   ActivitySession,
@@ -249,6 +250,8 @@ let radioSubtitleSeconds = 0;
 const harborDock = FAIR_WINDS_WORLD.objects.find((object) => object.id === "juniper-cove-dock");
 let dummyRecovery: DummyRecovery | undefined;
 let crossing: CrossingEncounter | undefined;
+let weatherShelter: WeatherShelter | undefined;
+let weatherBeforeShelter: WeatherConfig | undefined;
 const DUMMY_COURSE: WorldActivity = { id: "training-dummy", title: "Training dummy", kind: "lesson", x: FIRST_BUOY.start.x + 5 * Math.cos(degrees(FIRST_BUOY.startHeadingDegrees)), z: FIRST_BUOY.start.z - 5 * Math.sin(degrees(FIRST_BUOY.startHeadingDegrees)), area: "School Water", difficulty: "Intro", objective: "Return to the training dummy and recover it under control." };
 let weatherConfig = loadWeatherConfig();
 const audio = new GameAudio(weatherConfig.seed);
@@ -579,6 +582,7 @@ function bindInterface(): void {
   elements.mute.addEventListener("click", toggleMute);
   elements.reset.addEventListener("click", resetBoat);
   elements.lessonSkip.addEventListener("click", () => {
+    if (weatherShelter?.stage === "failed" && !incident) { selectChartActivity("weather-shelter"); return; }
     if (crossing) { if (crossing.stage === "complete") { returnToTitle(); openLessonChooser(); } else startCrossing(); return; }
     if (dummyRecovery) {
       if (dummyRecovery.stage === "complete") { stopDummyRecovery(); returnToTitle(); openLessonChooser(); }
@@ -1105,6 +1109,7 @@ function loop(now: number): void {
     academy.interrupt();
     firstBuoy?.interrupt();
     dummyRecovery?.interrupt();
+    weatherShelter?.interrupt();
     accumulator = 0;
   }
   if (!portrait) presentationTime += frameDt;
@@ -1343,7 +1348,7 @@ function loop(now: number): void {
             }
           }
         }
-        updateActivitySession(fixedStep);
+        updateActivitySession(fixedStep, nextIncident.severity === "touch" || nextIncident.severity === "impact" || nextIncident.severity === "stranded");
       }
     }
     accumulator = Math.max(0, accumulator - fixedStep);
@@ -1446,6 +1451,7 @@ function finishBoot(status: "ready" | "failed" = "ready"): void {
 
 function resetBoat(): void {
   interruptLessonAttempt();
+  stopWeatherShelter();
   if (crossing) { startCrossing(); return; }
   if (dummyRecovery) { startDummyRecovery(); return; }
   if (firstBuoy) { prepareLessonAttempt("first-buoy"); return; }
@@ -1952,7 +1958,7 @@ function updateLesson(): void {
     } else {
       delete elements.gameShell.dataset.activityScore;
     }
-    elements.lessonEyebrow.textContent = score
+    elements.lessonEyebrow.textContent = weatherShelter?.stage === "failed" ? "Attempt failed" : score
       ? `${activity.kind} complete · ${score.total}/100`
       : `${activity.kind} · ${Math.round(activityView.progress * 100)}%`;
     elements.lessonTitle.textContent = score
@@ -1965,7 +1971,7 @@ function updateLesson(): void {
     required("#status-objective-detail").textContent = elements.lessonInstruction.textContent;
     elements.lessonProgress.style.width =
       `${Math.min(activityView.progress, 1) * 100}%`;
-    elements.lessonSkip.textContent = "Choose next";
+    elements.lessonSkip.textContent = weatherShelter?.stage === "failed" ? "Retry exercise" : "Choose next";
     elements.lessonSkip.disabled = false;
     elements.lessonCard.classList.toggle(
       "is-complete",
@@ -2005,6 +2011,7 @@ function interruptLessonAttempt(): void {
   firstBuoy?.interrupt();
   dummyRecovery?.interrupt();
   crossing?.interrupt();
+  weatherShelter?.interrupt();
   accumulator = 0;
   previousFrame = performance.now();
 }
@@ -2018,6 +2025,7 @@ function startFirstBuoy(): void {
 }
 
 function stopDummyRecovery(): void {
+  stopWeatherShelter();
   crossing = undefined;
   world.setCrossingBoat();
   world.setCrossingExercise(false);
@@ -2053,6 +2061,7 @@ function startCrossing(): void {
 }
 
 function prepareLessonAttempt(kind: "drill" | "first-buoy" | "dummy" | "crossing" = "drill"): void {
+  stopWeatherShelter();
   resetRadio();
   interruptLessonAttempt();
   firstBuoy = kind === "first-buoy" ? new FirstBuoyJourney() : undefined;
@@ -2098,8 +2107,27 @@ function prepareLessonAttempt(kind: "drill" | "first-buoy" | "dummy" | "crossing
   updateHud();
 }
 
-function updateActivitySession(dt: number): void {
+function updateActivitySession(dt: number, unsafe = false): void {
   if (!activitySession) return;
+  let shelterComplete = false;
+  if (weatherShelter) {
+    const previousStage = weatherShelter.stage;
+    const stage = weatherShelter.update({ dt, x: state.position.x, z: state.position.y,
+      speed: Math.hypot(state.velocity.x, state.velocity.y), reefed: state.reefLevel === 1,
+      reefSettled: state.sailsRaised && state.sailDeployment <= sailDeploymentTarget(state) + 0.08,
+      attached: diagnostics.attached, heelRadians: state.heel,
+      incident: Boolean(incident) || unsafe, dockedAt: dockedAt?.id });
+    if (previousStage === "forecast" && stage === "respond") {
+      weatherConfig.wind.speed = 10.5;
+      weatherConfig.wind.gustStrength = 0.2;
+      weatherConfig.cloud = 0.55;
+      weatherSystem.setConfig(weatherConfig);
+      weather = weatherSystem.sample(simulationTime);
+      syncWeatherControls();
+      elements.status.textContent = "Wind is freshening. Reduce sail and head for shelter.";
+    }
+    shelterComplete = stage === "complete";
+  }
   const previousCompleted = activityView?.completed ?? false;
   activityView = activitySession.update({
     dt,
@@ -2115,7 +2143,19 @@ function updateActivitySession(dt: number): void {
       depthAtTide(FAIR_WINDS_WORLD.sampleDepth(state.position.x, state.position.y), weather.tideLevel),
     dockedAt: dockedAt?.id,
     incident: Boolean(incident),
+    weatherShelterComplete: shelterComplete,
   });
+  if (weatherShelter && !shelterComplete) {
+    const instructions = {
+      "get-clear": "Sail at least 150 m from the visitor berth to begin the exercise.",
+      forecast: "Forecast: wind increasing. Plan your return to Juniper.",
+      respond: "Wind increasing. Reef and sail under control.",
+      approach: "Return to the Juniper visitor berth under control.",
+      complete: "Arrived at the Juniper visitor berth.",
+      failed: "Contact interrupted this attempt. Recover the boat, then retry.",
+    } as const;
+    activityView.instruction = instructions[weatherShelter.stage];
+  }
   if (!previousCompleted && activityView.completed && activityView.score) {
     progress = recordActivityCompletion(
       progress,
@@ -2226,6 +2266,18 @@ function selectChartActivity(id: string): void {
   if (activity) {
     activitySession = new ActivitySession(activity);
     activityView = undefined;
+    if (activity.id === "weather-shelter") {
+      weatherBeforeShelter = cloneWeatherConfig(weatherConfig);
+      weatherConfig = cloneWeatherConfig(weatherConfig);
+      weatherConfig.mode = "manual";
+      weatherConfig.wind.speed = 6;
+      weatherConfig.wind.directionFromDegrees = 260;
+      weatherConfig.wind.gustStrength = 0;
+      weatherSystem.setConfig(weatherConfig);
+      weather = weatherSystem.sample(simulationTime);
+      syncWeatherControls();
+      weatherShelter = new WeatherShelter(activity);
+    }
     updateActivitySession(0);
   }
   syncChartActivityList();
@@ -2234,6 +2286,22 @@ function selectChartActivity(id: string): void {
   if (activity) {
     elements.status.textContent =
       `Course set for ${activity.title}. ${activity.objective}`;
+  }
+}
+
+function stopWeatherShelter(): void {
+  if (!weatherShelter) return;
+  weatherShelter = undefined;
+  if (activitySession?.activity.id === "weather-shelter") {
+    activitySession = undefined;
+    activityView = undefined;
+  }
+  if (weatherBeforeShelter) {
+    weatherConfig = weatherBeforeShelter;
+    weatherBeforeShelter = undefined;
+    weatherSystem.setConfig(weatherConfig);
+    weather = weatherSystem.sample(simulationTime);
+    syncWeatherControls();
   }
 }
 
@@ -2687,6 +2755,13 @@ function updateMusicPlayback(playback: MusicPlaybackState): void {
 
 function applyWeatherConfig(sync: boolean): void {
   interruptLessonAttempt();
+  if (weatherShelter) {
+    weatherShelter = undefined;
+    weatherBeforeShelter = undefined;
+    activitySession = undefined;
+    activityView = undefined;
+    elements.status.textContent = "Conditions changed. Select Forecast change to try again.";
+  }
   if (crossing) { stopDummyRecovery(); elements.status.textContent = "Conditions changed. Choose the exercise to try again."; }
   if (dummyRecovery) {
     stopDummyRecovery();
