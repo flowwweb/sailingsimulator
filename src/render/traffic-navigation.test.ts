@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyEncounter,
+  summarizeTraffic,
   sailableRouteHeading,
   trafficCommand,
 } from "./traffic-navigation";
@@ -85,5 +86,22 @@ describe("ambient traffic navigation", () => {
     const other = { x: 20, z: 0, heading: 0, speed: 0 };
     expect(classifyEncounter(own, other).advice).toBe("Traffic closing · maintain lookout");
     expect(classifyEncounter({ ...own, velocity: { x: -2, z: 0 } }, other).type).toBe("clear");
+  });
+
+  it("shows nearby and closing vessels together, even with additional traffic", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 0 };
+    const nearby = classifyEncounter(own, { x: 15, z: 0, heading: 0, speed: 0 });
+    const anotherNearby = classifyEncounter(own, { x: -17, z: 0, heading: 0, speed: 0 });
+    const closing = classifyEncounter(own, { x: 20, z: 0, heading: -Math.PI / 2, speed: 2 });
+    expect(summarizeTraffic([closing, anotherNearby, nearby]).advice)
+      .toBe("Nearby 15 m · Closing 20 m · +1 more");
+  });
+
+  it("shows two equally urgent closing vessels", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 0 };
+    const east = classifyEncounter(own, { x: 20, z: 0, heading: -Math.PI / 2, speed: 2 });
+    const west = classifyEncounter(own, { x: -20, z: 0, heading: Math.PI / 2, speed: 2 });
+    expect(summarizeTraffic([east, west]).advice)
+      .toBe("Closing 20 m · Closing 20 m");
   });
 });

@@ -17,6 +17,7 @@ export interface EncounterAdvisory {
   role: "clear" | "traffic";
   distance: number;
   advice: string;
+  closing: boolean;
 }
 
 export function sailableRouteHeading(
@@ -85,7 +86,7 @@ export function classifyEncounter(
     type: EncounterAdvisory["type"],
     role: EncounterAdvisory["role"],
     advice: string,
-  ): EncounterAdvisory => ({ type, role, distance, advice });
+  ): EncounterAdvisory => ({ type, role, distance, advice, closing: rangeRate < -0.15 });
   if (distance > advisoryRange || (distance > 10 && rangeRate > 0.15)) {
     return result("clear", "clear", "No nearby closing traffic");
   }
@@ -93,6 +94,17 @@ export function classifyEncounter(
   return result("traffic", "traffic", rangeRate < -0.15
     ? "Traffic closing · maintain lookout"
     : "Traffic nearby · maintain lookout");
+}
+
+export function summarizeTraffic(advisories: EncounterAdvisory[]): { role: "clear" | "traffic"; advice: string } {
+  const visible = advisories.filter((advisory) => advisory.type !== "clear")
+    .sort((a, b) => a.distance - b.distance);
+  if (!visible.length) return { role: "clear", advice: "No nearby closing traffic" };
+  const first = visible[0]!;
+  const second = (first.closing ? visible[1] : visible.find((item) => item.closing)) ?? visible[1];
+  if (!second) return { role: "traffic", advice: `${first.advice} · ${Math.round(first.distance)} m` };
+  const label = (item: EncounterAdvisory) => `${item.closing ? "Closing" : "Nearby"} ${Math.round(item.distance)} m`;
+  return { role: "traffic", advice: `${label(first)} · ${label(second)}${visible.length > 2 ? ` · +${visible.length - 2} more` : ""}` };
 }
 
 export function wrapAngle(value: number): number {

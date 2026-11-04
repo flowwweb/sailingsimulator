@@ -58,7 +58,7 @@ import {
 } from "./game/world-definition";
 import { depthAtTide } from "./game/bathymetry";
 import { SailingWorld } from "./render/world";
-import { classifyEncounter } from "./render/traffic-navigation";
+import { classifyEncounter, summarizeTraffic } from "./render/traffic-navigation";
 import { bindTabList, trapFocusWithin, type TabListController } from "./ui/primitives";
 import { PerformanceStats } from "./ui/performance-stats";
 import { loadBooleanPreference, saveBooleanPreference } from "./ui/preferences";
@@ -1788,16 +1788,11 @@ function updateNavigation(): void {
     speed: Math.hypot(state.velocity.x, state.velocity.y),
     velocity: { x: state.velocity.x, z: state.velocity.y },
   };
-  const advisories = world
+  const traffic = summarizeTraffic(world
     .trafficSnapshot()
-    .map((traffic) => classifyEncounter(playerTrafficPose, traffic))
-    .filter((advisory) => advisory.type !== "clear")
-    .sort((a, b) => a.distance - b.distance);
-  const encounter = advisories[0];
-  elements.encounterPanel.dataset.role = encounter?.role ?? "clear";
-  elements.encounterAdvisory.textContent = encounter
-    ? `${encounter.advice} · ${Math.round(encounter.distance)} m`
-    : "No nearby closing traffic";
+    .map((other) => classifyEncounter(playerTrafficPose, other)));
+  elements.encounterPanel.dataset.role = traffic.role;
+  elements.encounterAdvisory.textContent = traffic.advice;
 }
 
 function buildCompassTape(): void {
