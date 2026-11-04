@@ -15,11 +15,21 @@ describe("dummy recovery", () => {
     for (let i = 0; i < 190; i++) tick(session, x, speed);
   }
 
+  it("fails on dummy contact during departure", () => {
+    const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
+    tick(session, 5);
+    expect(session.stage).toBe("depart");
+    travel(session, 5, 1.4);
+    expect(session.stage).toBe("failed");
+    travel(session, 1.4, 41);
+    expect(session.recover()).toBe(false);
+  });
+
   it("requires departure, trim and steering, a settled approach and explicit recovery", () => {
     const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
-    tick(session, 0);
+    tick(session, 5);
     expect(session.recover()).toBe(false);
-    travel(session, 0, 41);
+    travel(session, 5, 41);
     expect(session.stage).toBe("return");
     travel(session, 41, 7, 1);
     hold(session, 7, 1);
@@ -36,14 +46,14 @@ describe("dummy recovery", () => {
   it("clears held evidence on interruption and latches contact or a jump", () => {
     for (const unsafe of [false, true]) {
       const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
-      tick(session, 0);
+      tick(session, 5);
       tick(session, unsafe ? 0 : 41, 0, unsafe);
       expect(session.stage).toBe("failed");
       session.interrupt();
       expect(session.recover()).toBe(false);
     }
     const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
-    travel(session, 0, 41);
+    travel(session, 5, 41);
     travel(session, 41, 1.8);
     hold(session, 1.8);
     expect(session.stage).toBe("ready");
@@ -76,7 +86,7 @@ describe("dummy recovery", () => {
 
   it("explains how to restart departure after an interruption", () => {
     const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
-    travel(session, 0, 20);
+    travel(session, 5, 20);
     expect(session.needsDepartureStart({ x: 20, z: 0 })).toBe(false);
     session.interrupt();
     tick(session, 20);
@@ -88,7 +98,7 @@ describe("dummy recovery", () => {
   it("does not credit motion without trim or helm and fails on dummy contact", () => {
     const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
     const tickWithoutControls = (x: number) => session.update(dt, { x, z: 0 }, 0.2, false, 0.5, 0, 0, 0, 0);
-    for (let x = 0; x <= 41; x += 0.1) tickWithoutControls(x);
+    for (let x = 5; x <= 41; x += 0.1) tickWithoutControls(x);
     for (let x = 41; x >= 7; x -= 0.1) tickWithoutControls(x);
     for (let i = 0; i < 190; i++) tickWithoutControls(7);
     expect(session.stage).toBe("return");
@@ -100,7 +110,7 @@ describe("dummy recovery", () => {
   it("does not allow a bow-on or stern-on position as alongside", () => {
     for (const heading of [Math.PI / 2, -Math.PI / 2]) {
       const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
-      travel(session, 0, 41);
+      travel(session, 5, 41);
       travel(session, 41, 3);
       for (let i = 0; i < 190; i++) session.update(dt, { x: 3, z: 0 }, 0.2, false, 0.6, 0, heading, 0, 0);
       expect(session.stage).toBe("return");
@@ -111,13 +121,13 @@ describe("dummy recovery", () => {
   it("accepts a settled approach on either side and detects overlap beyond a radial-only guard", () => {
     for (const side of [-1, 1]) {
       const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
-      travel(session, 0, side * 41);
+      travel(session, side * 5, side * 41);
       travel(session, side * 41, side * 1.8);
       hold(session, side * 1.8);
       expect(session.stage).toBe("ready");
     }
     const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
-    travel(session, 0, 41);
+    travel(session, 5, 41);
     session.interrupt();
     session.update(dt, { x: 1.4, z: 2.8 }, 0, false, 0.5, 0, 0, 0, 0);
     expect(session.stage).toBe("failed");

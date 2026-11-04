@@ -30,6 +30,7 @@ test("dummy instructions and retry are visible on a short landscape phone", asyn
   await expect(page.locator("#boot-loader")).toHaveCount(0);
   await page.locator("#set-sail").click();
   await page.locator("#start-dummy-recovery").click();
+  await page.locator("#start-lesson").click();
   await page.locator("#status-toggle").click();
   const scroll = (await page.locator("#status-scroll").boundingBox())!;
   for (const id of ["status-objective-detail", "lesson-skip"]) {

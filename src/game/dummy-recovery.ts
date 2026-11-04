@@ -60,7 +60,7 @@ export class DummyRecovery {
     const alongHull = dx * Math.sin(heading) + dz * Math.cos(heading);
     const acrossHull = dx * Math.cos(heading) - dz * Math.sin(heading);
     const contact = Math.abs(alongHull) <= this.hull.halfLength + DUMMY_CLEARANCE_M && Math.abs(acrossHull) <= this.hull.halfBeam + DUMMY_CLEARANCE_M;
-    if (this.stage !== "depart" && contact) { this.stage = "failed"; this.interrupt(); return; }
+    if (contact) { this.stage = "failed"; this.interrupt(); return; }
     if (this.stage === "depart" && distance <= RECOVERY_RADIUS_M) this.startedNearDummy = true;
     if (this.stage === "depart" && this.startedNearDummy && this.previous && distance >= DEPARTURE_M) this.stage = "return";
     const hadPrevious = Boolean(this.previous);
