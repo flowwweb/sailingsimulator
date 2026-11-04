@@ -4,7 +4,11 @@ The chart activity starts afloat. At least 150 m from the Juniper visitor berth,
 the player receives a forecast of rising wind. After 12 seconds, the scenario
 changes the simulated wind from 6 to 10.5 m/s. The player reefs, sails with
 attached flow and controlled heel for five seconds, then docks at the existing
-Juniper berth. A contact, grounding, or position discontinuity fails the
+Juniper berth. The reef is a demonstrated skill, not a requirement to keep the
+same sail area throughout the return; the player can adjust sail as needed.
+The existing activity score reflects trim and excessive heel over the attempt,
+and the existing docking gates require a slow, aligned arrival. A contact,
+grounding, or position discontinuity fails the
 attempt; recover and retry. Existing weather settings are restored on exit.
 
 The timings, force thresholds and distance are game parameters, not a safe

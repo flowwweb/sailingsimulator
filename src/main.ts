@@ -2156,7 +2156,7 @@ function updateActivitySession(dt: number, unsafe = false): void {
       "get-clear": "Sail at least 150 m from the visitor berth to begin the exercise.",
       forecast: "Forecast: wind increasing. Plan your return to Juniper.",
       respond: "Wind increasing. Reef and sail under control.",
-      approach: "Return to the Juniper visitor berth under control.",
+      approach: "Reef practiced. Adjust sail as needed and dock at Juniper.",
       complete: "Arrived at the Juniper visitor berth.",
       failed: "Contact interrupted this attempt. Recover the boat, then retry.",
     } as const;

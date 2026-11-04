@@ -31,6 +31,38 @@ test("unsafe or discontinuous attempts cannot earn completion", () => {
   assert.equal(discontinuity.update({ ...base, x: 150 }), "failed");
 });
 
+test("after demonstrating a reef, sail adjustments are allowed but contact still fails", () => {
+  const scenario = create();
+  for (let i = 0; i < 12; i++) scenario.update(base);
+  for (let i = 0; i < 5; i++) scenario.update({ ...base, reefed: true, x: i * 2 });
+  assert.equal(scenario.stage, "approach");
+  for (let i = 5; i <= 99; i++) scenario.update({ ...base, reefed: false, x: i * 2 });
+  assert.equal(scenario.update({ ...base, reefed: false, x: 200, dockedAt: "juniper-cove-dock" }), "complete");
+
+  const unsafe = create();
+  for (let i = 0; i < 12; i++) unsafe.update(base);
+  for (let i = 0; i < 5; i++) unsafe.update({ ...base, reefed: true, x: i * 2 });
+  assert.equal(unsafe.update({ ...base, reefed: false, x: 10, incident: true }), "failed");
+  assert.equal(unsafe.update({ ...base, x: 10, incident: false }), "failed");
+});
+
+test("poor return trim and excessive heel reduce the activity score", () => {
+  const activitySource = readFileSync(new URL("../src/game/activity-session.ts", import.meta.url), "utf8");
+  const activityJs = stripTypeScriptTypes(activitySource, { mode: "transform" }).replace(/^export /gm, "");
+  const make = () => runInNewContext(`${activityJs}\nnew ActivitySession({ id: "weather-shelter", title: "Forecast change", x: 200, z: 0 })`);
+  const score = (attached, heelRadians) => {
+    const session = make();
+    const observation = { ...base, tackCount: 0, depth: 10 };
+    for (let i = 0; i < 20; i++) session.update({ ...observation, x: i * 2, attached, heelRadians });
+    return session.update({ ...observation, x: 40, attached, heelRadians, weatherShelterComplete: true }).score;
+  };
+  const clean = score(.8, .1);
+  const poor = score(.1, Math.PI / 4);
+  assert.ok(poor.trim < clean.trim);
+  assert.ok(poor.control < clean.control);
+  assert.ok(poor.total < clean.total);
+});
+
 test("poor trim and interrupted control do not satisfy reefed handling", () => {
   const scenario = create();
   for (let i = 0; i < 12; i++) scenario.update(base);
