@@ -120,3 +120,18 @@ test("earned points-of-sail completion advances, resets, saves and replays witho
   assert.equal(runInNewContext("anchorage.stage", ctx), "approach");
   assert.equal(runInNewContext("progress.completedAnchorage === true", ctx), false);
 });
+
+
+test("academy labels match the six-lesson chooser and distinguish trim practice", () => {
+  const ctx = {};
+  runInNewContext(academyCode + "\nlet academy = new SailingAcademy();", ctx);
+  const view = (objective) => { runInNewContext("academy.restoreObjective(" + objective + ")", ctx); return runInNewContext("academy.view()", ctx); };
+  assert.equal(view(0).eyebrow, "Sail trim practice · Objective 1 of 3");
+  assert.equal(view(3).eyebrow, "Lesson 2 of 6 · Objective 1 of 3");
+  assert.equal(view(6).eyebrow, "Lesson 3 of 6 · Objective 1 of 3");
+  runInNewContext("academy.restoreLessonComplete(0)", ctx);
+  assert.equal(runInNewContext("academy.view().eyebrow", ctx), "Sail trim practice complete");
+  runInNewContext("academy.restoreLessonComplete(1)", ctx);
+  assert.equal(runInNewContext("academy.view().eyebrow", ctx), "Lesson 2 of 6 complete");
+  assert.ok(main.includes('lessonView.lesson === 0 ? "Sail trim practice"'));
+});

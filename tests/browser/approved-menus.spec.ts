@@ -76,7 +76,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.screenshot({ path: resolve(evidence, `chooser-${label}.png`) });
     await page.locator('[data-lesson="1"]').click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "close-hauled");
-    await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 2 of 3 · Objective 1 of 3");
+    await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 2 of 6 · Objective 1 of 3");
     await expect(page.locator('.wind-instrument .label')).toHaveText('Apparent wind');
     await expect(page.locator('#lesson-instruction')).toContainText('wind felt on the moving boat');
     await expect(page.locator("#welcome")).toBeHidden();
@@ -109,13 +109,13 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.screenshot({ path: resolve(evidence, `returning-${label}.png`) });
     await page.locator("#continue-lesson").click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "beam-reach");
-    await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 2 of 3 · Objective 2 of 3");
+    await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 2 of 6 · Objective 2 of 3");
     await page.locator("#conditions-toggle").click();
     await page.locator("#settings-main-menu").click();
     await page.locator("#new-journey").click();
     await page.locator('[data-lesson="2"]').click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "tack");
-    await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 3 of 3 · Objective 1 of 3");
+    await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 3 of 6 · Objective 1 of 3");
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v1")!));
     expect(saved.completedLessons).toEqual([0]);
     expect(saved.academyCompleted).toBe(false);

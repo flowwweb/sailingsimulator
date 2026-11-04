@@ -231,7 +231,7 @@ export class SailingAcademy {
     return {
       stage,
       ...copy,
-      ...(this.finishedLesson && !this.paused ? { eyebrow: `Lesson ${this.lesson + 1} of 3 complete`, title: LESSON_TITLES[this.lesson]! } : {}),
+      ...(this.finishedLesson && !this.paused ? { eyebrow: this.lesson === 0 ? "Sail trim practice complete" : `Lesson ${this.lesson + 1} of 6 complete`, title: LESSON_TITLES[this.lesson]! } : {}),
       lesson: this.lesson,
       objective: this.finishedLesson ? 3 : this.index % 3,
       feedback: this.feedback,
@@ -308,47 +308,47 @@ const STAGE_DURATIONS: Record<AcademyStage, number> = {
 
 const STAGE_COPY: Record<AcademyStage, Pick<AcademyView, "eyebrow" | "title" | "instruction">> = {
   trim: {
-    eyebrow: "Lesson 1 of 3 · Objective 1 of 3",
+    eyebrow: "Sail trim practice · Objective 1 of 3",
     title: "Trim until it draws",
     instruction: "Sheet in gently. Stop when the flutter settles and both telltales stream.",
   },
   stall: {
-    eyebrow: "Lesson 1 of 3 · Objective 2 of 3",
+    eyebrow: "Sail trim practice · Objective 2 of 3",
     title: "Find the stall",
     instruction: "Keep trimming until the leeward telltale droops and the loaded sail stops accelerating.",
   },
   recover: {
-    eyebrow: "Lesson 1 of 3 · Objective 3 of 3",
+    eyebrow: "Sail trim practice · Objective 3 of 3",
     title: "Recover attached flow",
     instruction: "Ease until both telltales stream and the boat comes alive again.",
   },
   "close-hauled": {
-    eyebrow: "Lesson 2 of 3 · Objective 1 of 3",
+    eyebrow: "Lesson 2 of 6 · Objective 1 of 3",
     title: "Sail close-hauled",
     instruction: "Follow apparent wind—the wind felt on the moving boat. Head up and keep the sail drawing outside the no-go zone; adjust the sheet if needed.",
   },
   "beam-reach": {
-    eyebrow: "Lesson 2 of 3 · Objective 2 of 3",
+    eyebrow: "Lesson 2 of 6 · Objective 2 of 3",
     title: "Settle on a beam reach",
     instruction: "Bear away until the apparent-wind indicator is across the beam; adjust the sheet if needed.",
   },
   "broad-reach": {
-    eyebrow: "Lesson 2 of 3 · Objective 3 of 3",
+    eyebrow: "Lesson 2 of 6 · Objective 3 of 3",
     title: "Open onto a broad reach",
     instruction: "Bear away until the apparent-wind indicator moves aft; adjust the sheet if needed.",
   },
   tack: {
-    eyebrow: "Lesson 3 of 3 · Objective 1 of 3",
+    eyebrow: "Lesson 3 of 6 · Objective 1 of 3",
     title: "Make one clean tack",
     instruction: "Build speed, turn smoothly through the no-go zone, then retrim on the new side.",
   },
   gybe: {
-    eyebrow: "Lesson 3 of 3 · Objective 2 of 3",
+    eyebrow: "Lesson 3 of 6 · Objective 2 of 3",
     title: "Control one gybe",
     instruction: "Turn through the wind astern, let the boom cross once, then steady and retrim.",
   },
   reef: {
-    eyebrow: "Lesson 3 of 3 · Objective 3 of 3",
+    eyebrow: "Lesson 3 of 6 · Objective 3 of 3",
     title: "Reef and settle",
     instruction: "Take one reef, keep attached flow, and settle heel below 22°.",
   },
