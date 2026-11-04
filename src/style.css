@@ -4814,3 +4814,18 @@ input:disabled {
   #conditions-panel .settings-body { padding: 4px 12px; }
   #conditions-panel .settings-footer { padding: 4px 8px max(6px, env(safe-area-inset-bottom)); }
 }
+
+/* Opt-in diagnostics, shown only with ?stats=1. */
+.performance-stats {
+  position: fixed;
+  z-index: 10000;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  padding: 8px;
+  border-radius: 6px;
+  background: rgb(0 15 30 / 85%);
+  color: white;
+  font: 12px/1.4 ui-monospace, monospace;
+  white-space: pre-line;
+  pointer-events: none;
+}

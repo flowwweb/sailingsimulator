@@ -60,6 +60,7 @@ import { depthAtTide } from "./game/bathymetry";
 import { SailingWorld } from "./render/world";
 import { classifyEncounter } from "./render/traffic-navigation";
 import { bindTabList, trapFocusWithin, type TabListController } from "./ui/primitives";
+import { PerformanceStats } from "./ui/performance-stats";
 import { loadBooleanPreference, saveBooleanPreference } from "./ui/preferences";
 import { trimGuide } from "./game/trim-guide";
 import { HarborRadio } from "./game/harbor-radio";
@@ -209,6 +210,19 @@ try {
   finishBoot("failed");
   throw error;
 }
+const performanceStats = new URLSearchParams(location.search).get("stats") === "1"
+  ? (() => {
+      const output = document.createElement("output");
+      output.className = "performance-stats";
+      output.setAttribute("aria-label", "Performance statistics");
+      output.setAttribute("aria-live", "off");
+      document.body.append(output);
+      world.renderer.info.autoReset = false;
+      const stats = new PerformanceStats(output);
+      document.addEventListener("visibilitychange", () => stats.reset());
+      return stats;
+    })()
+  : undefined;
 const input = new GameInput(document, canControlBoat);
 for (const button of [elements.reefSail, elements.toggleSails]) button.addEventListener("click", () => {
   elements.sailActions.open = false;
@@ -1380,6 +1394,10 @@ function loop(now: number): void {
       started ? undefined : progress.voyages > 0 ? "return" : "arrival",
       started ? presentationTime : 0,
     );
+    if (performanceStats && !document.hidden) {
+      const { calls, triangles } = world.renderer.info.render;
+      performanceStats.record(elapsed * 1000, performance.now() - renderStart, calls, triangles);
+    }
     if (!started && titleFrameContext) {
       try {
         titleFrame.width = canvas.width;
