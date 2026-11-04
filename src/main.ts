@@ -1840,7 +1840,10 @@ function prepareLessonAttempt(kind: "drill" | "first-buoy" = "drill"): void {
   activeBoat = HARBOR_20;
   world.setBoat(activeBoat);
   weatherConfig = createLessonWeather();
-  if (firstBuoy) weatherConfig.seed = FIRST_BUOY.seed;
+  if (firstBuoy) {
+    weatherConfig.seed = FIRST_BUOY.seed;
+    weatherConfig.wind.directionFromDegrees = FIRST_BUOY.windFromDegrees;
+  }
   weatherSystem.setConfig(weatherConfig);
   simulationTime = 0;
   weather = weatherSystem.sample(0);

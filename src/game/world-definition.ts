@@ -113,12 +113,12 @@ export const FAIR_WINDS_OBJECTS: readonly WorldObject[] = [
   },
   {
     id: "school-buoy-2", name: "School buoy 2", kind: "buoy", buoyMark: "training",
-    x: 195, z: -349, collision: { radius: 0.7, response: "soft" },
+    x: 250, z: -323, collision: { radius: 0.7, response: "soft" },
     navigation: { description: "Second sailing-school mark", visibleRange: 520 },
   },
   {
     id: "school-buoy-3", name: "School buoy 3", kind: "buoy", buoyMark: "training",
-    x: 160, z: -326, collision: { radius: 0.7, response: "soft" },
+    x: 260, z: -364, collision: { radius: 0.7, response: "soft" },
     navigation: { description: "Final sailing-school mark", visibleRange: 520 },
   },
   {
