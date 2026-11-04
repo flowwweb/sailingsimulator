@@ -76,6 +76,10 @@ export class SailingWorld {
   private readonly scene = new THREE.Scene();
   private readonly worldObjects = new Map<string, THREE.Group>();
   private readonly trainingBuoys: THREE.Group[] = [];
+  private readonly anchorRode = new THREE.Line(
+    new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3)),
+    new THREE.LineBasicMaterial({ color: 0xe4d9b2 }),
+  );
   private readonly camera = new THREE.PerspectiveCamera(52, 1, 0.1, 3_500);
   private readonly scenery = new LakeScenery();
   private readonly ambientLife = new AmbientLife();
@@ -238,6 +242,8 @@ export class SailingWorld {
     this.meshyBoat = new MeshyBoat(boatAsset, this.sailMaterial);
     this.boatRoot.add(this.meshyBoat.root);
     this.scene.add(this.boatRoot);
+    this.anchorRode.visible = false;
+    this.scene.add(this.anchorRode);
     const dummyVest = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 8), new THREE.MeshStandardMaterial({ color: 0xff8a18 }));
     const dummyHead = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffd23f }));
     dummyHead.position.set(0, 0.45, -0.55);
@@ -366,6 +372,17 @@ export class SailingWorld {
 
   setCrossingExercise(active: boolean): void {
     this.ambientLife.setCrossingExercise(active);
+  }
+
+  setAnchorRode(anchor: { x: number; z: number; depth: number } | undefined, boat: BoatState, tide: number): void {
+    this.anchorRode.visible = Boolean(anchor);
+    if (!anchor) return;
+    const positions = this.anchorRode.geometry.getAttribute("position") as THREE.BufferAttribute;
+    positions.setXYZ(0, boat.position.x + Math.sin(boat.heading) * this.activeBoat.collision.halfLength,
+      tide + boat.heave + 0.6, boat.position.y + Math.cos(boat.heading) * this.activeBoat.collision.halfLength);
+    positions.setXYZ(1, anchor.x, tide - anchor.depth, anchor.z);
+    positions.needsUpdate = true;
+    this.anchorRode.geometry.computeBoundingSphere();
   }
 
   setTrainingDummy(position?: { x: number; z: number }): void {

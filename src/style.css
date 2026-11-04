@@ -4825,3 +4825,10 @@ input:disabled {
   white-space: pre-line;
   pointer-events: none;
 }
+.anchor-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.anchor-controls[hidden] { display: none; }
+.anchor-controls button { min-height: 44px; padding: 6px 10px; }
+
+.anchor-controls { grid-column: 1 / -1; }
+.anchor-controls button[hidden] { display: none; }
+.game-shell[data-academy-stage^="anchorage-"] .lesson-card { flex-wrap: wrap; max-width: min(350px, calc(100vw - 40px)); }

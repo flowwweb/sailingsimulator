@@ -15,6 +15,7 @@ export interface SailingProgress {
   activeIntroduction?: string;
   completedDummyRecovery?: boolean;
   completedCrossing?: boolean;
+  completedAnchorage?: boolean;
   academyCompleted: boolean;
   academyObjective?: number;
   completedLessons?: number[];
@@ -65,6 +66,7 @@ export function parseProgress(raw: string | null): SailingProgress {
     if (value.version === 2) {
       if (value.completedDummyRecovery === true) restored.completedDummyRecovery = true;
       if (value.completedCrossing === true) restored.completedCrossing = true;
+      if (value.completedAnchorage === true) restored.completedAnchorage = true;
       if (value.completedIntroductions?.[FIRST_BUOY.id] === FIRST_BUOY.revision) {
         restored.completedIntroductions = { [FIRST_BUOY.id]: FIRST_BUOY.revision };
       }

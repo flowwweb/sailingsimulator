@@ -443,6 +443,10 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       difficulty: "Moderate",
     },
     {
+      id: "anchorage-practice", title: "Anchorage practice", kind: "lesson", x: 1400, z: -200,
+      area: "Juniper Cove", objective: "Choose a spot, set an anchor, watch it hold, then recover it.", difficulty: "Moderate",
+    },
+    {
       id: "broadwater-crossing",
       title: "Broadwater crossing",
       kind: "exploration",
