@@ -2019,7 +2019,7 @@ function updateLesson(): void {
   const learning = !activitySession && !["free-sail", "complete"].includes(lessonView.stage);
   required("#status-lesson-progress").hidden = !learning;
   required("#status-pips").hidden = !learning;
-  required("#status-lesson-progress").textContent = `Lesson ${lessonView.lesson + 1} · ${lessonView.objective}/3 complete`;
+  required("#status-lesson-progress").textContent = `${lessonView.lesson === 0 ? "Sail trim practice" : `Lesson ${lessonView.lesson + 1} of 6`} · ${lessonView.objective}/3 complete`;
   elements.gameShell.classList.toggle("is-learning", learning);
   for (const [index, pip] of [...required("#status-pips").children].entries()) {
     pip.classList.toggle("is-earned", index < lessonView.objective);
