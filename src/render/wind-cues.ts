@@ -133,15 +133,15 @@ export function updateWindCues(
     const boatFade = THREE.MathUtils.smoothstep(Math.hypot(baseX - state.position.x, baseZ - state.position.y), 5, 11);
     const landFade = THREE.MathUtils.smoothstep(depthAtTide(sampleLakeDepth(baseX, baseZ), weather.tideLevel), 0.1, 1.5);
     const envelope = 0.35 + 0.65 * Math.sin(seeds[index * 3 + 2]! * Math.PI + weather.time * 0.35) ** 2;
-    for (let segment = 0; segment < SEGMENTS; segment += 1) {
-      for (let end = 0; end < 2; end += 1) {
-        const fraction = (segment + end) / SEGMENTS;
-        const px = baseX + directionX * length * fraction;
-        const pz = baseZ + directionZ * length * fraction;
-        const vertex = (index * SEGMENTS + segment) * 2 + end;
-        positions.setXYZ(vertex, px, weather.tideLevel + sampleWaves(weather.waves, px, pz, weather.time).height + 0.045, pz);
-        opacity.setX(vertex, Math.sin(Math.PI * fraction) * intensity * edgeFade * boatFade * landFade * envelope);
-      }
+    for (let point = 0; point <= SEGMENTS; point += 1) {
+      const fraction = point / SEGMENTS;
+      const px = baseX + directionX * length * fraction;
+      const pz = baseZ + directionZ * length * fraction;
+      const py = weather.tideLevel + sampleWaves(weather.waves, px, pz, weather.time).height + 0.045;
+      const alpha = Math.sin(Math.PI * fraction) * intensity * edgeFade * boatFade * landFade * envelope;
+      const first = index * SEGMENTS * 2 + point * 2;
+      if (point > 0) { positions.setXYZ(first - 1, px, py, pz); opacity.setX(first - 1, alpha); }
+      if (point < SEGMENTS) { positions.setXYZ(first, px, py, pz); opacity.setX(first, alpha); }
     }
   }
   positions.needsUpdate = true;
