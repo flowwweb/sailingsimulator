@@ -18,6 +18,7 @@ function fixture() {
     renderDiagnostics: {}, renderHeadsail: {}, renderWeather: {}, accumulator: 0, fixedStep: 1/60,
     simulationPaused: false, frameDt: 1/60, incident: undefined, incidentElapsed: 0,
     progress: { voyages: 0 }, presentationTime: 0, finishBoot: vi.fn(),
+    performanceStats: undefined,
   };
 }
 const frame = (context: ReturnType<typeof fixture>) => runInNewContext(`(() => { ${block} })()`, context);
