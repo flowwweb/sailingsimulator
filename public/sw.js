@@ -51,8 +51,10 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          const copy = response.clone();
-          void caches.open(CACHE_VERSION).then((cache) => cache.put("/", copy));
+          if (response.ok && response.headers.get("content-type")?.includes("text/html")) {
+            const copy = response.clone();
+            void caches.open(CACHE_VERSION).then((cache) => cache.put("/", copy));
+          }
           return response;
         })
         .catch(() => caches.match("/")),
