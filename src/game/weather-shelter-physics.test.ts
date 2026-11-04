@@ -50,7 +50,7 @@ it("can respond to the forecast and sail to the actual berth without contact", (
     const docking = incident.kind === "docking" ? evaluateDocking(state, HARBOR_20, FAIR_WINDS_WORLD) : undefined;
     if (docking) state = mooredBoatState(state, docking);
     const prior = exercise.stage;
-    exercise.update({ dt: 1 / 60, x: state.position.x, z: state.position.y,
+    const stage = exercise.update({ dt: 1 / 60, x: state.position.x, z: state.position.y,
       speed: Math.hypot(state.velocity.x, state.velocity.y), reefed: state.reefLevel === 1,
       reefSettled: reefIsSettled(state.sailsRaised, state.sailDeployment, sailDeploymentTarget(state)),
       attached: result.sail.attached, heelRadians: state.heel, incident: contact, dockedAt: docking?.object.id });
@@ -58,7 +58,7 @@ it("can respond to the forecast and sail to the actual berth without contact", (
       speed: Math.hypot(state.velocity.x, state.velocity.y), heading: state.heading,
       attached: result.sail.attached, tackCount: state.tackCount, reefed: state.reefLevel === 1,
       heelRadians: state.heel, depth: FAIR_WINDS_WORLD.sampleDepth(state.position.x, state.position.y),
-      incident: contact, dockedAt: docking?.object.id, weatherShelterComplete: exercise.stage === "complete",
+      incident: contact, dockedAt: docking?.object.id, weatherShelterComplete: stage === "complete",
       weatherShelterProgress: exercise.progress });
     sawForecast ||= exercise.stage === "forecast";
     sawResponse ||= exercise.stage === "respond";
