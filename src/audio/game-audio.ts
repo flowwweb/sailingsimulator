@@ -1,6 +1,7 @@
 import type { BoatState, SailDiagnostics } from "../sim/model";
 import { createRandom, type RandomSource } from "../weather/prng";
 import type { WeatherSnapshot } from "../weather/types";
+import type { WorldDefinition } from "../game/world-definition";
 import { computeAudioMixTargets, type AudioMixTargets } from "./mix";
 import {
   MUSIC_TRACKS,
@@ -15,7 +16,7 @@ import {
   type AudioChannel,
   type AudioSettings,
 } from "./settings";
-import type { SoundscapeSnapshot } from "./zones";
+import { sampleSoundscape } from "./zones";
 
 const MASTER_OUTPUT_SCALE = 0.62;
 const AMBIENT_LOOPS = [
@@ -358,12 +359,12 @@ export class GameAudio {
     weather: WeatherSnapshot,
     state: BoatState,
     sail: SailDiagnostics,
-    soundscape: SoundscapeSnapshot,
+    world: WorldDefinition,
   ): void {
     if (!this.context) return;
     const now = this.context.currentTime;
     if (this.lastUpdateAt > 0 && now - this.lastUpdateAt < 1 / 30) return;
-    const mix = computeAudioMixTargets(weather, state, sail, soundscape);
+    const mix = computeAudioMixTargets(weather, state, sail, sampleSoundscape(world, state.position));
     const loops = ambientLoopGains(mix);
     for (const [id, gain] of this.ambientLoops) gain.gain.setTargetAtTime(loops[id], now, 1.2);
 

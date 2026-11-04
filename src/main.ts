@@ -9,7 +9,6 @@ import {
   musicPlaybackStatus,
 } from "./audio/music";
 import type { AudioChannel } from "./audio/settings";
-import { sampleSoundscape } from "./audio/zones";
 import {
   evaluateIncident,
   type IncidentResult,
@@ -1354,7 +1353,7 @@ function loop(now: number): void {
     renderWeather,
     renderCurrent,
     renderDiagnostics,
-    sampleSoundscape(FAIR_WINDS_WORLD, renderCurrent.position),
+    FAIR_WINDS_WORLD,
   );
   if (started) {
     hudUpdateElapsed += frameDt;
