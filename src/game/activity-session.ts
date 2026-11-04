@@ -43,13 +43,15 @@ export class ActivitySession {
   private previous?: ActivityObservation;
   private startingTacks?: number;
   private startingDistance?: number;
-  private completed = false;
+  private completedView?: ActivityView;
   private score?: ActivityScore;
 
   constructor(readonly activity: WorldActivity) {}
 
   update(observation: ActivityObservation): ActivityView {
-    if (this.completed) return this.view(observation);
+    // A completed attempt is terminal until the caller creates a new session.
+    // Re-evaluating live conditions would let one attempt earn credit again.
+    if (this.completedView) return { ...this.completedView };
     const dt = Math.max(0, observation.dt);
     this.elapsed += dt;
     this.startingTacks ??= observation.tackCount;
@@ -70,7 +72,6 @@ export class ActivitySession {
     this.previous = { ...observation };
     const view = this.view(observation);
     if (view.completed) {
-      this.completed = true;
       this.score = buildScore(
         this.elapsed,
         this.attachedSeconds,
@@ -80,7 +81,8 @@ export class ActivitySession {
         this.startingDistance ?? 0,
         this.activity,
       );
-      return { ...view, score: this.score };
+      this.completedView = { ...view, progress: 1, score: this.score };
+      return { ...this.completedView };
     }
     return view;
   }
