@@ -53,6 +53,20 @@ it("can sail away and return alongside the training dummy under waves and tide",
   expect(journey.stage).toBe("ready");
   expect(readyAt).toBeGreaterThan(40);
   expect(readyAt).toBeLessThan(100);
+  // Opening status releases helm and sheet input while the boat keeps moving.
+  for (let tick = 1; tick <= 120; tick += 1) {
+    const time = readyAt + tick / 60;
+    const previous = state;
+    const result = stepBoat(previous, { rudder: 0, sheetRate: 0 }, {
+      ...environment, wavePose: sampleBoatWavePose(previous, waves, time, HARBOR_20),
+    }, 1 / 60);
+    state = result.state;
+    const tide = Math.sin(((time / 600 + weather.tide.phaseHours) / weather.tide.periodHours) * Math.PI * 2) * weather.tide.range * 0.5;
+    const incident = evaluateIncident(state, HARBOR_20, FAIR_WINDS_WORLD, tide, undefined, previous);
+    expect(incident.severity).toBe("none");
+    journey.update(1 / 60, { x: state.position.x, z: state.position.y }, Math.hypot(state.velocity.x, state.velocity.y), false, state.sheet, 0, state.heading, 0, state.yawRate);
+  }
+  expect(journey.stage).toBe("ready");
   expect(journey.recover()).toBe(true);
   expect(journey.recover()).toBe(false);
 });
