@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: 31a83f6768a0f9e4c7011d93411ff6a6262743a1
+          SOURCE_COMMIT: bf8b0bceb731f6d6f58bf785c669d88369021c31
         run: |
           set -euo pipefail
           umask 077
@@ -52,12 +52,12 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "31a83f6768a0f9e4c7011d93411ff6a6262743a1" and .tree.sha == "16d5ec0a5b2d454f2679ca9235060bc66ceafad3"' "$work/commit.json"
+          jq -e '.sha == "bf8b0bceb731f6d6f58bf785c669d88369021c31" and .tree.sha == "d2c58fd12d7c1569a1f4dcd908f1898abf78519f"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "31a83f6768a0f9e4c7011d93411ff6a6262743a1",
-            "tree": "16d5ec0a5b2d454f2679ca9235060bc66ceafad3",
+            "commit": "bf8b0bceb731f6d6f58bf785c669d88369021c31",
+            "tree": "d2c58fd12d7c1569a1f4dcd908f1898abf78519f",
             "publishedChangesCovered": 23,
             "files": [
               {
@@ -374,15 +374,15 @@ jobs:
               },
               {
                 "path": "src/game/radio-notices.test.ts",
-                "bytes": 770,
-                "sha256": "ae550bf21478ab0b8c9540d6b9cec531232a05107776de253ae8a2f0bdab33e1",
-                "blobSha1": "a667676993a240ff5935fdc48eb072194bbb1a41"
+                "bytes": 996,
+                "sha256": "36456d75e20b586c17a70e54fe5b85185ee3e4c9764126217135e9525f8b4da3",
+                "blobSha1": "4efca40c783ec2a7b8223587df22052e6dc209d1"
               },
               {
                 "path": "src/game/radio-notices.ts",
-                "bytes": 429,
-                "sha256": "0e0fc958e3d3579e4bf0b9e7991ad604c64911efa21a69090bf8249dcdd2456c",
-                "blobSha1": "939d58ecebe3cd8548adc0ba88fab2b81c3f0d37"
+                "bytes": 439,
+                "sha256": "cda9350a19e7216d5f1a3317959a90bb7ae20c662617ec55996403486fb7b434",
+                "blobSha1": "f8c83816af06ab8e9602a253c29244f97e0b8873"
               },
               {
                 "path": "src/game/time-scale.test.ts",
@@ -885,7 +885,7 @@ jobs:
             ]
           }
           SOURCE
-          jq -e '.commit == "31a83f6768a0f9e4c7011d93411ff6a6262743a1" and (.files | length) == 137' "$work/source-files.json"
+          jq -e '.commit == "bf8b0bceb731f6d6f58bf785c669d88369021c31" and (.files | length) == 137' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -909,7 +909,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: '31a83f6768a0f9e4c7011d93411ff6a6262743a1', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: 'bf8b0bceb731f6d6f58bf785c669d88369021c31', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -941,7 +941,7 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, '16d5ec0a5b2d454f2679ca9235060bc66ceafad3');
+            assert.equal(source.tree, 'd2c58fd12d7c1569a1f4dcd908f1898abf78519f');
             assert.equal(source.files.length, 137);
             process.chdir('/work/project');
             function verifySource() {
