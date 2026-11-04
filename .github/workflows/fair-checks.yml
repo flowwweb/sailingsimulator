@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: 41ebdfae10d8bbcfa47f94acb3f4f1aacbbb2d96
+          SOURCE_COMMIT: 0a066dbe15ccf862403aaf9567082aa264c369ee
         run: |
           set -euo pipefail
           umask 077
@@ -52,13 +52,13 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "41ebdfae10d8bbcfa47f94acb3f4f1aacbbb2d96" and .tree.sha == "65e8dd2dfb738e9c376b02b8ca5b760957643235"' "$work/commit.json"
+          jq -e '.sha == "0a066dbe15ccf862403aaf9567082aa264c369ee" and .tree.sha == "0433351c69ae8614e364cb0e76bbc047d2edb122"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "41ebdfae10d8bbcfa47f94acb3f4f1aacbbb2d96",
-            "tree": "65e8dd2dfb738e9c376b02b8ca5b760957643235",
-            "publishedChangesCovered": 23,
+            "commit": "0a066dbe15ccf862403aaf9567082aa264c369ee",
+            "tree": "0433351c69ae8614e364cb0e76bbc047d2edb122",
+            "publishedChangesCovered": 13,
             "files": [
               {
                 "path": "AGENTS.md",
@@ -74,9 +74,9 @@ jobs:
               },
               {
                 "path": "index.html",
-                "bytes": 38736,
-                "sha256": "dbbdbf7fc5bd86ea084c74343457c4ea69d12eae7daaa646f74f9badbdeda95a",
-                "blobSha1": "6000c7f047bc4c714c63fcbc0bdd882fa518b8f9"
+                "bytes": 39309,
+                "sha256": "bc9cae0e4965db2b901e4f6932fad3fe795aa618dc5d958170c6acae22281765",
+                "blobSha1": "5e3f93612bd063b70725c6dca823df9ffdf75f04"
               },
               {
                 "path": "package-lock.json",
@@ -427,6 +427,18 @@ jobs:
                 "blobSha1": "4877ba07be868d3864154bdebbce4ad25ef23fa0"
               },
               {
+                "path": "src/game/title-frame.test.ts",
+                "bytes": 2729,
+                "sha256": "b9e27fe60cf919fda32f23707e1c8d4ccca44da6f229ab5725f3f47a5c92e7ac",
+                "blobSha1": "0c59278e9df26715c963d20cf9e8b89781fcb194"
+              },
+              {
+                "path": "src/game/title-rank.test.ts",
+                "bytes": 1940,
+                "sha256": "91b6a5dcdce23d4cc3aafc94f828314ff0abeac3d5c8996598606e206fffd01c",
+                "blobSha1": "a8634b2c3d5616d2dc6920de8128d6e78dd225ff"
+              },
+              {
                 "path": "src/game/town-solids.test.ts",
                 "bytes": 7136,
                 "sha256": "f95c944e7a8d5c39519e83f011d5a334a57cbe5d7c65759128c796034ad3125a",
@@ -476,9 +488,9 @@ jobs:
               },
               {
                 "path": "src/main.ts",
-                "bytes": 116156,
-                "sha256": "d4162a44babefd7f5d5d669d942c806e61facb807efff25cee1fbc806e520a61",
-                "blobSha1": "233675633505eb8080614cba213d87112eca1613"
+                "bytes": 119078,
+                "sha256": "c6322ef1a6ec489f1648b80d334e6855ed3e7ea2af045b31f8952e4ae64e6430",
+                "blobSha1": "0f5d511a9c29035ef4780355cbc4747509b5f9b4"
               },
               {
                 "path": "src/render/ambient-life.ts",
@@ -595,6 +607,18 @@ jobs:
                 "blobSha1": "18d69af853125dc69225933dc58f0548044ec7a0"
               },
               {
+                "path": "src/render/training-buoy.test.ts",
+                "bytes": 844,
+                "sha256": "775b469431a3b6fcffdd1a7b77acfdd8c96053bc132d8fac2f22dd39822eeec4",
+                "blobSha1": "8ffff36ba10ed1e6cf3d7c5f58a64959f1a54307"
+              },
+              {
+                "path": "src/render/training-buoy.ts",
+                "bytes": 1272,
+                "sha256": "48a9371cfcc475d695d87f910dbedf7804897a6924adf6a6d0e3524649063fed",
+                "blobSha1": "b59f7e19b560965233088801a7651300bb88f18b"
+              },
+              {
                 "path": "src/render/wake-surface.test.ts",
                 "bytes": 1015,
                 "sha256": "abc40416ec8e541e6714a3ec4286113a562ae554ca8c9b8c60ad9e4a683e3548",
@@ -632,9 +656,9 @@ jobs:
               },
               {
                 "path": "src/render/world.ts",
-                "bytes": 84554,
-                "sha256": "6da979d8d1a441bdbd37364fb7fadb0a3ced5294543cd5dd02d964340c576114",
-                "blobSha1": "d9a4a2b5e98a34df6fbfcae01dab77c92934cf46"
+                "bytes": 85195,
+                "sha256": "3278d90c01d8cc2adcb0a48f7d8945a335a85d52b2d1c58b5e4afea6b61cda3f",
+                "blobSha1": "fdad0d0375eff21242075d9d2b92570e0fc4b6d2"
               },
               {
                 "path": "src/sim/boats.test.ts",
@@ -662,15 +686,27 @@ jobs:
               },
               {
                 "path": "src/style.css",
-                "bytes": 126376,
-                "sha256": "ccaa130228aa7481f22bd1f5747f21681883bc05b202091e27c41727d56fde98",
-                "blobSha1": "e8bf873c193fad58ac62a02c6dd8c4e78cbe6c0f"
+                "bytes": 128136,
+                "sha256": "7a9ada4bef071d56e21fde85872b4d1d4abbd80dae7f04aa9284aca2b64a81c7",
+                "blobSha1": "156956999e176605508f90937c9f5f52d8731812"
               },
               {
                 "path": "src/ui/controls-accessibility.test.ts",
                 "bytes": 19795,
                 "sha256": "f44914bcbe011a02ea8d6163144509c3f3ecfbcd82c760ae4736b3aed2c721d4",
                 "blobSha1": "982000d64896e65b531b6355f8c46d0793b1c51a"
+              },
+              {
+                "path": "src/ui/performance-stats.test.ts",
+                "bytes": 1311,
+                "sha256": "e0feba32eaf1f55c9d0e10bda9bdd67cc479ac28d4f59c56a9820c2d09758a55",
+                "blobSha1": "29a26cb0917c210477bcd53c1e494c9deee7636c"
+              },
+              {
+                "path": "src/ui/performance-stats.ts",
+                "bytes": 1956,
+                "sha256": "bf90572d2cf40ac5b3e165d0616b34d719c824f6c42f149283cd2b1b14bedd89",
+                "blobSha1": "af44515101599ad9c882433fff1598c276dd7f9b"
               },
               {
                 "path": "src/ui/preferences.test.ts",
@@ -943,10 +979,28 @@ jobs:
                 "blobSha1": "435dd6cf52bcff7e23315ce87e64cb0667865ea4"
               },
               {
+                "path": "tests/title-lighting-source.test.mjs",
+                "bytes": 1511,
+                "sha256": "cfd3018d30514478917138dd1c07698acf3fe046854e1cb2bf1c478749968b86",
+                "blobSha1": "3eefda62e78174356c72af85df222a61e49a394b"
+              },
+              {
                 "path": "tests/title-render-scheduling.test.mjs",
                 "bytes": 2209,
                 "sha256": "58e8a93328572ef16db598a440292a4624a4f1bf300dcfa3e34f4a15ba2f687f",
                 "blobSha1": "4cf1dde6d815baab457ad63da1a7e3b1e9d6ed6b"
+              },
+              {
+                "path": "tests/title-stats-source.test.mjs",
+                "bytes": 2320,
+                "sha256": "44b58be39e7a0f688822b03eb7109ad32d09b96985ee29d2e9be7f7a85812067",
+                "blobSha1": "700f23df2e81ea900baa401acdcc74a84f8014a4"
+              },
+              {
+                "path": "tests/training-buoy-source.test.mjs",
+                "bytes": 1728,
+                "sha256": "a63116b85615ed33e46c57f1de2a697916b2619570113073a9467c21ea679e75",
+                "blobSha1": "01ae7c0fdb176e79f1b35b9a3acdd2a4b9de5dd9"
               },
               {
                 "path": "tests/wave-height-source.test.mjs",
@@ -981,7 +1035,7 @@ jobs:
             ]
           }
           SOURCE
-          jq -e '.commit == "41ebdfae10d8bbcfa47f94acb3f4f1aacbbb2d96" and (.files | length) == 153' "$work/source-files.json"
+          jq -e '.commit == "0a066dbe15ccf862403aaf9567082aa264c369ee" and (.files | length) == 162' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -1005,7 +1059,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: '41ebdfae10d8bbcfa47f94acb3f4f1aacbbb2d96', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: '0a066dbe15ccf862403aaf9567082aa264c369ee', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -1037,8 +1091,8 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, '65e8dd2dfb738e9c376b02b8ca5b760957643235');
-            assert.equal(source.files.length, 153);
+            assert.equal(source.tree, '0433351c69ae8614e364cb0e76bbc047d2edb122');
+            assert.equal(source.files.length, 162);
             process.chdir('/work/project');
             function verifySource() {
               assert.deepEqual(filesIn('.', ['node_modules', 'dist']), source.files.map(f => f.path).sort(), 'Unexpected source/config file');
@@ -1175,7 +1229,7 @@ jobs:
             report.dependencyGates = 'PASS_AUDIT_AND_INSTALLED_SIGNATURE_COVERAGE_NOT_MALWARE_CLEARANCE';
             npm('unit-tests', ['run', 'test'], 120000);
             verifySource();
-            const contracts = spawnSync(process.execPath, ["--test","tests/first-buoy-source.test.mjs","tests/progression-source.test.mjs","tests/three-buoy-source.test.mjs","tests/title-render-scheduling.test.mjs","tests/radio-flow-source.test.mjs","tests/radio-voice-source.test.mjs","tests/dummy-recovery-source.test.mjs","tests/weather-cache-source.test.mjs","tests/audio-sampling-source.test.mjs","tests/lesson-chooser-source.test.mjs","tests/wind-cues-source.test.mjs","tests/crossing-encounter-source.test.mjs","tests/crossing-physics-source.test.mjs","tests/crossing-render-source.test.mjs","tests/wave-height-source.test.mjs"], { env, encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024 });
+            const contracts = spawnSync(process.execPath, ["--test","tests/first-buoy-source.test.mjs","tests/progression-source.test.mjs","tests/three-buoy-source.test.mjs","tests/title-render-scheduling.test.mjs","tests/radio-flow-source.test.mjs","tests/radio-voice-source.test.mjs","tests/dummy-recovery-source.test.mjs","tests/weather-cache-source.test.mjs","tests/audio-sampling-source.test.mjs","tests/lesson-chooser-source.test.mjs","tests/wind-cues-source.test.mjs","tests/crossing-encounter-source.test.mjs","tests/crossing-physics-source.test.mjs","tests/crossing-render-source.test.mjs","tests/wave-height-source.test.mjs","tests/title-lighting-source.test.mjs","tests/title-stats-source.test.mjs","tests/training-buoy-source.test.mjs"], { env, encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024 });
             report.stages.push({ stage: 'source-contract-tests', status: contracts.status, error: contracts.error?.message, stdout: contracts.stdout, stderr: contracts.stderr });
             assert.equal(contracts.error, undefined); assert.equal(contracts.status, 0);
             verifySource();
