@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: b1fd35b0cebe0e535521d7e17c437701da1d9088
+          SOURCE_COMMIT: 1c02fbb13c9dbf67817d9c1a6a52aef0fd23e021
         run: |
           set -euo pipefail
           umask 077
@@ -52,12 +52,12 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "b1fd35b0cebe0e535521d7e17c437701da1d9088" and .tree.sha == "ab29ea0020980720a86370911003965862afcc23"' "$work/commit.json"
+          jq -e '.sha == "1c02fbb13c9dbf67817d9c1a6a52aef0fd23e021" and .tree.sha == "4acc819b6c31614f68758246391e0901156bccdd"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "b1fd35b0cebe0e535521d7e17c437701da1d9088",
-            "tree": "ab29ea0020980720a86370911003965862afcc23",
+            "commit": "1c02fbb13c9dbf67817d9c1a6a52aef0fd23e021",
+            "tree": "4acc819b6c31614f68758246391e0901156bccdd",
             "publishedChangesCovered": 17,
             "files": [
               {
@@ -488,9 +488,9 @@ jobs:
               },
               {
                 "path": "src/game/weather-shelter-physics.test.ts",
-                "bytes": 4710,
-                "sha256": "4e8d790efa536980fa36c120da42203ee4d90c435db30d0784a87bd1ed4c69d7",
-                "blobSha1": "951b91908fac913b61e8d1cc281649fee40e6472"
+                "bytes": 4715,
+                "sha256": "9c30cfbc68ba3ebbb6c146be822536a95d500b7d0a663c302bf124a3c2df4971",
+                "blobSha1": "f96cad5e387e6fd5066906bf17a952622babe9d9"
               },
               {
                 "path": "src/game/weather-shelter.test.ts",
@@ -1071,7 +1071,7 @@ jobs:
             ]
           }
           SOURCE
-          jq -e '.commit == "b1fd35b0cebe0e535521d7e17c437701da1d9088" and (.files | length) == 168' "$work/source-files.json"
+          jq -e '.commit == "1c02fbb13c9dbf67817d9c1a6a52aef0fd23e021" and (.files | length) == 168' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -1095,7 +1095,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: 'b1fd35b0cebe0e535521d7e17c437701da1d9088', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: '1c02fbb13c9dbf67817d9c1a6a52aef0fd23e021', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -1127,7 +1127,7 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, 'ab29ea0020980720a86370911003965862afcc23');
+            assert.equal(source.tree, '4acc819b6c31614f68758246391e0901156bccdd');
             assert.equal(source.files.length, 168);
             process.chdir('/work/project');
             function verifySource() {
