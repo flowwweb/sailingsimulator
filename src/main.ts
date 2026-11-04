@@ -1350,8 +1350,7 @@ function loop(now: number): void {
           const unsafe = Boolean(incident) || nextIncident.severity === "touch" || nextIncident.severity === "impact" || nextIncident.severity === "stranded" || nextIncident.kind === "docking" || Boolean(dockedAt);
           const beforeStage = crossing.stage;
           const previousOther = crossing.other && { ...crossing.other };
-          if (droppedFrame && !unsafe) crossing.interrupt();
-          else crossing.update(fixedStep, { x: state.position.x, z: state.position.y, velocityX: state.velocity.x, velocityZ: state.velocity.y, heading: state.heading, rudder: controls.rudder, unsafe, sailsRaised: state.sailsRaised, sailSide: state.sailSide });
+          crossing.update(fixedStep, { x: state.position.x, z: state.position.y, velocityX: state.velocity.x, velocityZ: state.velocity.y, heading: state.heading, rudder: controls.rudder, unsafe, sailsRaised: state.sailsRaised, sailSide: state.sailSide });
           if (crossing.other && (crossing.stage === "crossing" || crossing.stage === "complete")) {
             const other = crossing.other;
             const otherState = { ...state, position: { x: other.x, y: other.z }, heading: other.heading,

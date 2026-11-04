@@ -69,3 +69,34 @@ test("does not start when the simulated setup would be overtaking", () => {
   e.update(1 / 60, player);
   assert.equal(e.stage, "failed"); assert.equal(e.failure, "conditions");
 });
+
+test("crossing progresses on slow frames while unsafe or discontinuous samples fail", () => {
+  const main = readFileSync("src/main.ts", "utf8");
+  const begin = main.indexOf("        if (crossing) {", main.indexOf("const eligible ="));
+  const end = main.indexOf("          if (crossing.other &&", begin);
+  assert.ok(begin >= 0 && end > begin);
+  const branch = stripTypeScriptTypes(main.slice(begin, end) + "\n}", { mode: "transform" });
+  const ctx = { crossing: new CrossingEncounter(), incident: undefined, nextIncident: { severity: "none", kind: "none" },
+    dockedAt: undefined, droppedFrame: true, fixedStep: 1 / 60, state: {}, controls: {} };
+  const player = { x: 0, z: 0, heading: Math.PI / 4, velocityX: 1.2, velocityZ: 1.2, rudder: 0 };
+  const dispatch = (unsafe = false) => {
+    ctx.nextIncident = { severity: unsafe ? "touch" : "none", kind: "none" };
+    ctx.state = { position: { x: player.x, y: player.z }, velocity: { x: player.velocityX, y: player.velocityZ },
+      heading: player.heading, sailsRaised: true, sailSide: 1 };
+    ctx.controls = { rudder: player.rudder };
+    runInNewContext(branch, ctx);
+  };
+  dispatch(); assert.equal(ctx.crossing.stage, "crossing");
+  for (let t = 0; t < 110 * 60 && ctx.crossing.stage === "crossing"; t++) {
+    const turn = t > 240 ? Math.PI / 4 : 0;
+    player.heading = Math.PI / 4 + turn;
+    player.velocityX = Math.sin(player.heading) * 1.7; player.velocityZ = Math.cos(player.heading) * 1.7;
+    player.x += player.velocityX / 60; player.z += player.velocityZ / 60; player.rudder = turn ? 1 : 0;
+    dispatch();
+  }
+  assert.equal(ctx.crossing.stage, "complete"); assert.ok(ctx.crossing.closest >= 10);
+  ctx.crossing = new CrossingEncounter(); dispatch(true); assert.equal(ctx.crossing.stage, "failed");
+  ctx.crossing = new CrossingEncounter(); player.x = 0; player.z = 0; player.heading = Math.PI / 4;
+  player.velocityX = 1.2; player.velocityZ = 1.2; player.rudder = 0; dispatch(); player.x += 100; dispatch();
+  assert.equal(ctx.crossing.stage, "failed"); assert.equal(ctx.crossing.failure, "conditions");
+});
