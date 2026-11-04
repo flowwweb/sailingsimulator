@@ -69,7 +69,9 @@ export class CrossingEncounter {
     const turn = Math.atan2(Math.sin(player.heading - CROSSING_PLAYER_HEADING), Math.cos(player.heading - CROSSING_PLAYER_HEADING));
     if (Math.abs(player.rudder) > .01 && Math.abs(turn) > .35 && this.elapsed - this.closestTime <= .1) this.turned = true;
     const behind = relative.x * Math.sin(other.heading) + relative.z * Math.cos(other.heading) < -10;
-    const opening = this.elapsed - this.closestTime > 3;
+    const relativeVelocity = { x: player.velocityX - Math.sin(other.heading) * CROSSING_OTHER_SPEED,
+      z: player.velocityZ - Math.cos(other.heading) * CROSSING_OTHER_SPEED };
+    const opening = this.elapsed - this.closestTime > 3 && relative.x * relativeVelocity.x + relative.z * relativeVelocity.z > 0;
     if (this.turned && Math.abs(turn) > .35 && behind && opening && Math.hypot(player.velocityX, player.velocityZ) > .3) {
       this.stage = this.closest >= CLEARANCE ? "complete" : "failed";
       if (this.stage === "failed") this.failure = "contact";

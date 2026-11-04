@@ -42,6 +42,18 @@ test("a brief undone turn or a late turn cannot earn credit", () => {
     assert.notEqual(e.stage, "complete");
   }
 });
+test("passing astern does not complete while the boats are closing again", () => {
+  const e = new CrossingEncounter();
+  e.stage = "crossing";
+  e.other = { x: 0, z: 0, heading: 0 };
+  e.closest = 20;
+  e.closestTime = 1;
+  e.elapsed = 10;
+  e.turned = true;
+  e.update(1 / 60, { x: 0, z: -30, velocityX: 0, velocityZ: 3,
+    heading: Math.PI / 2, rudder: 0, unsafe: false, sailsRaised: true, sailSide: 1 });
+  assert.equal(e.stage, "crossing");
+});
 test("leaving the opposite-tack sailing conditions ends the exercise", () => {
   for (const change of [{ sailSide: -1 }, { sailsRaised: false }]) {
     const e = new CrossingEncounter();
