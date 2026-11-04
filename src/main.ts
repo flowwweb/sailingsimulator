@@ -1547,6 +1547,7 @@ function selectBoat(id: BoatId): void {
 }
 
 function recoverBoat(): void {
+  if (anchorage) { interruptLessonAttempt(); startAnchorage(true); return; }
   if (crossing) { startCrossing(); return; }
   if (dummyRecovery) { startDummyRecovery(); return; }
   if (firstBuoy) { prepareLessonAttempt("first-buoy"); return; }

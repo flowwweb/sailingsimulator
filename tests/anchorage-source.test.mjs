@@ -121,3 +121,32 @@ test("anchored boat remains finite while the existing wave pose and tide evolve"
   }
   assert.notEqual(e.stage, "complete");
 });
+
+test("incident recovery restarts anchorage without retaining the old deployed anchor", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const main = await readFile(new URL("../src/main.ts", import.meta.url), "utf8");
+  function extract(name) {
+    const start = main.indexOf("function " + name + "(");
+    const end = main.indexOf("\n}", start) + 2;
+    assert.ok(start >= 0 && end > start);
+    return stripTypeScriptTypes(main.slice(start, end), { mode: "transform" });
+  }
+  const old = exercise(), anchored = boat();
+  assert.equal(old.drop(anchored, depth, () => true), true);
+  old.observe(1 / 60, true, 4.4);
+  assert.equal(old.stage, "failed"); assert.ok(old.anchor);
+  const progress = { completedAnchorage: false };
+  const ctx = { anchorage: old, crossing: undefined, dummyRecovery: undefined, firstBuoy: undefined,
+    FAIR_WINDS_WORLD: { activities: [{ id: "anchorage-practice", x: 1400, z: -200 }] },
+    activeBoat: { collision: { halfLength: 2 }, hull: { draft: 0.82 } }, AnchorageExercise,
+    state: anchored, previousState: anchored, weather: { trueWind: {} }, incident: { kind: "grounding" },
+    createLessonState: (_lesson, _wind, start) => ({ position: start }),
+    computeSailAerodynamics: () => ({}), computeHeadsailAerodynamics: () => ({}),
+    interruptLessonAttempt() {}, clearDocking() {}, clearIncident() { ctx.incident = undefined; },
+    world: { resetWake() {}, resetCamera() {} }, elements: { status: {} }, progress };
+  runInNewContext(extract("startAnchorage") + "\n" + extract("recoverBoat") + "\nrecoverBoat();", ctx);
+  assert.notEqual(ctx.anchorage, old); assert.equal(ctx.anchorage.stage, "approach");
+  assert.equal(ctx.anchorage.anchor, undefined); assert.equal(ctx.incident, undefined);
+  assert.equal(ctx.state.position.x, 1380); assert.equal(ctx.state.position.z, -180);
+  assert.equal(progress.completedAnchorage, false);
+});
