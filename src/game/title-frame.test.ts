@@ -13,8 +13,8 @@ function fixture() {
   return {
     webglContextLost: false, started: false, document: { hidden: false }, titleFrameDirty: true,
     titleFrameContext: { drawImage }, titleFrame: { width: 0, height: 0, hidden: true },
-    canvas: { width: 800, height: 450 }, FIRST_BUOY_MARKS: [], firstBuoy: undefined,
-    world: { setWorldObjectVisible: vi.fn(), render }, renderPrevious: {}, renderCurrent: {},
+    canvas: { width: 800, height: 450 }, FIRST_BUOY_MARKS: [], firstBuoy: undefined, anchorage: undefined, state: {}, weather: { tideLevel: 0 },
+    world: { setWorldObjectVisible: vi.fn(), setAnchorRode: vi.fn(), render }, renderPrevious: {}, renderCurrent: {},
     renderDiagnostics: {}, renderHeadsail: {}, renderWeather: {}, accumulator: 0, fixedStep: 1/60,
     simulationPaused: false, frameDt: 1/60, incident: undefined, incidentElapsed: 0,
     progress: { voyages: 0 }, presentationTime: 0, finishBoot: vi.fn(),

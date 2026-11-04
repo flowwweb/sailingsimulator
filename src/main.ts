@@ -2460,14 +2460,14 @@ function syncChartActivityList(): void {
         : "Not yet completed";
     }
   }
-  const completed = Object.keys(progress.activities).length;
+  const completed = Object.keys(progress.activities).length + (progress.completedAnchorage && !progress.activities["anchorage-practice"] ? 1 : 0);
   elements.logbookSummary.textContent =
     `${completed} of ${FAIR_WINDS_WORLD.activities.length} activities complete · ${progress.voyages} ${progress.voyages === 1 ? "voyage" : "voyages"} · ${formatChartDistance(progress.distanceSailed)} sailed.`;
   elements.settingsLogbookSummary.textContent =
     completed === 0
       ? `${formatChartDistance(progress.distanceSailed)} sailed · no completed activities yet`
       : `${completed} activities · ${progress.voyages} voyages · ${formatChartDistance(progress.distanceSailed)}`;
-  const activity = firstBuoy || dummyRecovery || weatherShelter ? activeCourse() : selectedActivity();
+  const activity = firstBuoy || dummyRecovery || weatherShelter || anchorage ? activeCourse() : selectedActivity();
   elements.chartCourseReadout.textContent = activity
     ? `Course: ${activity.title} · ${activity.objective}`
     : "No course selected";
@@ -2475,7 +2475,7 @@ function syncChartActivityList(): void {
 
 function renderChart(): void {
   syncChartActivityList();
-  chart.render(state, firstBuoy ? firstBuoyWorld(firstBuoy.activeCourse()?.id) : FAIR_WINDS_WORLD, weather.trueWind, firstBuoy || dummyRecovery || weatherShelter ? activeCourse() : selectedActivity());
+  chart.render(state, firstBuoy ? firstBuoyWorld(firstBuoy.activeCourse()?.id) : FAIR_WINDS_WORLD, weather.trueWind, firstBuoy || dummyRecovery || weatherShelter || anchorage ? activeCourse() : selectedActivity());
 }
 
 function formatChartDistance(distance: number): string {

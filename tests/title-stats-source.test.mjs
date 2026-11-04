@@ -17,8 +17,8 @@ test("cached title callbacks omit render samples and resume discards hidden time
   let renders = 0;
   const ctx = { webglContextLost: false, started: false, document: { hidden: false }, titleFrameDirty: true,
     titleFrameContext: { drawImage() {} }, titleFrame: { width: 0, height: 0, hidden: true }, canvas: { width: 800, height: 450 },
-    FIRST_BUOY_MARKS: [], firstBuoy: undefined, performanceStats, performance: { now: () => 0 },
-    world: { setWorldObjectVisible() {}, renderer: { info: { reset() {}, render: { calls: 25, triangles: 100 } } }, render() { renders++; } },
+    FIRST_BUOY_MARKS: [], firstBuoy: undefined, anchorage: undefined, state: {}, weather: { tideLevel: 0 }, performanceStats, performance: { now: () => 0 },
+    world: { setWorldObjectVisible() {}, setAnchorRode() {}, renderer: { info: { reset() {}, render: { calls: 25, triangles: 100 } } }, render() { renders++; } },
     renderPrevious: {}, renderCurrent: {}, renderDiagnostics: {}, renderHeadsail: {}, renderWeather: {},
     accumulator: 0, fixedStep: 1/60, simulationPaused: false, frameDt: 1/60, incident: undefined, incidentElapsed: 0,
     progress: { voyages: 0 }, presentationTime: 0, finishBoot() {}, now: 0 };

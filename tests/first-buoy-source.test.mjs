@@ -57,7 +57,7 @@ test("crossing status makes the active instruction and failure visible", () => {
 
 test("weather failure remains visible through sail feedback and clears its destination", () => {
   const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-  const context = { dummyRecovery: undefined, crossing: undefined, firstBuoy: undefined,
+  const context = { anchorage: undefined, dummyRecovery: undefined, crossing: undefined, firstBuoy: undefined,
     weatherShelter: { stage: "failed" }, activityView: { instruction: "Contact interrupted this attempt. Recover the boat, then retry.", completed: false },
     activitySession: { activity: { id: "weather-shelter" } }, elements,
     state: { maneuverCount: 1, lastManeuver: "tack" }, lastManeuverCount: 0,
@@ -76,6 +76,22 @@ test("weather failure remains visible through sail feedback and clears its desti
   runInNewContext(`${status} updateStatus();`, context);
   assert.equal(elements.status.textContent, context.activityView.instruction);
   assert.equal(runInNewContext(`${course}; activeCourse();`, context).id, "weather-shelter");
+});
+
+test("anchorage and weather use their own active chart destinations", () => {
+  const start = hud.indexOf("function activeCourse():");
+  const end = hud.indexOf("\nfunction selectedActivity", start);
+  assert.ok(start >= 0 && end > start);
+  const course = hud.slice(start, end).replace("function activeCourse(): WorldActivity | undefined", "function activeCourse()");
+  const anchorActivity = { id: "anchorage-practice" };
+  const context = { anchorage: { stage: "holding" }, weatherShelter: undefined, dummyRecovery: undefined, firstBuoy: undefined,
+    FAIR_WINDS_WORLD: { activities: [anchorActivity] }, activityView: undefined, activitySession: undefined };
+  assert.equal(runInNewContext(`${course}; activeCourse();`, context), anchorActivity);
+  context.anchorage.stage = "complete";
+  assert.equal(runInNewContext(`${course}; activeCourse();`, context), undefined);
+  context.anchorage.stage = "failed";
+  assert.equal(runInNewContext(`${course}; activeCourse();`, context), undefined);
+  assert.match(hud, /firstBuoy \|\| dummyRecovery \|\| weatherShelter \|\| anchorage \? activeCourse\(\) : selectedActivity\(\)/);
 });
 
 test("first-buoy objective retains action feedback and storage warning across updates", () => {
