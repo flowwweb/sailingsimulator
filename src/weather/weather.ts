@@ -40,13 +40,14 @@ export class WeatherSystem {
       ((time / 600 + this.config.tide.phaseHours) / tidePeriod) * Math.PI * 2;
     const tideAmplitude = clamp(this.config.tide.range, 0, 6) * 0.5;
     const tideLevel = Math.sin(tidePhase) * tideAmplitude;
-    const evolving = this.config.mode === "evolving" ? 1 : 0;
-    const directionShift = this.noise(slow, 17.1) * 13 * evolving;
-    const speedShift = this.noise(slow * 0.74, -8.4) * 0.22 * evolving;
-    const gustNoise =
+    const evolving = this.config.mode === "evolving";
+    const directionShift = evolving ? this.noise(slow, 17.1) * 13 : 0;
+    const speedShift = evolving ? this.noise(slow * 0.74, -8.4) * 0.22 : 0;
+    const gustStrength = clamp(this.config.wind.gustStrength, 0, 0.6);
+    const gust = gustStrength !== 0 ? (
       this.noise(time * this.config.wind.gustScale * 0.08, 31.7) * 0.65 +
-      this.noise(time * this.config.wind.gustScale * 0.23, -12.2) * 0.35;
-    const gust = gustNoise * clamp(this.config.wind.gustStrength, 0, 0.6);
+      this.noise(time * this.config.wind.gustScale * 0.23, -12.2) * 0.35
+    ) * gustStrength : 0;
     const windSpeed = Math.max(
       0,
       this.config.wind.speed * (1 + speedShift + gust),
