@@ -214,3 +214,36 @@ test("leaving or editing the exercise restores preferences while a chosen preset
     weatherConfig.wind.speed = 10.5; stopWeatherShelter();`, context);
   assert.equal(context.weatherConfig.wind.speed, 7.5);
 });
+
+test("weather shelter observes slow-frame ticks without losing the reef-control hold", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const dropStart = main.indexOf("  if (droppedFrame && !isSimulationPaused()) {");
+  const dropEnd = main.indexOf("  if (!portrait) presentationTime", dropStart);
+  const updateStart = main.indexOf("  if (weatherShelter) {", main.indexOf("function updateActivitySession("));
+  const updateEnd = main.indexOf("  const previousCompleted", updateStart);
+  assert.ok(dropStart >= 0 && dropEnd > dropStart && updateStart >= 0 && updateEnd > updateStart);
+  assert.ok(main.includes('window.addEventListener("blur", interruptLessonAttempt)'));
+  assert.ok(main.includes('document.addEventListener("visibilitychange", interruptLessonAttempt)'));
+  const branch = stripTypeScriptTypes(main.slice(dropStart, dropEnd) + "\nlet shelterComplete = false;\n" + main.slice(updateStart, updateEnd), { mode: "transform" });
+  const ctx = { droppedFrame: true, isSimulationPaused: () => false, accumulator: 0,
+    weatherShelter: create(), state: { position: { x: 0, y: 0 }, velocity: { x: 1, y: 0 }, reefLevel: 0, sailsRaised: true, sailDeployment: .65, heel: .1 },
+    diagnostics: { attached: .8 }, incident: undefined, unsafe: false, dockedAt: undefined,
+    reefIsSettled: (raised, deployment, target) => raised && Math.abs(deployment - target) <= .08,
+    sailDeploymentTarget: () => .65, dt: 1 / 60, weatherConfig: { wind: {} }, weatherShelterApplied: undefined,
+    cloneWeatherConfig: c => c, weatherSystem: { setConfig() {}, sample: () => ({}) }, simulationTime: 0,
+    weather: {}, syncWeatherControls() {}, elements: { status: {} } };
+  const step = () => runInNewContext("{\n" + branch + "\n}", ctx);
+  for (let i = 0; i < 750; i++) step();
+  assert.equal(ctx.weatherShelter.stage, "respond");
+  ctx.state.reefLevel = 1;
+  for (let i = 0; i < 240; i++) step();
+  assert.equal(ctx.weatherShelter.stage, "respond");
+  ctx.weatherShelter.interrupt(); // Actual blur and visibility handlers call this via interruptLessonAttempt.
+  for (let i = 0; i < 240; i++) step();
+  assert.equal(ctx.weatherShelter.stage, "respond", "a genuine pause resets the 5-second witness");
+  for (let i = 0; i < 65; i++) step();
+  assert.equal(ctx.weatherShelter.stage, "approach");
+  ctx.incident = {}; step(); assert.equal(ctx.weatherShelter.stage, "failed");
+  ctx.weatherShelter = create(); ctx.incident = undefined; ctx.state.position.x = 0; step();
+  ctx.state.position.x = 100; step(); assert.equal(ctx.weatherShelter.stage, "failed");
+});
