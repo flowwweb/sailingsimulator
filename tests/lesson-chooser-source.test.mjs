@@ -4,14 +4,15 @@ import assert from "node:assert/strict";
 const html = readFileSync("index.html", "utf8");
 const main = readFileSync("src/main.ts", "utf8");
 const css = readFileSync("src/style.css", "utf8");
-test("six chooser tiles expose five direct actions and one unavailable lesson", () => {
+test("six chooser tiles expose direct actions", () => {
   const chooser = html.split('id="lesson-chooser"')[1].split('</section>')[0];
   assert.equal((chooser.match(/class="lesson-choice(?: |")/g) || []).length, 6);
-  assert.match(chooser, /class="lesson-choice lesson-choice-unavailable" type="button" disabled/);
-  assert.match(chooser, /Crossing traffic[\s\S]*Coming soon/);
+  assert.match(chooser, /id="start-crossing" class="lesson-choice" type="button"/);
+  assert.match(chooser, /Crossing traffic[\s\S]*Keep clear/);
   assert.doesNotMatch(chooser, /id="start-lesson"|aria-pressed/);
   assert.match(main, /button\.id === "start-first-buoy"\) \{ startFirstBuoy\(\)/);
   assert.match(main, /button\.id === "start-dummy-recovery"\) \{ startDummyRecovery\(\)/);
+  assert.match(main, /button\.id === "start-crossing"\) \{ startCrossing\(\)/);
   assert.match(main, /nextLessonObjective\(progress, lesson\)/);
   assert.match(css, /\.lesson-choices \{[^}]*repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(css, /\.lesson-image-buoy \{[^}]*background-size: cover/);

@@ -357,6 +357,10 @@ export class SailingWorld {
     return this.ambientLife.trafficSnapshot();
   }
 
+  setCrossingBoat(pose?: { x: number; z: number; heading: number }): void {
+    this.ambientLife.setCrossingBoat(pose);
+  }
+
   setTrainingDummy(position?: { x: number; z: number }): void {
     this.trainingDummy.visible = Boolean(position);
     if (position) this.trainingDummy.position.set(position.x, 0, position.z);

@@ -45,7 +45,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.screenshot({ path: resolve(evidence, `title-${label}.png`) });
     await page.locator("#title-logbook").click();
     await expect(page.locator("#title-logbook-panel")).toBeVisible();
-    await expect(page.locator("#title-logbook-lessons li")).toHaveCount(5);
+    await expect(page.locator("#title-logbook-lessons li")).toHaveCount(6);
     await expect(page.locator("#title-logbook-lessons li").first()).toHaveText("Round the buoys · Not yet completed");
     await expect(page.locator("#title-logbook-stats")).toContainText("0 voyages");
     await page.keyboard.press("Escape");
@@ -60,8 +60,8 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await expect(page.locator("#set-sail")).toBeFocused();
     await page.locator("#set-sail").click();
     await expect(page.locator(".lesson-choice")).toHaveCount(6);
-    await expect(page.locator(".lesson-choice:disabled")).toHaveCount(1);
-    await expect(page.locator(".lesson-choice:disabled")).toContainText("Coming soon");
+    await expect(page.locator(".lesson-choice:disabled")).toHaveCount(0);
+    await expect(page.locator("#start-crossing")).toContainText("Crossing traffic");
     await expect(page.locator("#start-lesson")).toHaveCount(0);
     const cards = await page.locator(".lesson-choice").all();
     const boxes = await Promise.all(cards.map(card => card.boundingBox()));

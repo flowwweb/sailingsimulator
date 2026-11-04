@@ -9,7 +9,7 @@ for (const [name, width, height] of [["desktop", 1672, 941], ["phone", 844, 390]
     await page.keyboard.press("Shift+Tab");
     await expect(page.locator("#lesson-chooser-close")).toBeFocused();
     await page.keyboard.press("Shift+Tab");
-    await expect(page.locator("#start-dummy-recovery")).toBeFocused();
+    await expect(page.locator("#start-crossing")).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.locator("#set-sail")).toBeFocused();
     await page.locator("#set-sail").click();

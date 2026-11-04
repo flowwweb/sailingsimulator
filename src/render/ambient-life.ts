@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { BoatState } from "../sim/model";
-import { BOAT_DEFINITIONS, referencePolarSpeed, type BoatDefinition } from "../sim/boats";
+import { BOAT_DEFINITIONS, HARBOR_20, referencePolarSpeed, type BoatDefinition } from "../sim/boats";
 import { sailableRouteHeading, trafficCommand, type TrafficPose } from "./traffic-navigation";
 
 interface TrafficBoat extends TrafficPose {
@@ -15,14 +15,27 @@ export class AmbientLife {
   private readonly birds: THREE.Group[] = [];
   private readonly fish: THREE.Group[] = [];
   private readonly boats: TrafficBoat[] = [];
+  private readonly crossingBoat = createNpcBoatModel(HARBOR_20);
   private lastTrafficTime = 0;
 
   constructor() {
     this.root.name = "Ambient lake life";
+    this.crossingBoat.visible = false;
+    const crossingSail = this.crossingBoat.getObjectByName("npc-main");
+    if (crossingSail) crossingSail.rotation.y = 0.65;
+    this.root.add(this.crossingBoat);
     this.createBirds();
     this.createFish();
     this.createBoats();
     this.createShipwrecks();
+  }
+
+  setCrossingBoat(pose?: { x: number; z: number; heading: number }): void {
+    this.crossingBoat.visible = Boolean(pose);
+    if (pose) {
+      this.crossingBoat.position.set(pose.x, 0.1, pose.z);
+      this.crossingBoat.rotation.y = pose.heading;
+    }
   }
 
   update(time: number, player: BoatState, trueWind: { x: number; y: number }): void {
@@ -224,6 +237,7 @@ function createNpcBoatModel(definition: BoatDefinition): THREE.Group {
   mast.position.set(0, 3.45, definition.visual.rigForwardOffset);
   root.add(mast);
   const main = new THREE.Mesh(createNpcSailGeometry(3.25, 5.65), sailMaterial);
+  main.name = "npc-main";
   main.position.set(0, 0.62, definition.visual.rigForwardOffset - 0.05);
   root.add(main);
   if (definition.sailPlan.some((sail) => sail.kind === "headsail")) {
