@@ -377,7 +377,7 @@ function createTitleWeatherConfig(): WeatherConfig {
 }
 
 function bindInterface(): void {
-  required("#radio-toggle").addEventListener("click", () => setRadioOpen(required("#radio-panel").hidden));
+  required("#radio-toggle").addEventListener("click", () => setRadioOpen(Boolean(required("#radio-panel").hidden)));
   required("#radio-close").addEventListener("click", () => setRadioOpen(false));
   required<HTMLSelectElement>("#radio-channel").addEventListener("change", (event) => {
     harborRadio.selectChannel(Number((event.currentTarget as HTMLSelectElement).value));
