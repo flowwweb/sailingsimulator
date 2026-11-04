@@ -109,7 +109,7 @@ export function nextLessonObjective(progress: SailingProgress, lesson: number): 
 
 /** Call only when the current live journey update returns a new completion. */
 export function recordFirstBuoyCompletion(progress: SailingProgress): SailingProgress {
-  return { ...progress, completedIntroductions: { ...progress.completedIntroductions, [FIRST_BUOY.id]: FIRST_BUOY.revision, [FIRST_COURSE_ID]: 1 } };
+  return { ...progress, activeIntroduction: undefined, completedIntroductions: { ...progress.completedIntroductions, [FIRST_BUOY.id]: FIRST_BUOY.revision, [FIRST_COURSE_ID]: 1 } };
 }
 
 /** XP is derived from distinct completed lessons, so replay and reload cannot duplicate it. */
