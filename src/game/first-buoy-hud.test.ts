@@ -26,7 +26,7 @@ test("failed journey replaces the collapsed destination and offers retry", () =>
     lessonEyebrow: node("eyebrow"), lessonTitle: node("title"), lessonInstruction: node("instruction"),
     lessonProgress: node("progress"), lessonSkip: node("skip"),
   };
-  const context = { firstBuoy: journey, dummyRecovery: undefined, crossing: undefined, state: { position: { x: 0, y: 0 }, velocity: {}, heading: 0 },
+  const context = { firstBuoy: journey, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, state: { position: { x: 0, y: 0 }, velocity: {}, heading: 0 },
     FIRST_BUOY, FIRST_BUOY_COURSE, elements, required: node,
     courseMetrics: () => ({ distance: 100, bearingDegrees: 180 }), formatChartDistance: () => "100 m" };
   runInNewContext(`${lesson}; updateLesson();`, context);
@@ -41,7 +41,7 @@ test.each(["flow", "tack", "gybe"])("failed journey keeps both final status mess
   const journey = new FirstBuoyJourney();
   journey.update(1 / 60, { unsafe: true } as never);
   const elements = { status: { textContent: "Touched a marker. Steer clear and continue." }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-  const context = { elements, firstBuoy: journey, dummyRecovery: undefined, crossing: undefined, state: { maneuverCount: change === "flow" ? 0 : 1, lastManeuver: change === "flow" ? "none" : change },
+  const context = { elements, firstBuoy: journey, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, state: { maneuverCount: change === "flow" ? 0 : 1, lastManeuver: change === "flow" ? "none" : change },
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);
@@ -51,7 +51,7 @@ test.each(["flow", "tack", "gybe"])("failed journey keeps both final status mess
 
 test("active journey shows the sailing objective instead of flow jargon", () => {
   const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-  const context = { elements, firstBuoy: new FirstBuoyJourney(), dummyRecovery: undefined, crossing: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
+  const context = { elements, firstBuoy: new FirstBuoyJourney(), dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);
@@ -61,7 +61,7 @@ test("active journey shows the sailing objective instead of flow jargon", () => 
 
 test.each(["Tack complete. Build speed on the new side and retrim.", "Sound muted.", "Reefed mainsail."])("active journey retains feedback: %s", (message) => {
   const elements = { status: { textContent: message }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-  const context = { elements, firstBuoy: new FirstBuoyJourney(), dummyRecovery: undefined, crossing: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
+  const context = { elements, firstBuoy: new FirstBuoyJourney(), dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
     lastManeuverCount: 0, lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus(); updateHudStatus();`, context);
@@ -71,7 +71,7 @@ test.each(["Tack complete. Build speed on the new side and retrim.", "Sound mute
 
 test("completed journey keeps its completion message after flow changes", () => {
   const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-  const context = { elements, firstBuoy: { completed: true, failed: false }, dummyRecovery: undefined, crossing: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
+  const context = { elements, firstBuoy: { completed: true, failed: false }, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);

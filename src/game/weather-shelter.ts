@@ -1,3 +1,24 @@
+import { cloneWeatherConfig, type WeatherConfig } from "../weather/types";
+
+/** Preserve the user's settings while applying only edits made during the exercise. */
+export function mergeShelterWeatherEdit(before: WeatherConfig, applied: WeatherConfig, edited: WeatherConfig): WeatherConfig {
+  const result = cloneWeatherConfig(before);
+  for (const key of ["mode", "seed", "timeScale", "timeOfDay", "rain", "cloud", "visibility"] as const) {
+    if (edited[key] !== applied[key]) Object.assign(result, { [key]: edited[key] });
+  }
+  for (const group of ["wind", "waves", "tide"] as const) {
+    for (const [key, value] of Object.entries(edited[group])) {
+      const appliedGroup = applied[group] as unknown as Record<string, unknown>;
+      if (value !== appliedGroup[key]) Object.assign(result[group], { [key]: value });
+    }
+  }
+  return result;
+}
+
+export function reefIsSettled(sailsRaised: boolean, deployment: number, target: number): boolean {
+  return sailsRaised && Number.isFinite(deployment) && Number.isFinite(target) && Math.abs(deployment - target) <= 0.08;
+}
+
 /** One authored exercise: heed a forecast, manage sail, then reach the actual berth. */
 export type ShelterStage = "get-clear" | "forecast" | "respond" | "approach" | "complete" | "failed";
 

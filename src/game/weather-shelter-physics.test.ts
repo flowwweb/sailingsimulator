@@ -3,7 +3,7 @@ import { HARBOR_20 } from "../sim/boats";
 import { computeSailAerodynamics, createInitialState, degrees, sailDeploymentTarget, sheetForBoomAngle, stepBoat } from "../sim/model";
 import { evaluateDocking, mooredBoatState } from "./docking";
 import { evaluateIncident } from "./hazards";
-import { WeatherShelter } from "./weather-shelter";
+import { reefIsSettled, WeatherShelter } from "./weather-shelter";
 import { FAIR_WINDS_WORLD } from "./world-definition";
 import { ActivitySession, type ActivityView } from "./activity-session";
 import { createProgress, parseProgress, recordActivityCompletion } from "./progress";
@@ -52,7 +52,7 @@ it("can respond to the forecast and sail to the actual berth without contact", (
     const prior = exercise.stage;
     exercise.update({ dt: 1 / 60, x: state.position.x, z: state.position.y,
       speed: Math.hypot(state.velocity.x, state.velocity.y), reefed: state.reefLevel === 1,
-      reefSettled: state.sailsRaised && state.sailDeployment <= sailDeploymentTarget(state) + .08,
+      reefSettled: reefIsSettled(state.sailsRaised, state.sailDeployment, sailDeploymentTarget(state)),
       attached: result.sail.attached, heelRadians: state.heel, incident: contact, dockedAt: docking?.object.id });
     view = session.update({ dt: 1 / 60, x: state.position.x, z: state.position.y,
       speed: Math.hypot(state.velocity.x, state.velocity.y), heading: state.heading,

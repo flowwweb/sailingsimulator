@@ -30,7 +30,7 @@ import { SailingAcademy, LESSON_TITLES } from "./game/academy";
 import { FIRST_BUOY, FIRST_BUOY_MARKS, FIRST_COURSE_ID, FirstBuoyJourney, firstBuoyWorld } from "./game/first-buoy";
 import { DummyRecovery } from "./game/dummy-recovery";
 import { CROSSING_OTHER_SPEED, CROSSING_PLAYER_HEADING, CrossingEncounter } from "./game/crossing-encounter";
-import { WeatherShelter } from "./game/weather-shelter";
+import { mergeShelterWeatherEdit, reefIsSettled, WeatherShelter } from "./game/weather-shelter";
 import { createLessonState, createLessonWeather, observeLesson, checkpointLesson, restoreLesson } from "./game/lesson-session";
 import {
   ActivitySession,
@@ -252,6 +252,7 @@ let dummyRecovery: DummyRecovery | undefined;
 let crossing: CrossingEncounter | undefined;
 let weatherShelter: WeatherShelter | undefined;
 let weatherBeforeShelter: WeatherConfig | undefined;
+let weatherShelterApplied: WeatherConfig | undefined;
 const DUMMY_COURSE: WorldActivity = { id: "training-dummy", title: "Training dummy", kind: "lesson", x: FIRST_BUOY.start.x + 5 * Math.cos(degrees(FIRST_BUOY.startHeadingDegrees)), z: FIRST_BUOY.start.z - 5 * Math.sin(degrees(FIRST_BUOY.startHeadingDegrees)), area: "School Water", difficulty: "Intro", objective: "Return to the training dummy and recover it under control." };
 let weatherConfig = loadWeatherConfig();
 const audio = new GameAudio(weatherConfig.seed);
@@ -1729,6 +1730,10 @@ function updateHud(): void {
   if (crossing) elements.status.textContent = crossing.stage === "failed" ? "Crossing failed. Open status to retry."
     : crossing.stage === "complete" ? "Crossing complete."
     : crossing.stage === "crossing" ? "Keep clear of the starboard-tack boat." : "Sail northeast to begin the crossing.";
+  if (weatherShelter) {
+    elements.status.textContent = activityView?.instruction ?? "Forecast change exercise.";
+    elements.statusMessage.textContent = elements.status.textContent;
+  }
   if (storageUnavailable && !elements.status.textContent?.includes(STORAGE_WARNING)) {
     elements.status.textContent += ` ${STORAGE_WARNING}`;
   }
@@ -2114,13 +2119,14 @@ function updateActivitySession(dt: number, unsafe = false): void {
     const previousStage = weatherShelter.stage;
     const stage = weatherShelter.update({ dt, x: state.position.x, z: state.position.y,
       speed: Math.hypot(state.velocity.x, state.velocity.y), reefed: state.reefLevel === 1,
-      reefSettled: state.sailsRaised && state.sailDeployment <= sailDeploymentTarget(state) + 0.08,
+      reefSettled: reefIsSettled(state.sailsRaised, state.sailDeployment, sailDeploymentTarget(state)),
       attached: diagnostics.attached, heelRadians: state.heel,
       incident: Boolean(incident) || unsafe, dockedAt: dockedAt?.id });
     if (previousStage === "forecast" && stage === "respond") {
       weatherConfig.wind.speed = 10.5;
       weatherConfig.wind.gustStrength = 0.2;
       weatherConfig.cloud = 0.55;
+      weatherShelterApplied = cloneWeatherConfig(weatherConfig);
       weatherSystem.setConfig(weatherConfig);
       weather = weatherSystem.sample(simulationTime);
       syncWeatherControls();
@@ -2244,6 +2250,7 @@ function buildChartActivityList(): void {
 }
 
 function activeCourse(): WorldActivity | undefined {
+  if (weatherShelter?.stage === "failed") return undefined;
   if (dummyRecovery) return ["complete", "failed"].includes(dummyRecovery.stage) ? undefined : DUMMY_COURSE;
   if (firstBuoy) return firstBuoy.activeCourse();
   return activityView?.completed ? undefined : activitySession?.activity;
@@ -2273,6 +2280,7 @@ function selectChartActivity(id: string): void {
       weatherConfig.wind.speed = 6;
       weatherConfig.wind.directionFromDegrees = 260;
       weatherConfig.wind.gustStrength = 0;
+      weatherShelterApplied = cloneWeatherConfig(weatherConfig);
       weatherSystem.setConfig(weatherConfig);
       weather = weatherSystem.sample(simulationTime);
       syncWeatherControls();
@@ -2292,6 +2300,7 @@ function selectChartActivity(id: string): void {
 function stopWeatherShelter(): void {
   if (!weatherShelter) return;
   weatherShelter = undefined;
+  weatherShelterApplied = undefined;
   if (activitySession?.activity.id === "weather-shelter") {
     activitySession = undefined;
     activityView = undefined;
@@ -2342,7 +2351,7 @@ function syncChartActivityList(): void {
     completed === 0
       ? `${formatChartDistance(progress.distanceSailed)} sailed · no completed activities yet`
       : `${completed} activities · ${progress.voyages} voyages · ${formatChartDistance(progress.distanceSailed)}`;
-  const activity = firstBuoy || dummyRecovery ? activeCourse() : selectedActivity();
+  const activity = firstBuoy || dummyRecovery || weatherShelter ? activeCourse() : selectedActivity();
   elements.chartCourseReadout.textContent = activity
     ? `Course: ${activity.title} · ${activity.objective}`
     : "No course selected";
@@ -2350,7 +2359,7 @@ function syncChartActivityList(): void {
 
 function renderChart(): void {
   syncChartActivityList();
-  chart.render(state, firstBuoy ? firstBuoyWorld(firstBuoy.activeCourse()?.id) : FAIR_WINDS_WORLD, weather.trueWind, firstBuoy || dummyRecovery ? activeCourse() : selectedActivity());
+  chart.render(state, firstBuoy ? firstBuoyWorld(firstBuoy.activeCourse()?.id) : FAIR_WINDS_WORLD, weather.trueWind, firstBuoy || dummyRecovery || weatherShelter ? activeCourse() : selectedActivity());
 }
 
 function formatChartDistance(distance: number): string {
@@ -2593,7 +2602,7 @@ function bindWeatherControls(): void {
     const preset = WEATHER_PRESETS[(event.currentTarget as HTMLSelectElement).value];
     if (!preset) return;
     weatherConfig = cloneWeatherConfig(preset);
-    applyWeatherConfig(true);
+    applyWeatherConfig(true, "preset");
   });
   select<HTMLSelectElement>("sea-state").addEventListener(
     "change",
@@ -2639,6 +2648,7 @@ function bindWeatherControls(): void {
     });
   }
   required<HTMLButtonElement>("#restart-weather").addEventListener("click", () => {
+    stopWeatherShelter();
     simulationTime = 0;
     weatherSystem.setConfig(weatherConfig);
     weather = weatherSystem.sample(0);
@@ -2753,11 +2763,15 @@ function updateMusicPlayback(playback: MusicPlaybackState): void {
   );
 }
 
-function applyWeatherConfig(sync: boolean): void {
+function applyWeatherConfig(sync: boolean, source: "control" | "preset" = "control"): void {
   interruptLessonAttempt();
   if (weatherShelter) {
+    if (source === "control" && weatherBeforeShelter && weatherShelterApplied) {
+      weatherConfig = mergeShelterWeatherEdit(weatherBeforeShelter, weatherShelterApplied, weatherConfig);
+    }
     weatherShelter = undefined;
     weatherBeforeShelter = undefined;
+    weatherShelterApplied = undefined;
     activitySession = undefined;
     activityView = undefined;
     elements.status.textContent = "Conditions changed. Select Forecast change to try again.";
