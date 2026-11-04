@@ -1796,7 +1796,7 @@ function updateNavigation(): void {
   elements.encounterPanel.dataset.role = encounter?.role ?? "clear";
   elements.encounterAdvisory.textContent = encounter
     ? `${encounter.advice} · ${Math.round(encounter.distance)} m`
-    : "Clear";
+    : "No nearby closing traffic";
 }
 
 function buildCompassTape(): void {

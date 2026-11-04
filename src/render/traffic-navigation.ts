@@ -12,8 +12,8 @@ export interface TrafficCommand {
 }
 
 export interface EncounterAdvisory {
-  type: "clear" | "head-on" | "crossing" | "overtaking";
-  role: "clear" | "give-way" | "stand-on";
+  type: "clear" | "traffic";
+  role: "clear" | "traffic";
   distance: number;
   advice: string;
 }
@@ -67,8 +67,6 @@ export function classifyEncounter(
   const dx = other.x - own.x;
   const dz = other.z - own.z;
   const distance = Math.hypot(dx, dz);
-  const bearing = wrapAngle(Math.atan2(dx, dz) - own.heading);
-  const reciprocal = Math.abs(wrapAngle(other.heading - own.heading));
   const unitX = distance > 0 ? dx / distance : 0;
   const unitZ = distance > 0 ? dz / distance : 0;
   const ownVelocity = {
@@ -88,41 +86,10 @@ export function classifyEncounter(
     advice: string,
   ): EncounterAdvisory => ({ type, role, distance, advice });
   if (distance > advisoryRange || rangeRate >= -0.15) {
-    return result("clear", "clear", "Traffic clear");
+    return result("clear", "clear", "No nearby closing traffic");
   }
-  if (
-    reciprocal < (30 * Math.PI) / 180 &&
-    Math.abs(bearing) < (35 * Math.PI) / 180 &&
-    own.speed > other.speed + 0.15
-  ) {
-    return result(
-      "overtaking",
-      "give-way",
-      "Overtaking · keep clear and pass with room",
-    );
-  }
-  if (
-    reciprocal > (150 * Math.PI) / 180 &&
-    Math.abs(bearing) < (28 * Math.PI) / 180
-  ) {
-    return result(
-      "head-on",
-      "give-way",
-      "Head-on · alter course to starboard early",
-    );
-  }
-  if (bearing > 0 && bearing < (112.5 * Math.PI) / 180) {
-    return result(
-      "crossing",
-      "give-way",
-      "Give way · traffic is on your starboard side",
-    );
-  }
-  return result(
-    "crossing",
-    "stand-on",
-    "Stand on · hold a predictable course and watch",
-  );
+  // Ambient poses omit mainsail side and vessel status, so they cannot establish a COLREG role.
+  return result("traffic", "traffic", "Traffic closing · maintain lookout");
 }
 
 export function wrapAngle(value: number): number {

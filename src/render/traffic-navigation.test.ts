@@ -5,7 +5,7 @@ import {
   trafficCommand,
 } from "./traffic-navigation";
 
-describe("NPC COLREGS navigation", () => {
+describe("ambient traffic navigation", () => {
   it("alters to starboard and slows in a head-on meeting", () => {
     const command = trafficCommand(
       { x: 0, z: 0, heading: 0, speed: 3 },
@@ -19,7 +19,7 @@ describe("NPC COLREGS navigation", () => {
     expect(command.speed).toBeLessThan(3);
   });
 
-  it("stands on when the other vessel is on its port side", () => {
+  it("keeps its route when the other vessel is on its port side", () => {
     const command = trafficCommand(
       { x: 0, z: 0, heading: 0, speed: 3 },
       { x: -60, z: 70, heading: Math.PI / 2, speed: 3 },
@@ -37,26 +37,30 @@ describe("NPC COLREGS navigation", () => {
     expect(sailableRouteHeading(Math.PI / 2, 0, 1)).toBeCloseTo(Math.PI / 2);
   });
 
-  it("coaches the player to give way to closing traffic on starboard", () => {
-    const advisory = classifyEncounter(
-      { x: 0, z: 0, heading: 0, speed: 2 },
+  it("warns about closing boats without inventing a rule or role", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 2 };
+    for (const other of [
       { x: 40, z: 50, heading: -Math.PI / 2, speed: 2 },
-    );
-    expect(advisory.type).toBe("crossing");
-    expect(advisory.role).toBe("give-way");
-    expect(advisory.advice).toContain("starboard");
+      { x: -40, z: 50, heading: Math.PI / 2, speed: 2 },
+      { x: 0, z: 50, heading: Math.PI, speed: 2 },
+    ]) {
+      const advisory = classifyEncounter(own, other);
+      expect(advisory.type).toBe("traffic");
+      expect(advisory.role).toBe("traffic");
+      expect(advisory.advice).toBe("Traffic closing · maintain lookout");
+    }
   });
 
-  it("identifies a stand-on crossing and ignores opening traffic", () => {
-    const standOn = classifyEncounter(
-      { x: 0, z: 0, heading: 0, speed: 2 },
-      { x: -40, z: 50, heading: Math.PI / 2, speed: 2 },
-    );
-    expect(standOn.role).toBe("stand-on");
+  it("does not present opening or distant traffic as closing", () => {
     const opening = classifyEncounter(
       { x: 0, z: 0, heading: 0, speed: 2 },
       { x: 0, z: 50, heading: 0, speed: 3 },
     );
     expect(opening.type).toBe("clear");
+    const distant = classifyEncounter(
+      { x: 0, z: 0, heading: 0, speed: 2 },
+      { x: 0, z: 181, heading: Math.PI, speed: 2 },
+    );
+    expect(distant.type).toBe("clear");
   });
 });
