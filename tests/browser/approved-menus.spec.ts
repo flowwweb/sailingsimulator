@@ -45,33 +45,36 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.screenshot({ path: resolve(evidence, `title-${label}.png`) });
     await page.locator("#title-logbook").click();
     await expect(page.locator("#title-logbook-panel")).toBeVisible();
-    await expect(page.locator("#title-logbook-lessons li")).toHaveCount(3);
+    await expect(page.locator("#title-logbook-lessons li")).toHaveCount(6);
+    await expect(page.locator("#title-logbook-lessons li").first()).toHaveText("Round the buoys · Not yet completed");
     await expect(page.locator("#title-logbook-stats")).toContainText("0 voyages");
     await page.keyboard.press("Escape");
     await expect(page.locator("#title-logbook")).toBeFocused();
     await page.locator("#set-sail").click();
     const chooser = page.locator("#lesson-chooser");
     await expect(chooser).toBeVisible();
-    await expect(page.locator("[data-lesson]")).toHaveCount(3);
-    for (const card of await page.locator("[data-lesson]").all()) {
+    await expect(page.locator("#start-first-buoy")).toBeFocused();
+    await expect(chooser).toHaveCSS("border-style", "none");
+    await page.keyboard.press("Escape");
+    await expect(chooser).toBeHidden();
+    await expect(page.locator("#set-sail")).toBeFocused();
+    await page.locator("#set-sail").click();
+    await expect(page.locator(".lesson-choice")).toHaveCount(6);
+    await expect(page.locator(".lesson-choice:disabled")).toHaveCount(0);
+    await expect(page.locator("#start-crossing")).toContainText("Crossing traffic");
+    await expect(page.locator("#start-lesson")).toHaveCount(0);
+    const cards = await page.locator(".lesson-choice").all();
+    const boxes = await Promise.all(cards.map(card => card.boundingBox()));
+    expect(Math.abs(boxes[0]!.y - boxes[2]!.y)).toBeLessThan(2);
+    expect(boxes[3]!.y).toBeGreaterThan(boxes[0]!.y);
+    for (const card of cards) {
       const cardBox = (await card.boundingBox())!;
       const imageBox = (await card.locator(".lesson-image").boundingBox())!;
-      expect(cardBox.width - imageBox.width).toBeLessThanOrEqual(4);
+      expect(cardBox.width - imageBox.width).toBeLessThanOrEqual(2);
     }
-    await page.locator('[data-lesson="1"]').click();
-    await expect(page.locator('[data-lesson="1"]')).toHaveAttribute("aria-pressed", "true");
-    await page.locator(".lesson-detail summary").click();
-    await expect(page.locator("#chosen-lesson-targets li")).toHaveCount(3);
-    await expect(page.locator("#chosen-lesson-targets")).toContainText("Beam reach");
-    await page.locator(".lesson-detail summary").click();
-    const start = (await page.locator("#start-lesson").boundingBox())!;
-    const cards = (await page.locator(".lesson-choices").boundingBox())!;
-    expect(start.y - (cards.y + cards.height)).toBeGreaterThan(8);
-    expect(start.y + start.height).toBeLessThan(height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.mouse.move(width - 2, height - 2);
     await page.screenshot({ path: resolve(evidence, `chooser-${label}.png`) });
-    await page.locator("#start-lesson").click();
+    await page.locator('[data-lesson="1"]').click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "close-hauled");
     await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 2 of 3 · Objective 1 of 3");
     await expect(page.locator('.wind-instrument .label')).toHaveText('Apparent wind');
@@ -111,7 +114,6 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.locator("#settings-main-menu").click();
     await page.locator("#new-journey").click();
     await page.locator('[data-lesson="2"]').click();
-    await page.locator("#start-lesson").click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "tack");
     await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 3 of 3 · Objective 1 of 3");
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v1")!));
@@ -120,3 +122,20 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
   });
 }
 
+
+test("completed first journey return controls fit on a landscape phone", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.addInitScript(() => localStorage.setItem("fair-winds-progress-v1", JSON.stringify({
+    version: 2, activeIntroduction: "intro.buoy-1", completedIntroductions: { "intro.buoy-1": 1, "intro.three-buoy-course": 1 },
+    academyCompleted: false, academyObjective: 0, academyLesson: 0, completedObjectives: [], completedLessons: [], activities: {}, voyages: 1, distanceSailed: 400,
+  })));
+  await page.goto("/");
+  await expect(page.locator("#boot-loader")).toHaveCount(0);
+  await expect(page.locator("#continue-lesson")).toContainText("Repeat journey");
+  for (const id of ["continue-lesson", "new-journey", "title-free-sail", "title-logbook", "title-settings"]) {
+    const box = (await page.locator(`#${id}`).boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(390);
+  }
+});

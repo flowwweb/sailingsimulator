@@ -10,12 +10,36 @@ import { HARBOR_20 } from "../sim/boats";
 import { advanceBoatWavePose, createInitialState, stepBoat } from "../sim/model";
 import {
   buildWaveComponents,
+  sampleWaveHeight,
   sampleWaves,
   significantWaveHeight,
   waveShaderArrays,
 } from "./waves";
 
 describe("deterministic weather and analytic waves", () => {
+  it("keeps height-only rendering samples identical to full wave samples", () => {
+    for (const speed of [0, 6, 14]) {
+      const waves = buildWaveComponents(DEFAULT_WEATHER.waves, speed, 90, 42);
+      for (const [x, z, t] of [[0, 0, 0], [123.5, -88.25, 14], [-700, 400, 250]]) {
+        expect(sampleWaveHeight(waves, x!, z!, t!)).toBe(sampleWaves(waves, x!, z!, t!).height);
+      }
+    }
+  });
+  it("reuses the wave spectrum until the weather configuration changes", () => {
+    const config = cloneWeatherConfig(DEFAULT_WEATHER);
+    const system = new WeatherSystem(config);
+    const first = system.sample(0).waves;
+    expect(system.sample(45).waves).toBe(first);
+    config.wind.speed += 4;
+    expect(system.sample(50).waves).toBe(first);
+    const returned = system.getConfig();
+    returned.waves.height += 1;
+    expect(system.sample(55).waves).toBe(first);
+    system.setConfig(config);
+    const updated = system.sample(60).waves;
+    expect(updated).not.toBe(first);
+    expect(system.sample(65).waves).toBe(updated);
+  });
   it("keeps waves continuous across the recorded 10.375 m/s gust boundary", () => {
     const config = cloneWeatherConfig(DEFAULT_WEATHER);
     config.wind.speed = 10;

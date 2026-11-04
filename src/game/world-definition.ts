@@ -112,6 +112,16 @@ export const FAIR_WINDS_OBJECTS: readonly WorldObject[] = [
     },
   },
   {
+    id: "school-buoy-2", name: "School buoy 2", kind: "buoy", buoyMark: "training",
+    x: 250, z: -323, collision: { radius: 0.7, response: "soft" },
+    navigation: { description: "Second sailing-school mark", visibleRange: 520 },
+  },
+  {
+    id: "school-buoy-3", name: "School buoy 3", kind: "buoy", buoyMark: "training",
+    x: 260, z: -364, collision: { radius: 0.7, response: "soft" },
+    navigation: { description: "Final sailing-school mark", visibleRange: 520 },
+  },
+  {
     id: "pine-islet",
     name: "Pine islet",
     kind: "waypoint",
@@ -373,6 +383,10 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       difficulty: "Intro",
     },
     {
+      id: "trim-practice", title: "Catch the wind", kind: "lesson", x: 250, z: 50,
+      area: "School Water", objective: "Trim, stall and recover the sail.", difficulty: "Easy",
+    },
+    {
       id: "school-water-tacks",
       title: "Two clean tacks",
       kind: "lesson",
@@ -421,6 +435,20 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       area: "Juniper Cove",
       objective: "Enter the sheltered cove under control and dock at the visitor berth below 1.7 kn.",
       difficulty: "Moderate",
+    },
+    {
+      id: "weather-shelter",
+      title: "Forecast change",
+      kind: "mission",
+      x: 1_040,
+      z: -480,
+      area: "Juniper Cove",
+      objective: "Watch a rising-wind forecast, reef and return to the visitor berth under control.",
+      difficulty: "Moderate",
+    },
+    {
+      id: "anchorage-practice", title: "Anchorage practice", kind: "lesson", x: 1400, z: -200,
+      area: "Juniper Cove", objective: "Choose a spot, set an anchor, watch it hold, then recover it.", difficulty: "Moderate",
     },
     {
       id: "broadwater-crossing",

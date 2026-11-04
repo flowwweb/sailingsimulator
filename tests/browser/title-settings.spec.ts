@@ -29,6 +29,12 @@ for (const [label, width, height] of [
     await page.locator("#title-settings").click();
     const settings = page.locator("#conditions-panel");
     await expect(settings).toHaveAttribute("aria-hidden", "false");
+    const overlay = (await settings.boundingBox())!;
+    expect(overlay.x).toBeCloseTo(0, 0);
+    expect(overlay.y).toBeCloseTo(0, 0);
+    expect(overlay.width).toBeCloseTo(width, 0);
+    expect(overlay.height).toBeCloseTo(height, 0);
+    await expect(settings).toHaveCSS("border-top-width", "0px");
     await expect(page.locator("#welcome")).toBeHidden();
     await expect(settings.locator('[role="tab"][tabindex="0"]')).toHaveCount(1);
     await expect(page.locator("#boat-select option")).toHaveCount(1);

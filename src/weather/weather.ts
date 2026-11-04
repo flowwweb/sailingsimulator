@@ -10,8 +10,7 @@ import {
 export class WeatherSystem {
   private config: WeatherConfig;
   private noise: NoiseFunction2D;
-  private waveKey = "";
-  private waves: WeatherSnapshot["waves"] = [];
+  private waves?: WeatherSnapshot["waves"];
 
   constructor(config: WeatherConfig) {
     this.config = cloneWeatherConfig(config);
@@ -22,7 +21,7 @@ export class WeatherSystem {
     const seedChanged = config.seed !== this.config.seed;
     this.config = cloneWeatherConfig(config);
     if (seedChanged) this.noise = createNoise2D(createRandom(config.seed));
-    this.waveKey = "";
+    this.waves = undefined;
   }
 
   getConfig(): WeatherConfig {
@@ -61,14 +60,7 @@ export class WeatherSystem {
       y: Math.cos(towardRadians) * windSpeed,
     };
     // Gusts change wind forces without replacing the lake's wave phase.
-    const waveKey = JSON.stringify([
-      this.config.seed,
-      this.config.waves,
-      this.config.wind.speed,
-      this.config.wind.directionFromDegrees,
-    ]);
-    if (waveKey !== this.waveKey) {
-      this.waveKey = waveKey;
+    if (!this.waves) {
       this.waves = buildWaveComponents(
         this.config.waves,
         this.config.wind.speed,

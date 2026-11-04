@@ -115,6 +115,21 @@ export function sampleWaves(
   return { height, slopeX, slopeZ, verticalVelocity };
 }
 
+/** Height-only sampling for visual surfaces that do not need derivatives. */
+export function sampleWaveHeight(
+  components: readonly WaveComponent[], worldX: number, worldZ: number, time: number,
+): number {
+  let height = 0;
+  for (const wave of components) {
+    const waveNumber = (Math.PI * 2) / wave.wavelength;
+    const theta = waveNumber * (wave.directionX * worldX + wave.directionZ * worldZ) -
+      wave.angularFrequency * time + wave.phase;
+    const secondOrderAmplitude = 0.5 * wave.steepness * waveNumber * wave.amplitude * wave.amplitude;
+    height += wave.amplitude * Math.sin(theta) + secondOrderAmplitude * Math.sin(theta * 2);
+  }
+  return height;
+}
+
 export function waveShaderArrays(components: readonly WaveComponent[]): {
   directions: Float32Array;
   amplitudes: Float32Array;

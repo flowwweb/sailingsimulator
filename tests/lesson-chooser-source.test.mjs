@@ -1,0 +1,41 @@
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+const html = readFileSync("index.html", "utf8");
+const main = readFileSync("src/main.ts", "utf8");
+const css = readFileSync("src/style.css", "utf8");
+test("six chooser tiles expose direct actions", () => {
+  const chooser = html.split('id="lesson-chooser"')[1].split('</section>')[0];
+  assert.equal((chooser.match(/class="lesson-choice(?: |")/g) || []).length, 6);
+  assert.match(chooser, /id="start-crossing" class="lesson-choice" type="button"/);
+  assert.match(chooser, /Crossing traffic[\s\S]*Keep clear/);
+  assert.doesNotMatch(chooser, /id="start-lesson"|aria-pressed/);
+  assert.match(main, /button\.id === "start-first-buoy"\) \{ startFirstBuoy\(\)/);
+  assert.match(main, /button\.id === "start-dummy-recovery"\) \{ startDummyRecovery\(\)/);
+  assert.match(main, /button\.id === "start-crossing"\) \{ startCrossing\(\)/);
+  assert.match(main, /nextLessonObjective\(progress, lesson\)/);
+  assert.match(css, /\.lesson-choices \{[^}]*repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(css, /\.lesson-image-buoy \{[^}]*background-size: cover/);
+  assert.match(css, /\.lesson-image-dummy \{[^}]*background-size: cover/);
+  assert.match(css, /\.lesson-choice:focus-visible/);
+});
+import { runInNewContext } from "node:vm";
+
+test("anchorage tile starts the actual exercise and trim remains on the chart", () => {
+  const chooser = html.split('id="lesson-chooser"')[1].split('</section>')[0];
+  const labels = [...chooser.matchAll(/<span class="lesson-name"><b>\d+<\/b> ([^<]+)<\/span>/g)].map(match => match[1]);
+  assert.deepEqual(labels, ["Round the buoys", "Find your course", "Sail with confidence", "Crossing traffic", "Recover the training dummy", "Anchorage practice"]);
+  assert.match(chooser, /id="start-anchorage"[^>]*>[\s\S]*?lesson-preview-note">Concept preview<\/span><\/button>/);
+  let click;
+  const actions = [];
+  const choice = { id: "start-anchorage", dataset: {}, addEventListener: (_event, handler) => { click = handler; } };
+  const start = main.indexOf('  lessonChoices.forEach((button) => button.addEventListener("click", () => {');
+  const end = main.indexOf('\n  required("#lesson-chooser-close")', start);
+  assert.ok(start >= 0 && end > start);
+  const code = main.slice(start, end);
+  runInNewContext(code, { lessonChoices: [choice], closeTitleDialog: () => actions.push("close"), beginSailing: () => actions.push("sail"), selectChartActivity: id => actions.push(id) });
+  click();
+  assert.deepEqual(actions, ["close", "sail", "anchorage-practice"]);
+  assert.match(main, /activity\?\.id === "trim-practice"\) \{\s*academy\.restoreObjective\(nextLessonObjective\(progress, 0\)\);\s*prepareLessonAttempt\(\)/);
+  assert.match(readFileSync("src/game/world-definition.ts", "utf8"), /id: "trim-practice", title: "Catch the wind"/);
+});

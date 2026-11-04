@@ -1,6 +1,7 @@
 import type { BoatState, SailDiagnostics } from "../sim/model";
 import { createRandom, type RandomSource } from "../weather/prng";
 import type { WeatherSnapshot } from "../weather/types";
+import type { WorldDefinition } from "../game/world-definition";
 import { computeAudioMixTargets, type AudioMixTargets } from "./mix";
 import {
   MUSIC_TRACKS,
@@ -15,7 +16,7 @@ import {
   type AudioChannel,
   type AudioSettings,
 } from "./settings";
-import type { SoundscapeSnapshot } from "./zones";
+import { sampleSoundscape } from "./zones";
 
 const MASTER_OUTPUT_SCALE = 0.62;
 const AMBIENT_LOOPS = [
@@ -86,6 +87,8 @@ export class GameAudio {
   private ambientNoise?: AudioBuffer;
   private boatNoise?: AudioBuffer;
   private oneShotNoise?: AudioBuffer;
+  private radioNotice?: AudioBuffer;
+  private radioNoticeSource?: AudioBufferSourceNode;
   private songbirdSample?: AudioBuffer;
   private waterbirdSample?: AudioBuffer;
   private readonly ambientLoops = new Map<AmbientLoopId, GainNode>();
@@ -119,6 +122,31 @@ export class GameAudio {
 
   get isMuted(): boolean {
     return this.settings.muted;
+  }
+
+  playRadioSquelch(): void {
+    if (!this.context || this.context.state !== "running" || this.settings.muted) return;
+    this.playNoiseBurst(this.context.currentTime, { frequency: 1800, q: 0.8, duration: 0.18, level: 0.08, playbackRate: 1 });
+  }
+
+  playRadioNotice(): number {
+    const context = this.context;
+    const buffer = this.radioNotice;
+    if (!context || context.state !== "running" || !buffer || !this.boatBus || this.settings.muted) return 0;
+    this.stopRadioNotice();
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.boatBus);
+    this.radioNoticeSource = source;
+    source.onended = () => { if (this.radioNoticeSource === source) this.radioNoticeSource = undefined; };
+    source.start();
+    return buffer.duration;
+  }
+
+  stopRadioNotice(): void {
+    const source = this.radioNoticeSource;
+    this.radioNoticeSource = undefined;
+    if (source) { source.onended = null; source.stop(); }
   }
 
   getSettings(): AudioSettings {
@@ -194,6 +222,9 @@ export class GameAudio {
     this.ambientNoise = this.createNoiseBuffer(7.3, 0.28, true);
     this.boatNoise = this.createNoiseBuffer(5.1, 0.55, false);
     this.oneShotNoise = this.createNoiseBuffer(2.4, 0.34, false);
+    void this.loadSample("/audio/vhf-juniper-33a89e30.mp3").then((sample) => {
+      if (this.context === context) this.radioNotice = sample;
+    });
     void this.loadNaturalSamples();
     this.wind = this.createNoiseBus({
       filterType: "bandpass",
@@ -271,6 +302,7 @@ export class GameAudio {
 
   toggleMute(): boolean {
     this.settings.muted = !this.settings.muted;
+    if (this.settings.muted) this.stopRadioNotice();
     this.persistSettings();
     this.applyChannelGains();
     return this.settings.muted;
@@ -327,12 +359,12 @@ export class GameAudio {
     weather: WeatherSnapshot,
     state: BoatState,
     sail: SailDiagnostics,
-    soundscape: SoundscapeSnapshot,
+    world: WorldDefinition,
   ): void {
     if (!this.context) return;
     const now = this.context.currentTime;
     if (this.lastUpdateAt > 0 && now - this.lastUpdateAt < 1 / 30) return;
-    const mix = computeAudioMixTargets(weather, state, sail, soundscape);
+    const mix = computeAudioMixTargets(weather, state, sail, sampleSoundscape(world, state.position));
     const loops = ambientLoopGains(mix);
     for (const [id, gain] of this.ambientLoops) gain.gain.setTargetAtTime(loops[id], now, 1.2);
 
@@ -871,6 +903,8 @@ export class GameAudio {
     this.ambientNoise = undefined;
     this.boatNoise = undefined;
     this.oneShotNoise = undefined;
+    this.stopRadioNotice();
+    this.radioNotice = undefined;
     this.songbirdSample = undefined;
     this.waterbirdSample = undefined;
     this.ambientLoops.clear();

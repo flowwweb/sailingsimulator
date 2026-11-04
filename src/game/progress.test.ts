@@ -5,9 +5,62 @@ import {
   recordActivityCompletion,
   recordAcademyObjective,
   nextLessonObjective,
+  recordFirstBuoyCompletion,
+  sailingRank,
 } from "./progress";
+import { FIRST_BUOY, FIRST_COURSE_ID } from "./first-buoy";
 
 describe("sailing progress", () => {
+  it("derives XP from distinct saved completions and never re-awards a replay", () => {
+    let progress = createProgress();
+    expect(sailingRank(progress)).toMatchObject({ xp: 0, level: 1 });
+    progress = recordFirstBuoyCompletion(progress);
+    expect(sailingRank(parseProgress(JSON.stringify(progress)))).toMatchObject({ xp: 100, level: 2, levelXp: 0, rank: "Deckhand" });
+    progress = recordFirstBuoyCompletion(progress);
+    for (const target of [0, 1, 2]) progress = recordAcademyObjective(progress, target);
+    expect(sailingRank(progress)).toMatchObject({ xp: 200, level: 3, rank: "Crew" });
+    expect(sailingRank(recordAcademyObjective(parseProgress(JSON.stringify(progress)), 2)).xp).toBe(200);
+  });
+  it("persists only explicit dummy-recovery completion", () => {
+    expect(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: true })).completedDummyRecovery).toBe(true);
+    expect(sailingRank(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: true }))).xp).toBe(100);
+    expect(sailingRank(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: "true" }))).xp).toBe(0);
+    expect(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: "true" })).completedDummyRecovery).toBeUndefined();
+    expect(parseProgress(JSON.stringify({ ...createProgress(), version: 1, completedDummyRecovery: true })).completedDummyRecovery).toBeUndefined();
+  });
+  it("gives the sixth level a distinct in-game rank", () => {
+    const complete = { ...createProgress(), completedDummyRecovery: true,
+      completedIntroductions: { [FIRST_BUOY.id]: FIRST_BUOY.revision }, completedLessons: [0, 1, 2] };
+    expect(sailingRank(complete)).toMatchObject({ xp: 500, level: 6, rank: "Navigator" });
+  });
+  it("migrates v1 drills as practice without awarding a new introduction", () => {
+    const saved = parseProgress(JSON.stringify({ ...createProgress(), version: 1, academyCompleted: true,
+      completedIntroductions: { [FIRST_BUOY.id]: 1 }, activeIntroduction: FIRST_BUOY.id, voyages: 3, distanceSailed: 900 }));
+    expect(saved.version).toBe(2);
+    expect(saved.academyCompleted).toBe(true);
+    expect(saved.completedIntroductions).toBeUndefined();
+    expect(saved.activeIntroduction).toBeUndefined();
+    expect([saved.voyages, saved.distanceSailed]).toEqual([3, 900]);
+  });
+  it("persists versioned introduction credit independently from selection and legacy drills", () => {
+    const selected = { ...createProgress(), activeIntroduction: FIRST_BUOY.id };
+    expect(parseProgress(JSON.stringify(selected)).completedIntroductions).toBeUndefined();
+    const earned = recordFirstBuoyCompletion(selected);
+    expect(recordFirstBuoyCompletion(earned)).toEqual(earned);
+    expect(parseProgress(JSON.stringify(earned)).completedIntroductions).toEqual({ [FIRST_BUOY.id]: FIRST_BUOY.revision, [FIRST_COURSE_ID]: 1 });
+    expect(earned.academyCompleted).toBe(false);
+    for (const revision of [0, 2, "1", null]) {
+      expect(parseProgress(JSON.stringify({ ...selected, completedIntroductions: { [FIRST_BUOY.id]: revision } })).completedIntroductions).toBeUndefined();
+    }
+  });
+  it("preserves legacy buoy XP without falsely marking the three-buoy course complete", () => {
+    const legacy = parseProgress(JSON.stringify({ ...createProgress(), completedIntroductions: { [FIRST_BUOY.id]: FIRST_BUOY.revision } }));
+    expect(legacy.completedIntroductions?.[FIRST_COURSE_ID]).toBeUndefined();
+    expect(sailingRank(legacy).xp).toBe(100);
+    const earned = parseProgress(JSON.stringify(recordFirstBuoyCompletion(legacy)));
+    expect(earned.completedIntroductions?.[FIRST_COURSE_ID]).toBe(1);
+    expect(sailingRank(earned).xp).toBe(100);
+  });
   it("records only observed targets and requires all three before marking a lesson", () => {
     let progress = createProgress();
     progress = recordAcademyObjective(progress, 8);

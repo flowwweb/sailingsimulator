@@ -13,7 +13,7 @@ for (const [name, width, height] of [["desktop",1440,900],["phone",844,390]] as 
     await page.goto("/");
     await expect(page.locator("#boot-loader")).toHaveCount(0);
     await page.locator("#set-sail").click();
-    await page.locator("#start-lesson").click();
+    await page.locator("#start-first-buoy").click();
     const toggle = page.locator("#status-toggle");
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");

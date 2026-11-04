@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyEncounter,
+  summarizeTraffic,
   sailableRouteHeading,
   trafficCommand,
 } from "./traffic-navigation";
 
-describe("NPC COLREGS navigation", () => {
+describe("ambient traffic navigation", () => {
   it("alters to starboard and slows in a head-on meeting", () => {
     const command = trafficCommand(
       { x: 0, z: 0, heading: 0, speed: 3 },
@@ -19,7 +20,7 @@ describe("NPC COLREGS navigation", () => {
     expect(command.speed).toBeLessThan(3);
   });
 
-  it("stands on when the other vessel is on its port side", () => {
+  it("keeps its route when the other vessel is on its port side", () => {
     const command = trafficCommand(
       { x: 0, z: 0, heading: 0, speed: 3 },
       { x: -60, z: 70, heading: Math.PI / 2, speed: 3 },
@@ -37,26 +38,70 @@ describe("NPC COLREGS navigation", () => {
     expect(sailableRouteHeading(Math.PI / 2, 0, 1)).toBeCloseTo(Math.PI / 2);
   });
 
-  it("coaches the player to give way to closing traffic on starboard", () => {
-    const advisory = classifyEncounter(
-      { x: 0, z: 0, heading: 0, speed: 2 },
+  it("warns about closing boats without inventing a rule or role", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 2 };
+    for (const other of [
       { x: 40, z: 50, heading: -Math.PI / 2, speed: 2 },
-    );
-    expect(advisory.type).toBe("crossing");
-    expect(advisory.role).toBe("give-way");
-    expect(advisory.advice).toContain("starboard");
+      { x: -40, z: 50, heading: Math.PI / 2, speed: 2 },
+      { x: 0, z: 50, heading: Math.PI, speed: 2 },
+    ]) {
+      const advisory = classifyEncounter(own, other);
+      expect(advisory.type).toBe("traffic");
+      expect(advisory.role).toBe("traffic");
+      expect(advisory.advice).toBe("Traffic closing · maintain lookout");
+    }
   });
 
-  it("identifies a stand-on crossing and ignores opening traffic", () => {
-    const standOn = classifyEncounter(
-      { x: 0, z: 0, heading: 0, speed: 2 },
-      { x: -40, z: 50, heading: Math.PI / 2, speed: 2 },
-    );
-    expect(standOn.role).toBe("stand-on");
+  it("does not present opening or distant traffic as closing", () => {
     const opening = classifyEncounter(
       { x: 0, z: 0, heading: 0, speed: 2 },
       { x: 0, z: 50, heading: 0, speed: 3 },
     );
     expect(opening.type).toBe("clear");
+    const distant = classifyEncounter(
+      { x: 0, z: 0, heading: 0, speed: 2 },
+      { x: 0, z: 181, heading: Math.PI, speed: 2 },
+    );
+    expect(distant.type).toBe("clear");
+  });
+
+  it("keeps stationary and coincident nearby vessels visible", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 0 };
+    for (const x of [0, 5]) {
+      const advisory = classifyEncounter(own, { x, z: 0, heading: 0, speed: 0 });
+      expect(advisory.type).toBe("traffic");
+      expect(advisory.advice).toBe("Traffic nearby · maintain lookout");
+    }
+  });
+
+  it("keeps a close vessel visible even while moving away", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 0 };
+    const advisory = classifyEncounter(own, { x: 2, z: 0, heading: Math.PI / 2, speed: 2 });
+    expect(advisory.type).toBe("traffic");
+    expect(advisory.advice).toBe("Traffic nearby · maintain lookout");
+  });
+
+  it("uses actual motion instead of heading when the boat is making leeway", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 2, velocity: { x: 2, z: 0 } };
+    const other = { x: 20, z: 0, heading: 0, speed: 0 };
+    expect(classifyEncounter(own, other).advice).toBe("Traffic closing · maintain lookout");
+    expect(classifyEncounter({ ...own, velocity: { x: -2, z: 0 } }, other).type).toBe("clear");
+  });
+
+  it("shows nearby and closing vessels together, even with additional traffic", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 0 };
+    const nearby = classifyEncounter(own, { x: 15, z: 0, heading: 0, speed: 0 });
+    const anotherNearby = classifyEncounter(own, { x: -17, z: 0, heading: 0, speed: 0 });
+    const closing = classifyEncounter(own, { x: 20, z: 0, heading: -Math.PI / 2, speed: 2 });
+    expect(summarizeTraffic([closing, anotherNearby, nearby]).advice)
+      .toBe("Nearby 15 m · Closing 20 m · +1 more");
+  });
+
+  it("shows two equally urgent closing vessels", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 0 };
+    const east = classifyEncounter(own, { x: 20, z: 0, heading: -Math.PI / 2, speed: 2 });
+    const west = classifyEncounter(own, { x: -20, z: 0, heading: Math.PI / 2, speed: 2 });
+    expect(summarizeTraffic([east, west]).advice)
+      .toBe("Closing 20 m · Closing 20 m");
   });
 });

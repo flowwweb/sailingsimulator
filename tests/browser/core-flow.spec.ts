@@ -21,7 +21,9 @@ async function beginLesson(page: Page): Promise<void> {
   await expect(page.locator("#welcome")).toBeVisible();
   await expect(page.locator("#set-sail")).toBeVisible();
   await page.locator("#set-sail").click();
-  await page.locator("#start-lesson").click();
+  await page.locator("#start-first-buoy").click();
+  await page.locator("#map-toggle").click();
+  await page.locator('[data-activity-id="trim-practice"]').click();
   await expect(page.locator(".game-shell")).not.toHaveClass(/is-welcome/);
   await expect(page.locator("#welcome")).toBeHidden();
   await expect(page.locator("#flow-state")).toBeVisible();

@@ -467,7 +467,9 @@ export function stepBoat(
     -forwardSpeed *
       (boat.hull.longitudinalDragLinear +
         Math.abs(forwardSpeed) *
-          boat.hull.longitudinalDragQuadratic),
+          boat.hull.longitudinalDragQuadratic +
+        (boat.hull.waveDragFactor ?? 0) *
+          Math.max(0, Math.abs(forwardSpeed) - 0.4 * Math.sqrt(9.81 * boat.hull.length)) ** 2),
   );
   const keelForce = scale(
     starboard,

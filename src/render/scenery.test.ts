@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
+import { lakeBoundaryRadius } from "../game/bathymetry";
 import {
   COASTAL_TERRAIN_BAND_COUNT,
   createCoastalTerrainGeometry,
@@ -213,10 +214,10 @@ describe("coastal terrain geometry", () => {
     );
     const raycaster = new THREE.Raycaster();
     const samples = [
-      { angle: 0.17, radius: 1_850 },
-      { angle: 1.37, radius: 2_020 },
-      { angle: 3.82, radius: 2_060 },
-      { angle: 5.91, radius: 2_240 },
+      { angle: 0.17, radius: lakeBoundaryRadius(0.17) + 320 },
+      { angle: 1.37, radius: lakeBoundaryRadius(1.37) + 200 },
+      { angle: 3.82, radius: lakeBoundaryRadius(3.82) + 360 },
+      { angle: 5.91, radius: lakeBoundaryRadius(5.91) + 520 },
     ];
 
     for (const sample of samples) {

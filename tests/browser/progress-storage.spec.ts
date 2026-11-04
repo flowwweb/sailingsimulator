@@ -32,7 +32,7 @@ for (const mode of ["getter", "methods", "quota"] as const) {
     await expect(page.locator("html")).toHaveAttribute("data-app-ready", "true");
     if (denyReads) {
       await page.locator("#set-sail").click();
-      await page.locator("#start-lesson").click();
+      await page.locator("#start-first-buoy").click();
     } else await page.locator("#continue-lesson").click();
     await expect(page.locator("#welcome")).toBeHidden();
     await expectFrames(page);
@@ -51,7 +51,7 @@ for (const mode of ["getter", "methods", "quota"] as const) {
       await page.locator("#conditions-toggle").click();
       await page.locator("#settings-main-menu").click();
       await page.locator("#new-journey").click();
-      await page.locator("#start-lesson").click();
+      await page.locator("#start-first-buoy").click();
       await expect(page.locator("#welcome")).toBeHidden();
       await expectFrames(page);
       await page.locator("#conditions-toggle").click();
@@ -82,7 +82,9 @@ test("earned-objective save failure keeps subsequent frames and session mastery"
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-app-ready", "true");
   await page.locator("#set-sail").click();
-  await page.locator("#start-lesson").click();
+  await page.locator("#start-first-buoy").click();
+  await page.locator("#map-toggle").click();
+  await page.locator('[data-activity-id="trim-practice"]').click();
   await expect(page.locator("#welcome")).toBeHidden();
   const held = new Set<string>();
   const start = Date.now();

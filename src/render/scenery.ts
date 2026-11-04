@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { LAKE_RADIUS } from "../game/bathymetry";
+import { LAKE_RADIUS, lakeBoundaryRadius } from "../game/bathymetry";
 import { createRandom } from "../weather/prng";
 import type { WeatherSnapshot } from "../weather/types";
 
@@ -347,7 +347,8 @@ export class LakeScenery {
     const euler = new THREE.Euler();
     for (let index = 0; index < count; index += 1) {
       const angle = random() * Math.PI * 2;
-      const radius = LAKE_RADIUS - 190 + random() * 280;
+      // Keep the largest scaled footprint on the permanent-land side.
+      const radius = coastalTerrainBand(angle, 1).radius + 20 + random() * 70;
       position.set(
         Math.sin(angle) * radius,
         -0.4 + random() * 7,
@@ -387,7 +388,8 @@ export class LakeScenery {
     for (let index = 0; index < count; index += 1) {
       const angle = random() * Math.PI * 2;
       const shore = coastalTerrainBand(angle, 1).radius;
-      const radius = shore + 4 + random() * 42;
+      // The full stone footprint must remain outside navigable water.
+      const radius = shore + 12 + random() * 34;
       const height = sampleCoastalTerrainHeight(angle, radius);
       position.set(
         Math.sin(angle) * radius,
@@ -658,9 +660,9 @@ export function createGroundTexture(): THREE.DataTexture {
   return texture;
 }
 
-const COASTAL_RADIAL_BANDS = [0, 28, 74, 148, 266, 418, 610] as const;
-const COASTAL_BASE_HEIGHTS = [-1.8, 0.45, 5.8, 16, 36, 66, 106] as const;
-const COASTAL_TERRAIN_SEGMENTS = 192;
+const COASTAL_RADIAL_BANDS = [-8, 0, 46, 120, 238, 390, 582] as const;
+const COASTAL_BASE_HEIGHTS = [-1.8, 1.6, 5.8, 16, 36, 66, 106] as const;
+const COASTAL_TERRAIN_SEGMENTS = 256;
 
 export const COASTAL_TERRAIN_BAND_COUNT = COASTAL_RADIAL_BANDS.length;
 
@@ -681,16 +683,7 @@ function coastalTerrainBand(
   angle: number,
   band: number,
 ): { radius: number; height: number } {
-  const shoreline =
-    LAKE_RADIUS - 25 +
-    Math.sin(angle * 2 + 0.4) * 42 +
-    Math.sin(angle * 5 - 1.1) * 21 +
-    Math.sin(angle * 11 + 2.2) * 8 +
-    Math.sin(angle * 23 - 0.3) * 3.5 -
-    angularFeature(angle, 0.52, 0.16) * 96 -
-    angularFeature(angle, 3.92, 0.22) * 72 +
-    angularFeature(angle, 1.55, 0.19) * 92 +
-    angularFeature(angle, 5.3, 0.17) * 68;
+  const shoreline = lakeBoundaryRadius(angle);
   const headland =
     Math.sin(angle * 2.1 - 0.7) * 0.5 +
     Math.sin(angle * 5.3 + 1.8) * 0.28 +
@@ -702,16 +695,16 @@ function coastalTerrainBand(
   return {
     radius:
       shoreline + COASTAL_RADIAL_BANDS[band]! +
-      Math.sin(angle * (4 + band) + band * 1.7) * (4 + band * 4.5) +
-      Math.sin(angle * (13 + band * 2) - band) * bandProgress * 6,
+      (band < 2 ? 0 : Math.sin(angle * (4 + band) + band * 1.7) * (4 + band * 4.5)) +
+      (band < 2 ? 0 : Math.sin(angle * (13 + band * 2) - band) * bandProgress * 6),
     height:
-      COASTAL_BASE_HEIGHTS[band]! +
-      (band === 0
-        ? 0
-        : headland * (4 + band * 7) +
+      band < 2 ? COASTAL_BASE_HEIGHTS[band]! : Math.max(
+        COASTAL_BASE_HEIGHTS[band]!,
+        COASTAL_BASE_HEIGHTS[band]! + headland * (4 + band * 7) +
           Math.sin(angle * 9 - band * 0.8) * bandProgress * 5 -
           riverValley * bandProgress * (13 + band * 5) +
-          angularFeature(angle, 1.55, 0.28) * bandProgress * band * 3.5),
+          angularFeature(angle, 1.55, 0.28) * bandProgress * band * 3.5,
+      ),
   };
 }
 

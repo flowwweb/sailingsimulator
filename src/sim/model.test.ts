@@ -43,10 +43,46 @@ describe("sailing physics teaching contracts", () => {
         ...HARBOR_20.hull,
         longitudinalDragLinear: 55,
         longitudinalDragQuadratic: 26,
+        waveDragFactor: 0,
       },
     };
 
     expect(run()).toBeGreaterThan(run(previousHullTune));
+  });
+
+  it("keeps the teaching dinghy responsive in moderate wind without accelerating excessively in strong wind", () => {
+    const run = (wind: number, angle: number, eased = false) => {
+      let state = createInitialState();
+      const heading = degrees(90 + angle);
+      state.heading = heading;
+      const environment = { trueWind: { x: -wind, y: 0 } };
+      for (let index = 0; index < 60 * 30; index += 1) {
+        const sail = computeSailAerodynamics(state, environment);
+        const error = Math.atan2(Math.sin(heading - state.heading), Math.cos(heading - state.heading));
+        const rudder = Math.max(-1, Math.min(1, error * 4 - state.yawRate * 8));
+        state = stepBoat(state, { rudder, sheetRate: 0, sheetTarget: eased ? 1 : sheetForBoomAngle(sail.idealBoomAngle) }, environment, 1 / 60).state;
+      }
+      return Math.hypot(state.velocity.x, state.velocity.y) * 1.94384;
+    };
+    const moderate = run(6, 70);
+    expect(moderate).toBeGreaterThan(4.8);
+    expect(moderate).toBeLessThan(5.5);
+    expect(run(6, 20)).toBeLessThan(1);
+    expect(run(6, 70, true)).toBeLessThan(1);
+    expect(run(14, 90)).toBeLessThan(11.85);
+    expect(run(14, 20)).toBeLessThan(2.05);
+  });
+
+  it("opposes motion in both directions with wave resistance", () => {
+    for (const speed of [-4, 4]) {
+      const state = createInitialState();
+      state.velocity = { x: 0, y: speed };
+      const { hydro } = stepBoat(state, { rudder: 0, sheetRate: 0 }, { trueWind: { x: 0, y: 0 } }, 1 / 60);
+      const withoutWave = { ...HARBOR_20, hull: { ...HARBOR_20.hull, waveDragFactor: 0 } };
+      const baseline = stepBoat(state, { rudder: 0, sheetRate: 0 }, { trueWind: { x: 0, y: 0 }, boat: withoutWave }, 1 / 60);
+      expect(hydro.hullDrag.y * speed).toBeLessThan(0);
+      expect(Math.abs(hydro.hullDrag.y)).toBeGreaterThan(Math.abs(baseline.hydro.hullDrag.y));
+    }
   });
 
   it("uses boat velocity when calculating apparent wind", () => {

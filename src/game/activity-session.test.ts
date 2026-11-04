@@ -67,4 +67,16 @@ describe("ActivitySession", () => {
     expect(result.completed).toBe(true);
     expect(result.score?.safety).toBe(100);
   });
+
+  it("scores the required weather return route from berth and offshore starts", () => {
+    const score = (positions: number[]) => {
+      const session = new ActivitySession({ ...activity("weather-shelter"), x: 0, z: 0 });
+      for (const x of positions) session.update({ ...base, x });
+      return session.update({ ...base, x: 0, weatherShelterComplete: true }).score!.efficiency;
+    };
+    expect(score([0, 150, 0])).toBe(100);
+    expect(score([200, 0])).toBe(100);
+    expect(score([0, 150, 0, 150, 0])).toBe(50);
+    expect(score([200, 400, 0])).toBe(33);
+  });
 });

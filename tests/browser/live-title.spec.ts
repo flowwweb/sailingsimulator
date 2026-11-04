@@ -48,10 +48,14 @@ test("portrait pauses the active lesson and landscape resumes it", async ({ page
   await page.goto("/");
   await expect(page.locator("#boot-loader")).toHaveCount(0);
   await page.locator("#set-sail").click();
-  await page.locator("#start-lesson").click();
+  await page.locator("#start-first-buoy").click();
+  await page.locator("#map-toggle").click();
+  await page.locator('[data-activity-id="trim-practice"]').click();
   await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "trim");
   await page.setViewportSize({ width:390, height:844 });
   await expect(page.locator(".orientation-gate")).toBeVisible();
+  await expect(page.locator(".orientation-gate h2")).toHaveText("Turn your device");
+  await expect(page.locator(".orientation-hint")).toHaveText("Rotate to landscape to continue");
   await expect.poll(() => page.locator(".game-shell").evaluate(element => element.inert)).toBe(true);
   const time = await page.locator(".game-shell").getAttribute("data-simulation-time");
   const saved = await page.evaluate(() => localStorage.getItem("fair-winds-progress-v1"));
@@ -65,6 +69,37 @@ test("portrait pauses the active lesson and landscape resumes it", async ({ page
   await expect(page.locator(".orientation-gate")).toBeHidden();
   await expect.poll(async () => Number(await page.locator(".game-shell").getAttribute("data-simulation-time"))).toBeGreaterThan(Number(time));
   await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "trim");
+});
+
+test("rotation notice fits a short portrait viewport and respects reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 320, height: 480 });
+  await page.goto("/");
+  const gate = page.locator(".orientation-gate");
+  await expect(gate).toBeVisible();
+  await expect(page.locator(".rotation-arrow")).toHaveCSS("animation-name", "none");
+  for (const selector of [".rotation-cue", ".orientation-gate h2", ".orientation-instruction p", ".orientation-hint"]) {
+    const box = (await page.locator(selector).boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(480);
+  }
+});
+
+test("settings selections are frameless and retain keyboard focus", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/");
+  await page.locator("#title-settings").click();
+  const tab = page.locator('[data-ui-tab="weather"]');
+  await expect(tab).toHaveCSS("border-style", "none");
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#weather-preset")).toHaveCSS("border-style", "none");
+  await page.keyboard.press("Shift+Tab");
+  const keyboardFocus = page.locator(":focus-visible");
+  await expect(keyboardFocus).toHaveCount(1);
+  await expect(keyboardFocus).toHaveCSS("outline-style", "solid");
 });
 
 test("sailing starts while music loading is delayed", async ({ page }) => {

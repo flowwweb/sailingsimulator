@@ -187,7 +187,7 @@ export class SailingAcademy {
       : stage === "stall" ? this.sheetIn
       : stage === "recover" ? this.sawStall && this.eased && o.sheet > this.stallSheet + 0.02
       : stage === "close-hauled" ? this.steered && turned < -0.08
-      : stage === "beam-reach" || stage === "broad-reach" ? this.steered && turned > 0.08 && this.eased
+      : stage === "beam-reach" || stage === "broad-reach" ? this.steered && turned > 0.08
       : stage === "reef" ? this.reefTaken && settled
       : this.steered && settled;
     const requirement = stageRequirement(
@@ -196,7 +196,8 @@ export class SailingAcademy {
       this.startingTacks,
       this.startingGybes,
     );
-    const met = requirement.met && action && sailing && (stage === "stall" ? o.luff < 0.25 : settled);
+    const drawing = stage !== "close-hauled" && stage !== "beam-reach" && stage !== "broad-reach" || (o.luff < 0.3 && o.stall < 0.3);
+    const met = requirement.met && action && sailing && drawing && (stage === "stall" ? o.luff < 0.25 : settled);
     this.feedback = met ? "Hold steady." : !loaded ? "Raise the sail and steer clear of the no-go zone."
       : stage === "recover" && !this.sawStall ? "Sheet in to find the stall, then ease."
       : stage === "trim" && !this.sawLuff ? "Ease until the sail flutters, then trim in."
@@ -324,17 +325,17 @@ const STAGE_COPY: Record<AcademyStage, Pick<AcademyView, "eyebrow" | "title" | "
   "close-hauled": {
     eyebrow: "Lesson 2 of 3 · Objective 1 of 3",
     title: "Sail close-hauled",
-    instruction: "Follow apparent wind—the wind felt on the moving boat. Head up, sheet in, and hold flow outside the no-go zone.",
+    instruction: "Follow apparent wind—the wind felt on the moving boat. Head up and keep the sail drawing outside the no-go zone; adjust the sheet if needed.",
   },
   "beam-reach": {
     eyebrow: "Lesson 2 of 3 · Objective 2 of 3",
     title: "Settle on a beam reach",
-    instruction: "Bear away until the apparent-wind indicator is across the beam; ease to stream the telltales.",
+    instruction: "Bear away until the apparent-wind indicator is across the beam; adjust the sheet if needed.",
   },
   "broad-reach": {
     eyebrow: "Lesson 2 of 3 · Objective 3 of 3",
     title: "Open onto a broad reach",
-    instruction: "Bear away until the apparent-wind indicator moves aft, easing the sheet.",
+    instruction: "Bear away until the apparent-wind indicator moves aft; adjust the sheet if needed.",
   },
   tack: {
     eyebrow: "Lesson 3 of 3 · Objective 1 of 3",

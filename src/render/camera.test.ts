@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
-import { assert, expect, test } from "vitest";
+import { assert, expect, test, vi } from "vitest";
 import { BOAT_DEFINITIONS, HARBOR_20 } from "../sim/boats";
 import { SailingWorld } from "./world";
 
@@ -26,9 +26,9 @@ function resetContext(world: ReturnType<typeof cameraWorld>, stage: string) {
   const state = { position: { x: 610, y: 330 }, heave: -2.85, heading: 0 };
   return {
     world, state: { ...state, position: { x: 1172, y: -371 } }, previousState: {},
-    started: true, activitySession: undefined, activityView: undefined,
+    started: true, activitySession: undefined, activityView: undefined, firstBuoy: undefined, anchorage: undefined, dummyRecovery: undefined, crossing: undefined,
     academy: { view: () => ({ stage }) },
-    interruptLessonAttempt() {}, prepareLessonAttempt() {},
+    interruptLessonAttempt() {}, prepareLessonAttempt() {}, stopWeatherShelter: vi.fn(),
     createGameState: () => state,
     computeSailAerodynamics: () => ({}), computeHeadsailAerodynamics: () => ({}),
     weather: { trueWind: {} }, activeBoat: HARBOR_20,
@@ -46,6 +46,7 @@ test("visible free-sail reset snaps the first camera frame from distant and inci
       world.updateCamera(1172, -371, 1.48, 0.15, 1 / 60, incident);
       const context = resetContext(world, stage);
       runInNewContext(`${resetBoatAction}; resetBoat();`, context);
+      expect(context.stopWeatherShelter).toHaveBeenCalledOnce();
       expect(context.previousState).toBe(context.state);
       world.updateCamera(610, 330, 0, -2.85, 1 / 60);
       expected.updateCamera(610, 330, 0, -2.85, 1 / 60);
@@ -61,6 +62,30 @@ test("visible lesson reset still delegates to the existing lesson preparation", 
   let attempts = 0;
   context.prepareLessonAttempt = () => { attempts++; };
   runInNewContext(`${resetBoatAction}; resetBoat();`, context);
+  expect(context.stopWeatherShelter).toHaveBeenCalledOnce();
+  expect(attempts).toBe(1);
+  expect(context.state).toBe(state);
+});
+
+test("visible first-buoy reset delegates to a fresh journey attempt", () => {
+  const attempts: string[] = [];
+  const context = {
+    ...resetContext(cameraWorld(), "free-sail"), firstBuoy: {},
+    prepareLessonAttempt: (kind: string) => { attempts.push(kind); },
+  };
+  const state = context.state;
+  runInNewContext(`${resetBoatAction}; resetBoat();`, context);
+  expect(context.stopWeatherShelter).toHaveBeenCalledOnce();
+  expect(attempts).toEqual(["first-buoy"]);
+  expect(context.state).toBe(state);
+});
+
+test("visible crossing reset delegates to a fresh encounter", () => {
+  let attempts = 0;
+  const context = { ...resetContext(cameraWorld(), "free-sail"), crossing: {}, startCrossing: () => { attempts++; } };
+  const state = context.state;
+  runInNewContext(`${resetBoatAction}; resetBoat();`, context);
+  expect(context.stopWeatherShelter).toHaveBeenCalledOnce();
   expect(attempts).toBe(1);
   expect(context.state).toBe(state);
 });

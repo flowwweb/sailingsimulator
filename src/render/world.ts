@@ -22,7 +22,7 @@ import {
   type BoatDefinition,
 } from "../sim/boats";
 import {
-  sampleWaves,
+  sampleWaveHeight,
 } from "../weather/waves";
 import type { WeatherSnapshot } from "../weather/types";
 import { LakeScenery } from "./scenery";
@@ -34,6 +34,7 @@ import {
   hullContactWidthAt,
 } from "./hull-water-mask";
 import { buoyVisualSpec } from "./buoy-visual";
+import { createTrainingBuoy } from "./training-buoy";
 import { wakeSurfacePoints } from "./wake-surface";
 import type { TrafficPose } from "./traffic-navigation";
 import { populateFishingTown } from "./fishing-town";
@@ -73,6 +74,12 @@ interface SailMaterial extends THREE.ShaderMaterial {
 export class SailingWorld {
   readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
+  private readonly worldObjects = new Map<string, THREE.Group>();
+  private readonly trainingBuoys: THREE.Group[] = [];
+  private readonly anchorRode = new THREE.Line(
+    new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3)),
+    new THREE.LineBasicMaterial({ color: 0xe4d9b2 }),
+  );
   private readonly camera = new THREE.PerspectiveCamera(52, 1, 0.1, 3_500);
   private readonly scenery = new LakeScenery();
   private readonly ambientLife = new AmbientLife();
@@ -152,6 +159,7 @@ export class SailingWorld {
     THREE.ShaderMaterial
   >;
   private readonly boatRoot = new THREE.Group();
+  private readonly trainingDummy = new THREE.Group();
   private readonly meshyBoat: MeshyBoat;
   private readonly hullPose = new THREE.Group();
   private readonly rigPose = new THREE.Group();
@@ -191,6 +199,7 @@ export class SailingWorld {
   private lastReflectionAt = Number.NEGATIVE_INFINITY;
   private lastAtmosphereAt = Number.NEGATIVE_INFINITY;
   private reflectionInterval = 1 / 30;
+  private titleReflectionDeferred = false;
 
   constructor(canvas: HTMLCanvasElement, boatAsset: THREE.Group) {
     this.renderer = new THREE.WebGLRenderer({
@@ -233,6 +242,14 @@ export class SailingWorld {
     this.meshyBoat = new MeshyBoat(boatAsset, this.sailMaterial);
     this.boatRoot.add(this.meshyBoat.root);
     this.scene.add(this.boatRoot);
+    this.anchorRode.visible = false;
+    this.scene.add(this.anchorRode);
+    const dummyVest = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 8), new THREE.MeshStandardMaterial({ color: 0xff8a18 }));
+    const dummyHead = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffd23f }));
+    dummyHead.position.set(0, 0.45, -0.55);
+    this.trainingDummy.add(dummyVest, dummyHead);
+    this.trainingDummy.visible = false;
+    this.scene.add(this.trainingDummy);
     this.wakeLines = [this.createWakeLine(), this.createWakeLine()];
     this.wakeFoam = this.createWakeFoam();
     this.hullContactFoam = this.createHullContactFoam();
@@ -290,6 +307,7 @@ export class SailingWorld {
   resetCamera(): void {
     this.cameraInitialized = false;
     this.lastReflectionAt = Number.NEGATIVE_INFINITY;
+    this.lastAtmosphereAt = Number.NEGATIVE_INFINITY;
   }
 
   resetWake(): void {
@@ -348,6 +366,30 @@ export class SailingWorld {
     return this.ambientLife.trafficSnapshot();
   }
 
+  setCrossingBoat(pose?: { x: number; z: number; heading: number }): void {
+    this.ambientLife.setCrossingBoat(pose);
+  }
+
+  setCrossingExercise(active: boolean): void {
+    this.ambientLife.setCrossingExercise(active);
+  }
+
+  setAnchorRode(anchor: { x: number; z: number; depth: number } | undefined, boat: BoatState, tide: number): void {
+    this.anchorRode.visible = Boolean(anchor);
+    if (!anchor) return;
+    const positions = this.anchorRode.geometry.getAttribute("position") as THREE.BufferAttribute;
+    positions.setXYZ(0, boat.position.x + Math.sin(boat.heading) * this.activeBoat.collision.halfLength,
+      tide + boat.heave + 0.6, boat.position.y + Math.cos(boat.heading) * this.activeBoat.collision.halfLength);
+    positions.setXYZ(1, anchor.x, tide - anchor.depth, anchor.z);
+    positions.needsUpdate = true;
+    this.anchorRode.geometry.computeBoundingSphere();
+  }
+
+  setTrainingDummy(position?: { x: number; z: number }): void {
+    this.trainingDummy.visible = Boolean(position);
+    if (position) this.trainingDummy.position.set(position.x, 0, position.z);
+  }
+
   render(
     previous: BoatState,
     current: BoatState,
@@ -361,8 +403,16 @@ export class SailingWorld {
     presentationTime = 0,
   ): void {
     const titleScreen = titleScene !== undefined;
+    this.trainingDummy.position.y = weather.tideLevel + 0.25;
+    for (const buoy of this.trainingBuoys) {
+      if (buoy.visible) buoy.position.y = weather.tideLevel + sampleWaveHeight(weather.waves, buoy.position.x, buoy.position.z, weather.time);
+    }
     this.renderClock += frameDt;
-    if (titleScreen !== this.previousTitleScreen) this.cameraInitialized = false;
+    if (titleScreen !== this.previousTitleScreen) {
+      this.cameraInitialized = false;
+      this.lastAtmosphereAt = Number.NEGATIVE_INFINITY;
+      this.lastReflectionAt = Number.NEGATIVE_INFINITY;
+    }
     this.previousTitleScreen = titleScreen;
     const x = lerp(previous.position.x, current.position.x, alpha);
     const z = lerp(previous.position.y, current.position.y, alpha);
@@ -450,7 +500,7 @@ export class SailingWorld {
     this.updateWater(weather, x, z, heading);
     this.updateHullContactFoam(current, weather, x, z, heading);
     this.updateWake(current, weather);
-    this.ambientLife.update(weather.time, current, weather.trueWind);
+    this.ambientLife.update(weather.time, current, weather.trueWind, weather);
     this.updateWind(weather, current, x, z);
     this.updateRain(weather, x, z);
     this.updateCamera(
@@ -477,13 +527,19 @@ export class SailingWorld {
       this.camera.position.y + 38,
       this.camera.position.z,
     );
-    if (this.renderClock - this.lastAtmosphereAt >= 1 / 15) {
+    const atmosphereDue = this.renderClock - this.lastAtmosphereAt >= 1 / 15;
+    if (atmosphereDue) {
       this.updateAtmosphere(weather, titleScene);
       this.lastAtmosphereAt = this.renderClock;
     }
     if (this.renderClock - this.lastReflectionAt >= this.reflectionInterval) {
-      this.updateReflection();
-      this.lastReflectionAt = this.renderClock;
+      if (titleScreen && frameDt < 1 / 15 && atmosphereDue && Number.isFinite(this.lastReflectionAt) && !this.titleReflectionDeferred) {
+        this.titleReflectionDeferred = true;
+      } else {
+        this.updateReflection();
+        this.lastReflectionAt = this.renderClock;
+        this.titleReflectionDeferred = false;
+      }
     }
     this.renderer.render(this.scene, this.camera);
   }
@@ -1027,9 +1083,9 @@ export class SailingWorld {
           const bandX = localX + side * (band * foamReach + bowBurst);
           const worldX = x + bandX * cosine + localZ * sine;
           const worldZ = z - bandX * sine + localZ * cosine;
-          const wave = sampleWaves(weather.waves, worldX, worldZ, weather.time);
+          const height = sampleWaveHeight(weather.waves, worldX, worldZ, weather.time);
           const vertex = sideIndex * sampleCount * 2 + index * 2 + band;
-          positions.setXYZ(vertex, worldX, weather.tideLevel + wave.height + 0.028, worldZ);
+          positions.setXYZ(vertex, worldX, weather.tideLevel + height + 0.028, worldZ);
         }
       }
     }
@@ -1177,8 +1233,14 @@ export class SailingWorld {
         rockMaterial,
         pineMaterial,
       );
+      this.worldObjects.set(object.id, group);
       this.scene.add(group);
     }
+  }
+
+  setWorldObjectVisible(id: string, visible: boolean): void {
+    const object = this.worldObjects.get(id);
+    if (object) object.visible = visible;
   }
 
   private populateWorldObject(
@@ -1191,6 +1253,11 @@ export class SailingWorld {
     const shoal = lakeShoalFor(object.landformId ?? object.id);
     if (object.kind === "buoy") {
       const spec = buoyVisualSpec(object.buoyMark);
+      if (object.buoyMark === "training") {
+        group.add(createTrainingBuoy(spec.color));
+        this.trainingBuoys.push(group);
+        return;
+      }
       const markerMaterial = new THREE.MeshStandardMaterial({
         color: spec.color,
         emissive: spec.color,

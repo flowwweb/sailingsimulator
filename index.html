@@ -100,12 +100,14 @@
     </div>
     <main class="game-shell is-welcome">
       <canvas id="lake" tabindex="0" aria-label="Sailing view. Drag left or right to steer; release to center the helm."></canvas>
+      <canvas id="title-frame" aria-hidden="true" hidden></canvas>
       <p id="steering-hint" role="status" hidden>Drag left or right to steer · Release to center</p>
 
       <aside class="mini-map-hud" aria-label="Minimap">
         <canvas id="minimap" aria-label="Minimap showing the lake and current boat position"></canvas>
         <span class="north-mark" aria-hidden="true">N</span>
       </aside>
+      <p id="radio-subtitle" class="radio-subtitle" role="status" aria-live="polite" hidden><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-radio" /></svg> <span class="sr-only">Radio: </span><span id="radio-subtitle-text"></span></p>
 
       <header class="topbar">
         <div class="top-actions">
@@ -114,6 +116,7 @@
           </button>
           <button id="map-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="chart-panel" title="Nautical chart (N)"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-map" /></svg><span class="action-label">Chart</span>
           </button>
+          <button id="radio-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="radio-panel" aria-label="Radio"><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-radio" /></svg><span class="action-label">Radio</span></button>
           <button id="conditions-toggle" class="quiet-button" type="button" aria-label="Settings" aria-expanded="false" aria-controls="conditions-panel">
             <svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-settings" /></svg><span class="action-label">Settings</span>
           </button>
@@ -131,6 +134,18 @@
         </details>
         </div>
       </header>
+
+      <aside id="radio-panel" class="radio-panel" role="dialog" aria-labelledby="radio-heading" hidden>
+        <h2 id="radio-heading">Harbor radio</h2>
+        <p>Simulation · Juniper Marina · UK channel example</p>
+        <p>Helm controls remain available while the radio is open.</p>
+        <label for="radio-channel">Channel</label>
+        <select id="radio-channel"><option value="16">16</option><option value="80">80</option></select>
+        <button id="radio-listen" type="button">Listen</button>
+        <button id="radio-call" type="button">Call marina</button>
+        <button id="radio-close" type="button">Close</button>
+        <p id="radio-caption">Select the marina channel and listen before calling.</p>
+      </aside>
 
       <section class="sailing-hud" aria-label="Sailing instruments">
 
@@ -174,6 +189,11 @@
           <p id="lesson-instruction">Sheet in gently. Stop when the flutter settles and both telltales stream.</p>
         </div>
         <div class="lesson-progress" aria-hidden="true"><span id="lesson-progress"></span></div>
+        <div id="anchor-controls" class="anchor-controls" aria-label="Anchor controls" hidden>
+          <button id="anchor-drop" class="text-button" type="button">Drop anchor</button>
+          <button id="anchor-payout" class="text-button" type="button">Pay out 5 m</button>
+          <button id="anchor-haul" class="text-button" type="button">Take in / recover</button>
+        </div>
       </section>
 
       <aside id="destination" class="destination" aria-label="Active course">
@@ -251,6 +271,7 @@
       <aside id="conditions-panel" class="conditions-panel ui-glass-surface ui-glass-surface--modal" data-settings-style="07" aria-hidden="true" aria-labelledby="settings-title" aria-modal="true" role="dialog">
         <header class="settings-header">
           <h2 id="settings-title">Settings</h2>
+          <p id="settings-rank" class="settings-rank" aria-label="Sailing progress"></p>
           <nav class="settings-tabs ui-tab-list" aria-label="Settings sections" role="tablist">
             <button class="is-active ui-tab" type="button" data-ui-tab="boat" aria-controls="settings-boat" aria-selected="true" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-boat" /></svg>Boat</button>
             <button class="ui-tab" type="button" data-ui-tab="weather" aria-controls="settings-weather" aria-selected="false" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-wind" /></svg>Weather</button>
@@ -359,6 +380,10 @@
               <span><b>High contrast</b><small>Strengthen instrument edges and focus cues</small></span>
               <input id="high-contrast-enabled" type="checkbox" role="switch" />
             </label>
+            <label class="ui-control-row control-toggle" for="trim-guide-enabled">
+              <span><b>Sail trim guide</b><small>Show the useful sheet range</small></span>
+              <input id="trim-guide-enabled" type="checkbox" role="switch" />
+            </label>
             <div class="ui-control-row settings-command-row">
               <span><b>Local logbook</b><small id="settings-logbook-summary">No completed activities yet</small></span>
               <button id="settings-reset-logbook" class="secondary-button ui-action" type="button">Reset</button>
@@ -408,19 +433,24 @@
             </div>
           </nav>
         </div>
+        <aside class="title-rank" aria-label="Sailing progress">
+          <div class="title-rank-heading"><strong id="title-rank-name"></strong><span id="title-rank-xp"></span></div>
+          <div id="title-rank-track" class="title-rank-track" role="progressbar" aria-label="XP toward the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="title-rank-fill"></span></div>
+        </aside>
         <section id="lesson-chooser" class="lesson-chooser" role="dialog" aria-modal="true" aria-labelledby="lesson-chooser-title" hidden>
           <div class="lesson-chooser-header">
           <button id="lesson-chooser-close" class="menu-back" type="button" aria-label="Back to main menu"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-left" /></svg></button>
-          <h2 id="lesson-chooser-title">Three lessons. Your own pace.</h2>
+          <h2 id="lesson-chooser-title">Choose your next sail</h2>
           </div>
           <div class="lesson-chooser-body">
           <div class="lesson-choices" aria-label="Lessons">
-            <button class="lesson-choice is-selected" data-lesson="0" type="button" aria-pressed="true"><span class="lesson-image lesson-image-1" aria-hidden="true"></span><span class="lesson-name"><b>01</b> Catch the wind</span><span class="lesson-targets">Trim · Stall · Recover</span></button>
-            <button class="lesson-choice" data-lesson="1" type="button" aria-pressed="false"><span class="lesson-image lesson-image-2" aria-hidden="true"></span><span class="lesson-name"><b>02</b> Find your course</span><span class="lesson-targets">Close-hauled · Beam reach · Broad reach</span></button>
-            <button class="lesson-choice" data-lesson="2" type="button" aria-pressed="false"><span class="lesson-image lesson-image-3" aria-hidden="true"></span><span class="lesson-name"><b>03</b> Sail with confidence</span><span class="lesson-targets">Tack · Gybe · Reef</span></button>
+            <button id="start-first-buoy" class="lesson-choice" type="button"><span class="lesson-image lesson-image-buoy" aria-hidden="true"></span><span class="lesson-name"><b>01</b> Round the buoys</span><span class="lesson-targets">Steer · Trim · Round</span><span class="lesson-preview-note">Concept preview</span></button>
+            <button class="lesson-choice" data-lesson="1" type="button"><span class="lesson-image lesson-image-2" aria-hidden="true"></span><span class="lesson-name"><b>02</b> Find your course</span><span class="lesson-targets">Close-hauled · Beam reach · Broad reach</span></button>
+            <button class="lesson-choice" data-lesson="2" type="button"><span class="lesson-image lesson-image-3" aria-hidden="true"></span><span class="lesson-name"><b>03</b> Sail with confidence</span><span class="lesson-targets">Tack · Gybe · Reef</span></button>
+            <button id="start-crossing" class="lesson-choice" type="button"><span class="lesson-image lesson-image-2" aria-hidden="true"></span><span class="lesson-name"><b>04</b> Crossing traffic</span><span class="lesson-targets">Lookout · Tacks · Keep clear</span></button>
+            <button id="start-dummy-recovery" class="lesson-choice" type="button"><span class="lesson-image lesson-image-dummy" aria-hidden="true"></span><span class="lesson-name"><b>05</b> Recover the training dummy</span><span class="lesson-targets">Lookout · Return · Recover</span><span class="lesson-preview-note">Concept preview</span></button>
+            <button id="start-anchorage" class="lesson-choice" type="button"><span class="lesson-image lesson-image-1" aria-hidden="true"></span><span class="lesson-name"><b>06</b> Anchorage practice</span><span class="lesson-targets">Choose · Set · Recover</span><span class="lesson-preview-note">Concept preview</span></button>
           </div>
-          <button id="start-lesson" class="title-menu-item title-primary" type="button">Start lesson<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
-          <details class="lesson-detail"><summary><span>Proposed lesson targets</span><svg class="fw-icon disclosure-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></summary><ol id="chosen-lesson-targets"></ol></details>
           </div>
         </section>
         <section id="title-logbook-panel" class="title-logbook-panel" role="dialog" aria-modal="true" aria-labelledby="title-logbook-heading" hidden>
@@ -448,12 +478,14 @@
 
       <section class="sailing-status" aria-label="Sailing status">
         <button id="status-toggle" type="button" aria-expanded="false" aria-controls="status-details"><span id="status" aria-live="polite">Ready to sail</span><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
+        <p id="status-feedback" aria-live="polite" aria-atomic="true"></p>
         <span id="status-lesson-progress" class="status-lesson-progress"></span>
         <div id="status-pips" class="status-pips" aria-hidden="true"><span></span><span></span><span></span></div>
         <div id="status-details" hidden>
           <button id="status-close" type="button" aria-label="Close sailing status"><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-close" /></svg></button>
           <div id="status-scroll" tabindex="0" aria-label="Sailing status details"><p id="status-message"></p>
           <p id="status-objective-detail"></p>
+          <button id="recover-training-dummy" class="text-button" type="button" hidden>Recover training dummy</button>
           <button id="lesson-skip" class="text-button" type="button">Free sail</button>
           <article class="instrument wind-instrument" aria-label="Apparent wind: wind felt on the moving boat" title="Wind felt on the moving boat">
           <div class="wind-dial" aria-hidden="true">
@@ -471,12 +503,32 @@
         </div>
       </section>
     </main>
+    <section id="completion-screen" class="completion-screen" hidden>
+      <div class="completion-content" role="dialog" aria-modal="true" aria-labelledby="completion-heading" aria-describedby="completion-reward">
+        <svg class="fw-icon completion-emblem" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-boat" /></svg>
+        <p class="completion-kicker" id="completion-title"></p>
+        <h2 id="completion-heading" aria-live="polite"></h2>
+        <p id="completion-reward" aria-live="polite"></p>
+        <p id="completion-level" aria-live="polite"><span id="completion-level-number"></span><span id="completion-rank"></span></p>
+        <div class="completion-track" role="progressbar" aria-label="XP progress toward next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="completion-fill"></span><svg class="completion-marker" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-boat" /></svg></div>
+        <p id="completion-xp"></p>
+        <button id="completion-continue" type="button">Continue sailing</button>
+      </div>
+    </section>
     <div id="fatal-error" class="fatal-error" role="alert" hidden></div>
-    <section class="orientation-gate" role="status" aria-label="Landscape orientation required">
-      <img src="/brand/fairwinds-full.svg" alt="Fair Winds" />
-      <svg class="fw-icon rotation-cue" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-rotate" /></svg>
-      <h2>Turn to landscape</h2>
-      <p>Your voyage awaits.</p>
+    <section class="orientation-gate" role="status">
+      <div class="orientation-instruction">
+        <svg class="rotation-cue" viewBox="0 0 240 150" fill="none" aria-hidden="true">
+          <g stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="12" y="8" width="70" height="134" rx="12"/><path d="M39 18h16"/>
+            <rect x="98" y="81" width="128" height="61" rx="12"/><path d="M108 103v17"/>
+          </g>
+          <path class="rotation-arrow" d="M99 16c36-1 65 16 69 51m-13-12 13 13 12-14" stroke="#ffc32f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h2>Turn your device</h2>
+        <p>Fair Winds is best in landscape</p>
+      </div>
+      <p class="orientation-hint">Rotate to landscape to continue</p>
     </section>
     <script type="module" src="/src/main.ts"></script>
   </body>

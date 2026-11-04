@@ -39,6 +39,7 @@ export interface BoatDefinition {
     rightingArm: number;
     longitudinalDragLinear: number;
     longitudinalDragQuadratic: number;
+    waveDragFactor?: number;
     lateralResistanceLinear: number;
     lateralResistanceQuadratic: number;
   };
@@ -81,8 +82,9 @@ export const HARBOR_20: BoatDefinition = {
     displacement: 520,
     yawInertia: 1_500,
     rightingArm: 0.5,
-    longitudinalDragLinear: 55,
-    longitudinalDragQuadratic: 25,
+    longitudinalDragLinear: 75,
+    longitudinalDragQuadratic: 5,
+    waveDragFactor: 100,
     lateralResistanceLinear: 520,
     lateralResistanceQuadratic: 280,
   },
