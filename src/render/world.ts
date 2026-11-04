@@ -301,6 +301,7 @@ export class SailingWorld {
   resetCamera(): void {
     this.cameraInitialized = false;
     this.lastReflectionAt = Number.NEGATIVE_INFINITY;
+    this.lastAtmosphereAt = Number.NEGATIVE_INFINITY;
   }
 
   resetWake(): void {
