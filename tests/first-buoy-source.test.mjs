@@ -193,3 +193,27 @@ test("status pauses sailing without erasing the attempt and resumes on close", (
   runInNewContext(pausedBranch, ctx);
   assert.equal(interrupted, 2, "hidden page interrupts both academy and buoy");
 });
+
+test("a slow frame while status is open does not clear lesson witnesses", () => {
+  const begin = hud.indexOf("  if (droppedFrame && !isSimulationPaused()) {");
+  const end = hud.indexOf("  if (!portrait) presentationTime", begin);
+  assert.ok(begin >= 0 && end > begin);
+  function extract(name) {
+    const start = hud.indexOf("function " + name + "(");
+    const finish = hud.indexOf("\n}", start) + 2;
+    assert.ok(start >= 0 && finish > start);
+    return stripTypeScriptTypes(hud.slice(start, finish), { mode: "transform" });
+  }
+  let interruptions = 0;
+  const ctx = { droppedFrame: true, started: true, paused: false, developmentPreviewFrozen: false,
+    elements: { statusDetails: { hidden: false } }, required: () => ({ hidden: true }),
+    isConditionsOpen: () => false, isChartOpen: () => false, accumulator: 0,
+    academy: { interrupt() { interruptions++; } }, dummyRecovery: { interrupt() { interruptions++; } },
+    weatherShelter: { interrupt() { interruptions++; } } };
+  runInNewContext(extract("isSimulationPaused") + "\n" + extract("isNonStatusSimulationPaused"), ctx);
+  runInNewContext(hud.slice(begin, end), ctx);
+  assert.equal(interruptions, 0);
+  ctx.elements.statusDetails.hidden = true;
+  runInNewContext(hud.slice(begin, end), ctx);
+  assert.equal(interruptions, 3);
+});

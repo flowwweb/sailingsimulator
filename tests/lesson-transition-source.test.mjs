@@ -33,7 +33,7 @@ test("earned points-of-sail completion advances, resets, saves and replays witho
   const ctx = { FIRST_BUOY: { id: "intro.buoy-1", revision: 1, seed: 1, start: { x: 0, z: 0 }, windFromDegrees: 90, startHeadingDegrees: 0 },
     FIRST_COURSE_ID: "intro.three-buoy-course", required,
     elements: { gameShell: { inert: false }, statusToggle: { focus() {} }, status: { textContent: "" },
-      statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } },
+      statusMessage: { textContent: "" }, statusFeedback: { textContent: "" }, statusDetails: { hidden: false }, statusToggle: { setAttribute() {}, focus() {} } },
     input: { releaseAll() {} }, window: { matchMedia: () => ({ matches: true }) },
     completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false, completionNextLesson: undefined,
     cancelAnimationFrame() {}, setRadioOpen() {}, stopWeatherShelter() {}, resetRadio() {},
@@ -50,7 +50,8 @@ test("earned points-of-sail completion advances, resets, saves and replays witho
     closeTitleDialog() {}, beginSailing() {}, degrees: (value) => value * Math.PI / 180,
     selectedActivityId: "", FAIR_WINDS_WORLD: { activities: [{ id: "anchorage-practice", x: 1400, z: -200, title: "Anchorage" }] },
     setChartOpen() {}, syncChartActivityList() {}, renderChart() {}, updateDestination() {} };
-  runInNewContext(`${academyCode}\n${progressCode}\n${strip(read("game/crossing-encounter"))}\n${strip(read("game/dummy-recovery"))}\n${strip(read("game/anchoring"))}\n${strip(read("game/anchorage-exercise"))}\n${extract("selectedActivity")}\n${extract("selectChartActivity")}\n${extract("startAnchorage")}\n${extract("stopDummyRecovery")}\n${extract("startDummyRecovery")}\n${extract("prepareLessonAttempt")}\n${extract("resetBoat")}\n${completionCode}
+  runInNewContext(`${academyCode}\n${progressCode}\n${strip(read("game/crossing-encounter"))}\n${strip(read("game/dummy-recovery"))}\n${strip(read("game/anchoring"))}\n${strip(read("game/anchorage-exercise"))}\n${extract("setStatusOpen")}
+${extract("selectedActivity")}\n${extract("selectChartActivity")}\n${extract("startAnchorage")}\n${extract("stopDummyRecovery")}\n${extract("startDummyRecovery")}\n${extract("prepareLessonAttempt")}\n${extract("resetBoat")}\n${completionCode}
     let academy = new SailingAcademy(); let progress = createProgress();
     function interruptLessonAttempt() { academy.interrupt(); }
     function persistProgress() { saved = JSON.stringify(progress); }
@@ -112,7 +113,9 @@ test("earned points-of-sail completion advances, resets, saves and replays witho
   const recoverEnd = main.indexOf("\n  });", recoverStart);
   assert.ok(recoverStart >= 0 && recoverEnd > recoverStart);
   const recoverBody = main.slice(main.indexOf("{", recoverStart) + 1, recoverEnd);
-  runInNewContext(`(() => { ${recoverBody} })(); advanceCompletion(); advanceCompletion();`, ctx);
+  runInNewContext(`(() => { ${recoverBody} })();`, ctx);
+  assert.equal(ctx.elements.statusDetails.hidden, true);
+  runInNewContext(`advanceCompletion(); advanceCompletion();`, ctx);
   assert.equal(runInNewContext("anchorage.stage", ctx), "approach");
   assert.equal(runInNewContext("dummyRecovery === undefined", ctx), true);
   assert.equal(runInNewContext("sailingRank(parseProgress(saved)).xp", ctx), 300);
@@ -152,4 +155,23 @@ test("completed sailing skills open the chooser from the title", () => {
   assert.equal(chooser, 2); assert.equal(sailed, 0);
   assert.ok(main.includes('"Sailing skills complete · All nine skill targets earned"'));
   assert.ok(academyCode.includes('eyebrow: "Sailing skills complete"'));
+});
+
+test("retry and free sail close status before transitioning and restore focus", () => {
+  const start = main.indexOf('  elements.lessonSkip.addEventListener("click", () => {');
+  const end = main.indexOf("\n  });", start) + 6;
+  assert.ok(start >= 0 && end > start);
+  let callback, focus = 0, action = "";
+  const elements = { lessonSkip: { addEventListener(_event, fn) { callback = fn; } },
+    statusDetails: { hidden: false }, status: { textContent: "" }, statusMessage: {},
+    statusToggle: { setAttribute() {}, focus() { focus++; } } };
+  const ctx = { elements, input: { releaseAll() {} }, state: {}, firstBuoy: { failed: true, completed: false },
+    weatherShelter: undefined, incident: undefined, anchorage: undefined, crossing: undefined, dummyRecovery: undefined,
+    activitySession: undefined, academy: { view: () => ({ objective: 0, stage: "trim" }), skip() { action = "free sail"; } },
+    prepareLessonAttempt(kind) { assert.equal(elements.statusDetails.hidden, true); action = kind; },
+    interruptLessonAttempt() {}, persistProgress() {}, updateLesson() {}, simulationTime: 0, lessonCompletedAt: 0 };
+  runInNewContext(extract("setStatusOpen") + "\n" + main.slice(start, end), ctx);
+  callback(); assert.equal(action, "first-buoy"); assert.equal(focus, 1);
+  elements.statusDetails.hidden = false; ctx.firstBuoy = undefined;
+  callback(); assert.equal(action, "free sail"); assert.equal(elements.statusDetails.hidden, true); assert.equal(focus, 2);
 });
