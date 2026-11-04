@@ -1,0 +1,7 @@
+# Anchorage prototype
+
+`src/game/anchoring.ts` is an isolated, simplified training model. It is not wired into the game and does not establish safe real-world holding. It models a single bow attachment on a uniform fictional sand bottom; it does not model chain weight, anchor type, current, bottom variation, real anchor design, or measured holding power. The force limits are gameplay tuning values, not engineering estimates.
+
+The caller must check the water depth and clearance around the boat before dropping, sample tide-adjusted depth at the anchor rather than at the moving boat, and supply a fixed simulation timestep. The proposed hands-on exercise still needs approach and recovery controls, a visible anchor and rode, enough room to swing, explicit scope and drag feedback, a timed holding check, reset/retry, and a complete game-state integration. A dragged anchor must not count as a successful hold.
+
+The U.S. Coast Guard's [Boater's Guide to Federal Requirements for Recreational Boats](https://uscgboating.org/assets/1/AssetManager/Boaters-Guide-to-Federal-Requirements-for-Receational-Boats-20231108.pdf) recommends calculating anchor line from water depth plus bow height, with a common 5:1 to 7:1 ratio, and warns against anchoring from the stern. Scope alone does not guarantee holding; actual practice depends on conditions and equipment. The RYA's [Anchoring with Care](https://www.rya.org.uk/environment-and-sustainability/anchoring-with-care/) discusses avoiding damage to sensitive seabeds.
