@@ -20,6 +20,16 @@ export class HarborRadio {
     this.listened = false;
   }
 
+  /** Guidance describes the current fictional scenario; it does not transmit. */
+  nextStep(distanceM: number): string {
+    if (this.completed) return this.channel === 16 ? "Channel 16 selected. Continue sailing." : "Return to channel 16 to keep watch.";
+    if (this.awaiting) return "Wait for the marina's reply.";
+    if (this.channel !== 80) return "Tune to Juniper Marina's channel 80.";
+    if (!this.listened) return "Listen on channel 80 before calling.";
+    if (!Number.isFinite(distanceM) || distanceM < 0 || distanceM > 400) return "Sail within 400 m of Juniper Marina to call.";
+    return "Call Juniper Marina.";
+  }
+
   listen(): string {
     if (this.awaiting) return "Waiting for the marina's reply.";
     this.listened = true;
