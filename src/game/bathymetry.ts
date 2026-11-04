@@ -122,6 +122,11 @@ export function lakeBoundaryDistance(x: number, z: number): number {
   );
 }
 
+/** Distance from the basin centre to its physical edge along a world-space bearing. */
+export function lakeBoundaryRadius(angle: number): number {
+  return 1 / lakeBoundaryDistance(Math.sin(angle), Math.cos(angle));
+}
+
 export function shoalDistance(
   shoal: LakeShoal,
   x: number,

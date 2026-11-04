@@ -232,6 +232,7 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
             ${LAKE_BASIN.irregularity.toFixed(4)},
             ${LAKE_BASIN.phase.toFixed(4)}
           );
+          if (boundaryDistance >= 1.0) return -1.0;
           float edgeProgress = 1.0 - boundaryDistance;
           float depth = 36.0 * smootherstep(0.0, 0.66, edgeProgress);
           float depthVariation = (
@@ -264,6 +265,9 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
           return max(0.0, depth);
         }
         void main() {
+          // The physical outer basin boundary is permanent land at every tide.
+          float meanDepth = estimatedDepth(vWorldPosition.xz);
+          if (meanDepth < 0.0) discard;
           // Mask the actual tapered hull in its interpolated local frame.
           vec3 hull = (uHullWorldToLocal * vec4(vWorldPosition, 1.0)).xyz;
           float hullWidth;
@@ -335,7 +339,7 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
           float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
           float fresnel = pow(1.0 - facing, 3.0);
           float diffuse = clamp(dot(normal, uSunDirection), 0.0, 1.0);
-          float waterDepth = max(0.0, estimatedDepth(vWorldPosition.xz) + uTide);
+          float waterDepth = max(0.0, meanDepth + uTide);
           float depthMix = smoothstep(1.5, 22.0, waterDepth);
           vec3 color = mix(uWaterShallow, uWaterDeep, depthMix);
           float facet = dot(microSlope, wind) + dot(vWaveSlopeVector, wind) * 0.15;
