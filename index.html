@@ -100,6 +100,7 @@
     </div>
     <main class="game-shell is-welcome">
       <canvas id="lake" tabindex="0" aria-label="Sailing view. Drag left or right to steer; release to center the helm."></canvas>
+      <canvas id="title-frame" aria-hidden="true" hidden></canvas>
       <p id="steering-hint" role="status" hidden>Drag left or right to steer · Release to center</p>
 
       <aside class="mini-map-hud" aria-label="Minimap">
@@ -265,6 +266,7 @@
       <aside id="conditions-panel" class="conditions-panel ui-glass-surface ui-glass-surface--modal" data-settings-style="07" aria-hidden="true" aria-labelledby="settings-title" aria-modal="true" role="dialog">
         <header class="settings-header">
           <h2 id="settings-title">Settings</h2>
+          <p id="settings-rank" class="settings-rank" aria-label="Sailing progress"></p>
           <nav class="settings-tabs ui-tab-list" aria-label="Settings sections" role="tablist">
             <button class="is-active ui-tab" type="button" data-ui-tab="boat" aria-controls="settings-boat" aria-selected="true" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-boat" /></svg>Boat</button>
             <button class="ui-tab" type="button" data-ui-tab="weather" aria-controls="settings-weather" aria-selected="false" role="tab"><svg class="fw-icon settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-wind" /></svg>Weather</button>

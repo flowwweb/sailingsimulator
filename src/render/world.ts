@@ -390,7 +390,11 @@ export class SailingWorld {
       if (buoy.visible) buoy.position.y = weather.tideLevel + sampleWaveHeight(weather.waves, buoy.position.x, buoy.position.z, weather.time);
     }
     this.renderClock += frameDt;
-    if (titleScreen !== this.previousTitleScreen) this.cameraInitialized = false;
+    if (titleScreen !== this.previousTitleScreen) {
+      this.cameraInitialized = false;
+      this.lastAtmosphereAt = Number.NEGATIVE_INFINITY;
+      this.lastReflectionAt = Number.NEGATIVE_INFINITY;
+    }
     this.previousTitleScreen = titleScreen;
     const x = lerp(previous.position.x, current.position.x, alpha);
     const z = lerp(previous.position.y, current.position.y, alpha);

@@ -97,6 +97,10 @@ import {
 import { WeatherSystem } from "./weather/weather";
 
 const canvas = required<HTMLCanvasElement>("#lake");
+const titleFrame = required<HTMLCanvasElement>("#title-frame");
+let titleFrameContext = titleFrame.getContext("2d");
+let titleFrameDirty = true;
+let webglContextLost = false;
 const elements = {
   gameShell: required(".game-shell"),
   minimap: required<HTMLCanvasElement>("#minimap"),
@@ -409,8 +413,12 @@ function bindInterface(): void {
   window.addEventListener("blur", interruptLessonAttempt);
   document.addEventListener("visibilitychange", interruptLessonAttempt);
   document.addEventListener("visibilitychange", handleRadioVisibilityChange);
+  canvas.addEventListener("webglcontextlost", () => { webglContextLost = true; });
+  canvas.addEventListener("webglcontextrestored", () => { webglContextLost = false; titleFrameDirty = true; world.resize(); world.resetCamera(); });
   window.addEventListener("resize", () => {
+    titleFrameDirty = true;
     world.resize();
+    if (!started) world.resetCamera();
     buildCompassTape();
     if (isChartOpen()) renderChart();
   });
@@ -674,6 +682,7 @@ function syncTitleRank(): void {
   const rank = sailingRank(progress);
   required("#title-rank-name").textContent = `Level ${rank.level} · ${rank.rank}`;
   required("#title-rank-xp").textContent = `${rank.xp} XP`;
+  required("#settings-rank").textContent = `Level ${rank.level} · ${rank.rank} · ${rank.xp} XP`;
   required("#title-rank-fill").style.width = `${rank.levelXp}%`;
   const track = required("#title-rank-track");
   track.setAttribute("aria-valuenow", String(rank.levelXp));
@@ -683,12 +692,13 @@ function syncTitleRank(): void {
 function syncTitleState(): void {
   setStatusOpen(false, false);
   syncTitleRank();
+  titleFrameDirty = true;
   const returning = progress.voyages > 0;
   const titleConfig = createTitleWeatherConfig();
   titleConfig.timeOfDay = returning ? 17.4 : 14.7;
   titleConfig.wind.directionFromDegrees = returning ? 65 : 147;
   titleWeatherSystem.setConfig(titleConfig);
-  titleWeather = titleWeatherSystem.sample(presentationTime);
+  titleWeather = titleWeatherSystem.sample(0);
   titleState.position.x = returning ? 991 : 964;
   titleState.position.y = returning ? -236 : -404;
   titleState.heading = degrees(returning ? 130 : 105);
@@ -835,6 +845,7 @@ function beginSailing(newJourney: boolean): void {
     resetJourney();
   }
   started = true;
+  titleFrame.hidden = true;
   world.resetCamera();
   elements.gameShell.classList.remove("is-welcome");
   elements.welcome.classList.add("is-leaving");
@@ -1103,7 +1114,7 @@ function loop(now: number): void {
   if (!simulationPaused && input.consumeReset()) resetBoat();
   if (input.consumeReef() && canHandleSails(simulationPaused)) toggleReef();
   if (input.consumeSails() && canHandleSails(simulationPaused)) toggleSails();
-  accumulator = simulationPaused
+  accumulator = simulationPaused || !started
     ? 0
     : Math.min(
         accumulator + frameDt * simulationTimeScale,
@@ -1329,8 +1340,8 @@ function loop(now: number): void {
   let renderDiagnostics = diagnostics;
   let renderHeadsail = headsailDiagnostics;
   let renderWeather = weather;
-  if (!started) {
-    titleWeather = titleWeatherSystem.sample(presentationTime);
+  if (!started && titleFrameDirty) {
+    titleWeather = titleWeatherSystem.sample(0);
     const titlePose = sampleBoatWavePose(
       titleState,
       titleWeather.waves,
@@ -1343,6 +1354,8 @@ function loop(now: number): void {
     titleState.wavePitchVelocity = titlePose.pitchVelocity ?? 0;
     titleState.waveRoll = titlePose.roll * 0.78;
     titleState.waveRollVelocity = titlePose.rollVelocity ?? 0;
+  }
+  if (!started) {
     renderPrevious = titleState;
     renderCurrent = titleState;
     renderDiagnostics = titleDiagnostics;
@@ -1350,23 +1363,39 @@ function loop(now: number): void {
     renderWeather = titleWeather;
   }
 
-  for (const mark of FIRST_BUOY_MARKS) {
-    world.setWorldObjectVisible(mark.id, !firstBuoy || mark.id === firstBuoy.activeCourse()?.id);
+  const renderScene = !webglContextLost && (started || (!document.hidden && (titleFrameDirty || !titleFrameContext)));
+  if (renderScene) {
+    for (const mark of FIRST_BUOY_MARKS) {
+      world.setWorldObjectVisible(mark.id, !firstBuoy || mark.id === firstBuoy.activeCourse()?.id);
+    }
+    world.render(
+      renderPrevious,
+      renderCurrent,
+      renderDiagnostics,
+      renderHeadsail,
+      renderWeather,
+      accumulator / fixedStep,
+      !started || simulationPaused ? 0 : frameDt,
+      incident ? { result: incident, elapsed: incidentElapsed } : undefined,
+      started ? undefined : progress.voyages > 0 ? "return" : "arrival",
+      started ? presentationTime : 0,
+    );
+    if (!started && titleFrameContext) {
+      try {
+        titleFrame.width = canvas.width;
+        titleFrame.height = canvas.height;
+        titleFrameContext.drawImage(canvas, 0, 0);
+        titleFrame.hidden = false;
+        titleFrameDirty = false;
+      } catch {
+        // Continue drawing the static scene if a browser cannot copy its WebGL canvas.
+        titleFrameContext = null;
+        titleFrame.hidden = true;
+      }
+    }
+    finishBoot();
   }
-  world.render(
-    renderPrevious,
-    renderCurrent,
-    renderDiagnostics,
-    renderHeadsail,
-    renderWeather,
-    accumulator / fixedStep,
-    simulationPaused ? 0 : frameDt,
-    incident ? { result: incident, elapsed: incidentElapsed } : undefined,
-    started ? undefined : progress.voyages > 0 ? "return" : "arrival",
-    presentationTime,
-  );
   if (started) updateCompass(renderCurrent.heading);
-  finishBoot();
   audio.update(
     renderWeather,
     renderCurrent,
@@ -1435,6 +1464,7 @@ function selectBoat(id: BoatId): void {
     persistProgress();
   }
   activeBoat = nextBoat;
+  titleFrameDirty = true;
   saveStoredValue("fair-winds-boat", activeBoat.id);
   world.setBoat(activeBoat);
   refreshTitleDiagnostics();
@@ -2438,6 +2468,7 @@ function setChartOpen(open: boolean, restoreFocus = true): void {
 }
 
 function setConditionsOpen(open: boolean, restoreFocus = true): void {
+  if (open) syncTitleRank();
   if (open) setRadioOpen(false, false);
   if (open) setStatusOpen(false, false);
   if (open) interruptLessonAttempt();
