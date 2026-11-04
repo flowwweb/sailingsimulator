@@ -71,7 +71,7 @@ describe("dummy recovery", () => {
     tick(session, 0);
     expect(session.stage).toBe("failed");
     const retry = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
-    tick(retry, 0);
+    tick(retry, 5);
     expect(retry.stage).toBe("depart");
   });
 

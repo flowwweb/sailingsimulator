@@ -71,7 +71,7 @@ test.each(["Tack complete. Build speed on the new side and retrim.", "Sound mute
 
 test("completed journey keeps its completion message after flow changes", () => {
   const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-  const context = { elements, firstBuoy: { completed: true, failed: false }, state: { maneuverCount: 0, lastManeuver: "none" },
+  const context = { elements, firstBuoy: { completed: true, failed: false }, dummyRecovery: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
     lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);
