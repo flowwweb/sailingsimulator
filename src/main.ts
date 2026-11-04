@@ -778,7 +778,7 @@ function syncTitleState(): void {
 }
 
 function setStatusOpen(open: boolean, restoreFocus = true): void {
-  if (open) input.releaseAll();
+  if (open) { input.releaseAll(); accumulator = 0; previousState = state; }
   if (!firstBuoy || firstBuoy.failed || firstBuoy.completed) {
     elements.statusMessage.textContent = elements.status.textContent;
   }
@@ -1148,7 +1148,10 @@ function loop(now: number): void {
   if (simulationPaused) {
     audio.stopRadioNotice();
     if (radioSubtitleSeconds > 0) { radioSubtitleSeconds = 0; required("#radio-subtitle").hidden = true; }
-    academy.interrupt(); firstBuoy?.interrupt(); dummyRecovery?.interrupt(); crossing?.interrupt(); input.releaseAll();
+    if (document.hidden || portrait || isNonStatusSimulationPaused()) {
+      academy.interrupt(); firstBuoy?.interrupt(); dummyRecovery?.interrupt(); crossing?.interrupt();
+    }
+    input.releaseAll();
   }
   if (canControlBoat() && !steeringHintOffered && window.matchMedia("(pointer: coarse)").matches) {
     steeringHintOffered = true;
@@ -2500,6 +2503,10 @@ function canControlBoat(): boolean {
 }
 
 function isSimulationPaused(): boolean {
+  return isNonStatusSimulationPaused() || (started && !elements.statusDetails.hidden);
+}
+
+function isNonStatusSimulationPaused(): boolean {
   return started && (
     paused ||
     !required("#completion-screen").hidden ||
