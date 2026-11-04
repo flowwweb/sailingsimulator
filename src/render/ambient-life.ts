@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import type { BoatState } from "../sim/model";
+import type { WeatherSnapshot } from "../weather/types";
+import { sampleWaves } from "../weather/waves";
 import { BOAT_DEFINITIONS, HARBOR_20, referencePolarSpeed, type BoatDefinition } from "../sim/boats";
 import { sailableRouteHeading, trafficCommand, type TrafficPose } from "./traffic-navigation";
 
@@ -38,7 +40,11 @@ export class AmbientLife {
     }
   }
 
-  update(time: number, player: BoatState, trueWind: { x: number; y: number }): void {
+  update(time: number, player: BoatState, trueWind: { x: number; y: number }, weather: WeatherSnapshot): void {
+    if (this.crossingBoat.visible) {
+      const position = this.crossingBoat.position;
+      position.y = weather.tideLevel + sampleWaves(weather.waves, position.x, position.z, time).height;
+    }
     this.birds.forEach((bird, index) => {
       const phase = time * (0.11 + index * 0.004) + index * 1.73;
       const radius = 170 + (index % 4) * 68;

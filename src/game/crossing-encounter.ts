@@ -67,10 +67,10 @@ export class CrossingEncounter {
     if (distance < this.closest) { this.closest = distance; this.closestTime = this.elapsed; }
     if (distance < CONTACT) { this.failure = "contact"; this.stage = "failed"; return; }
     const turn = Math.atan2(Math.sin(player.heading - CROSSING_PLAYER_HEADING), Math.cos(player.heading - CROSSING_PLAYER_HEADING));
-    if (Math.abs(player.rudder) > .01 && Math.abs(turn) > .14) this.turned = true;
+    if (Math.abs(player.rudder) > .01 && Math.abs(turn) > .35 && this.elapsed - this.closestTime <= .1) this.turned = true;
     const behind = relative.x * Math.sin(other.heading) + relative.z * Math.cos(other.heading) < -10;
     const opening = this.elapsed - this.closestTime > 3;
-    if (this.turned && behind && opening && Math.hypot(player.velocityX, player.velocityZ) > .3) {
+    if (this.turned && Math.abs(turn) > .35 && behind && opening && Math.hypot(player.velocityX, player.velocityZ) > .3) {
       this.stage = this.closest >= CLEARANCE ? "complete" : "failed";
       if (this.stage === "failed") this.failure = "contact";
     }

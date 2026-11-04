@@ -469,7 +469,7 @@ export class SailingWorld {
     this.updateWater(weather, x, z, heading);
     this.updateHullContactFoam(current, weather, x, z, heading);
     this.updateWake(current, weather);
-    this.ambientLife.update(weather.time, current, weather.trueWind);
+    this.ambientLife.update(weather.time, current, weather.trueWind, weather);
     this.updateWind(weather, current, x, z);
     this.updateRain(weather, x, z);
     this.updateCamera(

@@ -27,6 +27,21 @@ test("turn without player steering cannot earn credit and unsafe observation fai
   const e = new CrossingEncounter(); e.update(1 / 60, { x: 0, z: 0, velocityX: 0, velocityZ: 0, heading: 0, rudder: 0, unsafe: true, sailsRaised: true, sailSide: 1 });
   assert.equal(e.stage, "failed");
 });
+test("a brief undone turn or a late turn cannot earn credit", () => {
+  for (const pattern of [t => t > 240 && t < 600 ? Math.PI / 4 : 0, t => t > 3600 ? Math.PI / 4 : 0]) {
+    const e = new CrossingEncounter();
+    const p = { x: 0, z: 0, heading: Math.PI / 4, velocityX: 1.2, velocityZ: 1.2, rudder: 0, unsafe: false, sailsRaised: true, sailSide: 1 };
+    e.update(1 / 60, p);
+    for (let t = 0; t < 110 * 60 && e.stage === "crossing"; t++) {
+      const turn = pattern(t);
+      p.heading = Math.PI / 4 + turn;
+      p.velocityX = Math.sin(p.heading) * 1.7; p.velocityZ = Math.cos(p.heading) * 1.7;
+      p.x += p.velocityX / 60; p.z += p.velocityZ / 60; p.rudder = turn ? 1 : 0;
+      e.update(1 / 60, p);
+    }
+    assert.notEqual(e.stage, "complete");
+  }
+});
 test("leaving the opposite-tack sailing conditions ends the exercise", () => {
   for (const change of [{ sailSide: -1 }, { sailsRaised: false }]) {
     const e = new CrossingEncounter();

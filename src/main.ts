@@ -1271,7 +1271,7 @@ function loop(now: number): void {
           const previousOther = crossing.other && { ...crossing.other };
           if (droppedFrame && !unsafe) crossing.interrupt();
           else crossing.update(fixedStep, { x: state.position.x, z: state.position.y, velocityX: state.velocity.x, velocityZ: state.velocity.y, heading: state.heading, rudder: controls.rudder, unsafe, sailsRaised: state.sailsRaised, sailSide: state.sailSide });
-          if (crossing.other && crossing.stage === "crossing") {
+          if (crossing.other && (crossing.stage === "crossing" || crossing.stage === "complete")) {
             const other = crossing.other;
             const otherState = { ...state, position: { x: other.x, y: other.z }, heading: other.heading };
             const previousOtherState = previousOther ? { ...otherState, position: { x: previousOther.x, y: previousOther.z }, heading: previousOther.heading } : undefined;
