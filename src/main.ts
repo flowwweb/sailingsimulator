@@ -1138,7 +1138,6 @@ function loop(now: number): void {
   wasPortrait = portrait;
   if (portrait || document.hidden) interruptLessonAttempt();
   if (droppedFrame && !isSimulationPaused()) {
-    weatherShelter?.interrupt();
     accumulator = 0;
   }
   if (!portrait) presentationTime += frameDt;
