@@ -16,6 +16,21 @@ import {
 } from "./waves";
 
 describe("deterministic weather and analytic waves", () => {
+  it("reuses the wave spectrum until the weather configuration changes", () => {
+    const config = cloneWeatherConfig(DEFAULT_WEATHER);
+    const system = new WeatherSystem(config);
+    const first = system.sample(0).waves;
+    expect(system.sample(45).waves).toBe(first);
+    config.wind.speed += 4;
+    expect(system.sample(50).waves).toBe(first);
+    const returned = system.getConfig();
+    returned.waves.height += 1;
+    expect(system.sample(55).waves).toBe(first);
+    system.setConfig(config);
+    const updated = system.sample(60).waves;
+    expect(updated).not.toBe(first);
+    expect(system.sample(65).waves).toBe(updated);
+  });
   it("keeps waves continuous across the recorded 10.375 m/s gust boundary", () => {
     const config = cloneWeatherConfig(DEFAULT_WEATHER);
     config.wind.speed = 10;
