@@ -25,6 +25,9 @@ describe("dummy recovery", () => {
     hold(session, 7, 1);
     expect(session.recover()).toBe(false);
     hold(session, 7);
+    expect(session.stage).toBe("return");
+    travel(session, 7, 1.8);
+    hold(session, 1.8);
     expect(session.stage).toBe("ready");
     expect(session.recover()).toBe(true);
     expect(session.recover()).toBe(false);
@@ -41,18 +44,18 @@ describe("dummy recovery", () => {
     }
     const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
     travel(session, 0, 41);
-    travel(session, 41, 7);
-    hold(session, 7);
+    travel(session, 41, 1.8);
+    hold(session, 1.8);
     expect(session.stage).toBe("ready");
     session.interrupt();
     expect(session.recover()).toBe(false);
     expect(session.stage).toBe("return");
-    tick(session, 7);
-    hold(session, 7);
+    tick(session, 1.8);
+    hold(session, 1.8);
     expect(session.stage).toBe("return");
-    travel(session, 7, 39);
-    travel(session, 39, 7);
-    hold(session, 7);
+    travel(session, 1.8, 39);
+    travel(session, 39, 1.8);
+    hold(session, 1.8);
     expect(session.stage).toBe("ready");
     session.interrupt();
     tick(session, 0);
@@ -98,8 +101,8 @@ describe("dummy recovery", () => {
     for (const heading of [Math.PI / 2, -Math.PI / 2]) {
       const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
       travel(session, 0, 41);
-      travel(session, 41, 7);
-      for (let i = 0; i < 190; i++) session.update(dt, { x: 7, z: 0 }, 0.2, false, 0.6, 0, heading, 0, 0);
+      travel(session, 41, 3);
+      for (let i = 0; i < 190; i++) session.update(dt, { x: 3, z: 0 }, 0.2, false, 0.6, 0, heading, 0, 0);
       expect(session.stage).toBe("return");
       expect(session.recover()).toBe(false);
     }
@@ -109,8 +112,8 @@ describe("dummy recovery", () => {
     for (const side of [-1, 1]) {
       const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
       travel(session, 0, side * 41);
-      travel(session, side * 41, side * 7);
-      hold(session, side * 7);
+      travel(session, side * 41, side * 1.8);
+      hold(session, side * 1.8);
       expect(session.stage).toBe("ready");
     }
     const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });

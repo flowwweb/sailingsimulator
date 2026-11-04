@@ -32,7 +32,7 @@ test("objective and failure take priority only in the first-buoy lesson", () => 
     [undefined, "Attached. Flow attached."],
   ]) {
     const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-    const context = { elements, firstBuoy, state: { maneuverCount: 0, lastManeuver: "none" },
+    const context = { dummyRecovery: undefined, elements, firstBuoy, state: { maneuverCount: 0, lastManeuver: "none" },
       lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
       dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
     runInNewContext(status, context);
@@ -47,7 +47,7 @@ test("objective and failure take priority only in the first-buoy lesson", () => 
 test("first-buoy objective retains action feedback and storage warning across updates", () => {
   for (const message of ["Sound muted.", "Reefed mainsail.", "Tack complete."]) {
     const elements = { status: { textContent: message }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-    const context = { elements, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." },
+    const context = { dummyRecovery: undefined, elements, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." },
       state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0,
       lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
       dockedAt: undefined, storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
@@ -65,7 +65,7 @@ test("first-buoy objective retains actual maneuver and flow transitions", () => 
     [{ maneuverCount: 0, lastManeuver: "none" }, "Attached", "Luffing", "Sheet in or bear away", "Luffing. Sheet in or bear away."],
   ]) {
     const elements = { status: { textContent: "Sail to Juniper buoy." }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
-    const context = { elements, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." }, state,
+    const context = { dummyRecovery: undefined, elements, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." }, state,
       lastManeuverCount: 0, lastFlow, flow, coach, started: true, dockedAt: undefined,
       storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
     runInNewContext(`${status} updateStatus();`, context);
@@ -87,7 +87,7 @@ test("opening details and restarting a lesson do not lose or reuse feedback", ()
   const elements = { status: { textContent: "Sound muted." }, statusMessage: { textContent: "" },
     statusFeedback: { textContent: "" }, statusDetails: { hidden: true },
     statusToggle: { setAttribute() {}, focus() {} } };
-  const context = { elements, input: { releaseAll() {} }, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." },
+  const context = { dummyRecovery: undefined, elements, input: { releaseAll() {} }, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." },
     state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0,
     lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable",

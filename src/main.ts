@@ -523,11 +523,13 @@ function bindInterface(): void {
   const lessonChoices = [...document.querySelectorAll<HTMLButtonElement>(".lesson-choice")];
   required("#recover-training-dummy").addEventListener("click", () => {
     if (!dummyRecovery?.recover()) return;
+    const before = sailingRank(progress);
     progress.completedDummyRecovery = true;
     persistProgress();
     world.setTrainingDummy();
     elements.status.textContent = "Training dummy recovered.";
     updateHud();
+    showCompletion("Recover the training dummy", before);
   });
   lessonChoices.forEach((button) => button.addEventListener("click", () => {
     lessonChoices.forEach((choice) => {
@@ -2208,7 +2210,7 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
   const earned = after.xp - before.xp;
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
   completionPendingRank = after.level > before.level ? after : undefined;
-  const nextStart = firstBuoy ? 0 : academy.view().lesson + 1;
+  const nextStart = dummyRecovery ? 3 : firstBuoy ? 0 : academy.view().lesson + 1;
   completionNextLesson = [0, 1, 2].find((lesson) => lesson >= nextStart && !progress.completedLessons?.includes(lesson));
   const threshold = { ...before, xp: before.xp - before.levelXp + 100, levelXp: 100 };
   setCompletionSemanticProgress(completionPendingRank ? threshold : after);
@@ -2287,14 +2289,14 @@ function fillLogbook(stats: HTMLElement, list: HTMLElement): void {
   const introduction = document.createElement("li");
   introduction.textContent = `${FIRST_BUOY.title} · ${progress.completedIntroductions?.[FIRST_COURSE_ID] === 1 ? "Complete" : "Not yet completed"}`;
   list.append(introduction);
-  const recovery = document.createElement("li");
-  recovery.textContent = `Recover the training dummy · ${progress.completedDummyRecovery ? "Complete" : "Not yet completed"}`;
-  list.append(recovery);
   document.querySelectorAll<HTMLButtonElement>("[data-lesson]").forEach((choice, index) => {
     const row = document.createElement("li");
     row.textContent = `${choice.querySelector(".lesson-name")!.textContent!.trim()} · ${progress.academyCompleted || progress.completedLessons?.includes(index) ? "Complete" : "Not yet completed"}`;
     list.append(row);
   });
+  const recovery = document.createElement("li");
+  recovery.textContent = `Recover the training dummy · ${progress.completedDummyRecovery ? "Complete" : "Not yet completed"}`;
+  list.append(recovery);
 }
 
 function showPauseMenu(focus: HTMLElement = elements.pauseResume): void {

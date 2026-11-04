@@ -9,6 +9,21 @@ const js = stripTypeScriptTypes(source, { mode: "strip" })
   .replace(/^import .*;\s*$/gm, "").replace(/^export /gm, "");
 const evaluate = (code) => runInNewContext(`${js}\n${code}`, { FIRST_BUOY: { id: "intro.buoy-1", revision: 1 }, FIRST_COURSE_ID: "intro.three-buoy-course" });
 
+test("dummy recovery earns XP once and sixth level has a distinct rank", () => {
+  const result = evaluate(`(() => {
+    const p = { ...createProgress(), completedDummyRecovery: true };
+    const saved = parseProgress(JSON.stringify(p));
+    return { first: sailingRank(p).xp, reload: sailingRank(saved).xp,
+      invalid: sailingRank(parseProgress(JSON.stringify({ ...p, completedDummyRecovery: "true" }))).xp,
+      level: rankForXp(500).level, rank: rankForXp(500).rank };
+  })()`);
+  assert.equal(result.first, 100);
+  assert.equal(result.reload, 100);
+  assert.equal(result.invalid, 0);
+  assert.equal(result.level, 6);
+  assert.equal(result.rank, "Navigator");
+});
+
 test("earned lessons survive reload and replays never duplicate XP", () => {
   const result = evaluate(`
     let p = createProgress();
@@ -98,7 +113,7 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   };
   const statusToggle = { focus() { this.focused = true; } };
   let callback;
-  const context = { required, elements: { statusToggle, gameShell: { inert: false } }, input: { releaseAll() {} },
+  const context = { dummyRecovery: undefined, required, elements: { statusToggle, gameShell: { inert: false } }, input: { releaseAll() {} },
     window: { matchMedia: () => ({ matches: false }) }, firstBuoy: {}, completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false,
     performance: { now: () => 0 }, requestAnimationFrame: (fn) => { callback = fn; return 1; }, cancelAnimationFrame() { callback = undefined; },
     setRadioOpen(open) { context.radioOpen = open; },
@@ -180,7 +195,7 @@ test("reduced motion and replay show the final rank without scheduling animation
     return nodes.get(selector);
   };
   let scheduled = 0;
-  const context = { required, elements: { gameShell: { inert: false }, statusToggle: { focus() {} } },
+  const context = { dummyRecovery: undefined, required, elements: { gameShell: { inert: false }, statusToggle: { focus() {} } },
     input: { releaseAll() {} }, window: { matchMedia: () => ({ matches: true }) }, firstBuoy: {},
     completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false, requestAnimationFrame: () => { scheduled++; return 1; },
     cancelAnimationFrame() {}, setRadioOpen() {}, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 0,

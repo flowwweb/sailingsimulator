@@ -101,7 +101,7 @@ test("completed legacy drills remain available and do not grant first-journey cr
   const rows = page.locator("#title-logbook-lessons li");
   await expect(rows).toHaveCount(5);
   await expect(rows.first()).toHaveText("Round the buoys · Not yet completed");
-  for (let index = 2; index <= 4; index++) await expect(rows.nth(index)).toContainText(" · Complete");
+  for (let index = 1; index <= 3; index++) await expect(rows.nth(index)).toContainText(" · Complete");
   await page.locator("#title-logbook-close").click();
   await page.locator("#continue-lesson").click();
   await expect(page.locator("#lesson-chooser")).toBeVisible();

@@ -2,6 +2,8 @@
 const DEPARTURE_M = 40;
 const RECOVERY_RADIUS_M = 8;
 const DUMMY_CLEARANCE_M = 0.7;
+// Provisional reach from the hull side; tune with a sailing instructor and playtests.
+const RECOVERY_REACH_M = 1.2;
 const RECOVERY_SPEED_MPS = 0.5;
 const MAX_STEP_MPS = 12;
 const HOLD_SECONDS = 3;
@@ -72,7 +74,7 @@ export class DummyRecovery {
     this.previousSheet = sheet;
     this.previousHeading = heading;
     if (this.stage === "return" || this.stage === "ready") {
-      const settled = hadPrevious && this.trimmed && this.steered && distance <= RECOVERY_RADIUS_M && Math.abs(alongHull) <= this.hull.halfLength && speed <= RECOVERY_SPEED_MPS && Math.abs(yawRate) < 0.12;
+      const settled = hadPrevious && this.trimmed && this.steered && distance <= RECOVERY_RADIUS_M && Math.abs(alongHull) <= this.hull.halfLength && Math.abs(acrossHull) <= this.hull.halfBeam + RECOVERY_REACH_M && speed <= RECOVERY_SPEED_MPS && Math.abs(yawRate) < 0.12;
       this.hold = settled ? this.hold + dt : 0;
       this.stage = this.hold >= HOLD_SECONDS ? "ready" : "return";
     }

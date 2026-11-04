@@ -23,8 +23,15 @@ describe("sailing progress", () => {
   });
   it("persists only explicit dummy-recovery completion", () => {
     expect(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: true })).completedDummyRecovery).toBe(true);
+    expect(sailingRank(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: true }))).xp).toBe(100);
+    expect(sailingRank(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: "true" }))).xp).toBe(0);
     expect(parseProgress(JSON.stringify({ ...createProgress(), completedDummyRecovery: "true" })).completedDummyRecovery).toBeUndefined();
     expect(parseProgress(JSON.stringify({ ...createProgress(), version: 1, completedDummyRecovery: true })).completedDummyRecovery).toBeUndefined();
+  });
+  it("gives the sixth level a distinct in-game rank", () => {
+    const complete = { ...createProgress(), completedDummyRecovery: true,
+      completedIntroductions: { [FIRST_BUOY.id]: FIRST_BUOY.revision }, completedLessons: [0, 1, 2] };
+    expect(sailingRank(complete)).toMatchObject({ xp: 500, level: 6, rank: "Navigator" });
   });
   it("migrates v1 drills as practice without awarding a new introduction", () => {
     const saved = parseProgress(JSON.stringify({ ...createProgress(), version: 1, academyCompleted: true,
