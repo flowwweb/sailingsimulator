@@ -732,7 +732,7 @@ function setRadioOpen(open: boolean, restoreFocus = true): void {
 
 function showRadioSubtitle(message: string, audioDuration = 0): void {
   const subtitle = required("#radio-subtitle");
-  subtitle.textContent = message;
+  required("#radio-subtitle-text").textContent = message;
   subtitle.hidden = false;
   radioSubtitleSeconds = Math.max(4, message.length / 15, audioDuration);
 }
@@ -1101,7 +1101,7 @@ function loop(now: number): void {
       if (!incident && firstBuoy && !firstBuoy.completed && !firstBuoy.failed && radioNotices.update(fixedStep, true, harborRadio.awaiting || !required("#radio-panel").hidden || radioSubtitleSeconds > 0)) {
         audio.playRadioSquelch();
         const duration = audio.playRadioNotice();
-        showRadioSubtitle("Simulated VHF 16 · Sécurité, sécurité, sécurité. All stations, all stations, all stations. This is Juniper Coast Radio. Small sailing craft are exercising around the Juniper training buoys. Keep a lookout. Out.", duration);
+        showRadioSubtitle("Sécurité, sécurité, sécurité. All stations, all stations, all stations. This is Juniper Coast Radio. Small sailing craft are exercising around the Juniper training buoys. Keep a lookout. Out.", duration);
       }
       if (radioSubtitleSeconds > 0) {
         radioSubtitleSeconds = Math.max(0, radioSubtitleSeconds - fixedStep);

@@ -44,11 +44,23 @@ test("spoken notice keeps its subtitle visible for the audio duration", () => {
   const end = source.indexOf("\n}", begin) + 2;
   assert.ok(begin >= 0 && end > begin);
   const fn = stripTypeScriptTypes(source.slice(begin, end), { mode: "strip" });
-  const subtitle = { hidden: true, textContent: "" };
-  const context = { radioSubtitleSeconds: 0, required: () => subtitle };
-  runInNewContext(`${fn}\nshowRadioSubtitle("VHF 16", 17.1);`, context);
+  const subtitle = { hidden: true }, text = { textContent: "" };
+  const context = { radioSubtitleSeconds: 0, required: (selector) => selector === "#radio-subtitle" ? subtitle : text };
+  runInNewContext(`${fn}\nshowRadioSubtitle("Safety traffic", 17.1);`, context);
   assert.equal(subtitle.hidden, false);
+  assert.equal(text.textContent, "Safety traffic");
   assert.equal(context.radioSubtitleSeconds, 17.1);
+});
+
+test("radio subtitle uses an accessible icon and avoids simulated VHF prefix", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const icons = readFileSync(new URL("../public/brand/fairwinds-icons.svg", import.meta.url), "utf8");
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  assert.match(html, /id="radio-subtitle"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /id="radio-subtitle"[\s\S]*?#fw-radio[\s\S]*?id="radio-subtitle-text"/);
+  assert.match(html, /id="radio-toggle"[^>]*aria-label="Radio"/);
+  assert.match(icons, /id="fw-radio"/);
+  assert.doesNotMatch(main, /showRadioSubtitle\("Simulated VHF/);
 });
 
 test("hiding the tab stops the voice and clears the subtitle without waiting for a frame", () => {
