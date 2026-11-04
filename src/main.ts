@@ -573,6 +573,7 @@ function bindInterface(): void {
   const lessonChoices = [...document.querySelectorAll<HTMLButtonElement>(".lesson-choice")];
   required("#recover-training-dummy").addEventListener("click", () => {
     if (!dummyRecovery?.recover()) return;
+    setStatusOpen(false, false);
     const before = sailingRank(progress);
     progress.completedDummyRecovery = true;
     persistProgress();
@@ -611,6 +612,7 @@ function bindInterface(): void {
   elements.mute.addEventListener("click", toggleMute);
   elements.reset.addEventListener("click", resetBoat);
   elements.lessonSkip.addEventListener("click", () => {
+    setStatusOpen(false);
     if (weatherShelter?.stage === "failed" && !incident) { selectChartActivity("weather-shelter"); return; }
     if (anchorage) { if (anchorage.stage === "complete") { anchorage = undefined; setChartOpen(true); } else startAnchorage(true); updateHud(); return; }
     if (crossing) { if (crossing.stage === "complete") { returnToTitle(); openLessonChooser(); } else startCrossing(); return; }
@@ -1135,7 +1137,7 @@ function loop(now: number): void {
   }
   wasPortrait = portrait;
   if (portrait || document.hidden) interruptLessonAttempt();
-  if (droppedFrame) {
+  if (droppedFrame && !isSimulationPaused()) {
     academy.interrupt();
     dummyRecovery?.interrupt();
     weatherShelter?.interrupt();

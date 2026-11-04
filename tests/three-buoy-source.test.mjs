@@ -162,7 +162,7 @@ test("unsafe contact or a position jump fails without credit", () => {
 
 test("dropped render frames preserve witnessed first-buoy progress; real interruptions still clear it", () => {
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-  const dropped = main.slice(main.indexOf("  if (droppedFrame) {"), main.indexOf("  if (!portrait) presentationTime"));
+  const dropped = main.slice(main.indexOf("  if (droppedFrame && !isSimulationPaused()) {"), main.indexOf("  if (!portrait) presentationTime"));
   assert.doesNotMatch(dropped, /firstBuoy/);
   assert.ok(main.includes("accumulator + frameDt * simulationTimeScale"));
   assert.ok(main.includes("fixedStep * 5 * simulationTimeScale"));
