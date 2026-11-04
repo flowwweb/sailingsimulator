@@ -133,7 +133,7 @@ export class SailingAcademy {
     this.finishedLesson = true;
   }
 
-  /** Break the attempt across hidden time, collisions, recovery or a dropped frame. */
+  /** Break the attempt across hidden time, collisions or recovery. */
   interrupt(): void {
     this.heldSeconds = 0;
     this.clearAttempt();
