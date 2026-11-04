@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
 import { runInNewContext } from "node:vm";
+import { stripTypeScriptTypes } from "node:module";
 
 const lesson = readFileSync(new URL("../src/game/first-buoy.ts", import.meta.url), "utf8");
 const world = readFileSync(new URL("../src/game/world-definition.ts", import.meta.url), "utf8");
@@ -156,4 +157,39 @@ test("opening details and restarting a lesson do not lose or reuse feedback", ()
   context.firstBuoy = undefined;
   runInNewContext(status, context);
   assert.equal(elements.statusFeedback.textContent, "");
+});
+
+
+test("status pauses sailing without erasing the attempt and resumes on close", () => {
+  function extract(name) {
+    const start = hud.indexOf("function " + name + "(");
+    const end = hud.indexOf("\n}", start) + 2;
+    assert.ok(start >= 0 && end > start, name);
+    return stripTypeScriptTypes(hud.slice(start, end), { mode: "transform" });
+  }
+  const start = hud.indexOf("  if (simulationPaused) {");
+  const end = hud.indexOf("  if (canControlBoat()", start);
+  assert.ok(start >= 0 && end > start);
+  const pausedBranch = hud.slice(start, end);
+  let interrupted = 0, released = 0;
+  const firstBuoy = { failed: false, completed: false, interrupt() { interrupted++; } };
+  const state = { x: 12 }, elements = { statusDetails: { hidden: true }, status: { textContent: "" }, statusMessage: {}, statusToggle: { setAttribute() {}, focus() {} } };
+  const ctx = { elements, firstBuoy, state, previousState: {}, accumulator: 0.03, started: true, paused: false,
+    developmentPreviewFrozen: false, portrait: false, document: { hidden: false }, simulationPaused: false,
+    isConditionsOpen: () => false, isChartOpen: () => false, required: () => ({ hidden: true }),
+    input: { releaseAll() { released++; } }, audio: { stopRadioNotice() {} }, radioSubtitleSeconds: 0,
+    academy: { interrupt() { interrupted++; } }, dummyRecovery: undefined, crossing: undefined };
+  runInNewContext(extract("setStatusOpen") + "\n" + extract("isSimulationPaused") + "\n" + extract("isNonStatusSimulationPaused"), ctx);
+  runInNewContext("setStatusOpen(true); simulationPaused = isSimulationPaused();", ctx);
+  assert.equal(ctx.simulationPaused, true);
+  assert.equal(ctx.accumulator, 0);
+  assert.equal(ctx.previousState, state);
+  runInNewContext(pausedBranch, ctx);
+  assert.equal(interrupted, 0);
+  assert.ok(released > 0);
+  runInNewContext("setStatusOpen(false); simulationPaused = isSimulationPaused();", ctx);
+  assert.equal(ctx.simulationPaused, false);
+  ctx.document.hidden = true; ctx.simulationPaused = true;
+  runInNewContext(pausedBranch, ctx);
+  assert.equal(interrupted, 2, "hidden page interrupts both academy and buoy");
 });
