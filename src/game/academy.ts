@@ -353,9 +353,9 @@ const STAGE_COPY: Record<AcademyStage, Pick<AcademyView, "eyebrow" | "title" | "
     instruction: "Take one reef, keep attached flow, and settle heel below 22°.",
   },
   complete: {
-    eyebrow: "Academy complete",
+    eyebrow: "Sailing skills complete",
     title: "Fair winds",
-    instruction: "Choose a chart activity, improve your score, or explore the lake freely.",
+    instruction: "Choose a chart activity, improve your score, or explore freely.",
   },
   "lesson-complete": {
     eyebrow: "Lesson complete",
