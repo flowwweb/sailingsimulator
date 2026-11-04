@@ -10,6 +10,10 @@ The existing activity score reflects trim and excessive heel over the attempt,
 and the existing docking gates require a slow, aligned arrival. A contact,
 grounding, or position discontinuity fails the
 attempt; recover and retry. Existing weather settings are restored on exit.
+Progress advances when each stage is reached. Route efficiency uses the minimum
+straight-line distance to reach the 150 m departure radius and return, or the
+initial distance to the berth when starting outside that radius; sailing angles
+and harbor approaches can make a longer route necessary.
 
 The timings, force thresholds and distance are game parameters, not a safe
 weather limit or a substitute for judgment. A pre-existing correct reef counts;

@@ -30,7 +30,7 @@ import { SailingAcademy, LESSON_TITLES } from "./game/academy";
 import { FIRST_BUOY, FIRST_BUOY_MARKS, FIRST_COURSE_ID, FirstBuoyJourney, firstBuoyWorld } from "./game/first-buoy";
 import { DummyRecovery } from "./game/dummy-recovery";
 import { CROSSING_OTHER_SPEED, CROSSING_PLAYER_HEADING, CrossingEncounter } from "./game/crossing-encounter";
-import { mergeShelterWeatherEdit, reefIsSettled, WeatherShelter } from "./game/weather-shelter";
+import { mergeShelterWeatherEdit, reefIsSettled, SHELTER_DEPARTURE_DISTANCE, WeatherShelter } from "./game/weather-shelter";
 import { createLessonState, createLessonWeather, observeLesson, checkpointLesson, restoreLesson } from "./game/lesson-session";
 import {
   ActivitySession,
@@ -2150,10 +2150,11 @@ function updateActivitySession(dt: number, unsafe = false): void {
     dockedAt: dockedAt?.id,
     incident: Boolean(incident),
     weatherShelterComplete: shelterComplete,
+    weatherShelterProgress: weatherShelter?.progress,
   });
   if (weatherShelter && !shelterComplete) {
     const instructions = {
-      "get-clear": "Sail at least 150 m from the visitor berth to begin the exercise.",
+      "get-clear": `Sail at least ${SHELTER_DEPARTURE_DISTANCE} m from the visitor berth to begin the exercise.`,
       forecast: "Forecast: wind increasing. Plan your return to Juniper.",
       respond: "Wind increasing. Reef and sail under control.",
       approach: "Reef practiced. Adjust sail as needed and dock at Juniper.",

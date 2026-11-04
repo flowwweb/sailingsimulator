@@ -58,7 +58,8 @@ it("can respond to the forecast and sail to the actual berth without contact", (
       speed: Math.hypot(state.velocity.x, state.velocity.y), heading: state.heading,
       attached: result.sail.attached, tackCount: state.tackCount, reefed: state.reefLevel === 1,
       heelRadians: state.heel, depth: FAIR_WINDS_WORLD.sampleDepth(state.position.x, state.position.y),
-      incident: contact, dockedAt: docking?.object.id, weatherShelterComplete: exercise.stage === "complete" });
+      incident: contact, dockedAt: docking?.object.id, weatherShelterComplete: exercise.stage === "complete",
+      weatherShelterProgress: exercise.progress });
     sawForecast ||= exercise.stage === "forecast";
     sawResponse ||= exercise.stage === "respond";
     if (prior === "forecast" && exercise.stage === "respond") wind = 10.5;

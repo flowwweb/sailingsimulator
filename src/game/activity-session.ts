@@ -1,4 +1,5 @@
 import type { WorldActivity } from "./world-definition";
+import { SHELTER_DEPARTURE_DISTANCE } from "./weather-shelter";
 
 export interface ActivityObservation {
   dt: number;
@@ -14,6 +15,7 @@ export interface ActivityObservation {
   dockedAt?: string;
   incident: boolean;
   weatherShelterComplete?: boolean;
+  weatherShelterProgress?: number;
 }
 
 export interface ActivityScore {
@@ -141,7 +143,7 @@ export class ActivitySession {
     }
     if (this.activity.id === "weather-shelter") {
       completed = observation.weatherShelterComplete === true;
-      progress = completed ? 1 : clamp(1 - distance / 1_500, 0, 0.9);
+      progress = completed ? 1 : clamp(observation.weatherShelterProgress ?? 0, 0, 0.75);
       instruction = completed ? "Arrived at the Juniper visitor berth" : `${Math.round(distance)} m to Juniper visitor berth`;
     }
     if (this.activity.id === "broadwater-crossing") {
@@ -175,6 +177,8 @@ function buildScore(
   const referenceDistance =
     activity.id === "broadwater-crossing"
       ? 700
+      : activity.id === "weather-shelter"
+        ? SHELTER_DEPARTURE_DISTANCE + Math.abs(SHELTER_DEPARTURE_DISTANCE - startingDistance)
       : activity.id === "school-water-tacks" ||
           activity.id === "fresh-air-reef"
         ? Math.max(distanceSailed, 1)

@@ -1,5 +1,7 @@
 import { cloneWeatherConfig, type WeatherConfig } from "../weather/types";
 
+export const SHELTER_DEPARTURE_DISTANCE = 150;
+
 /** Preserve the user's settings while applying only edits made during the exercise. */
 export function mergeShelterWeatherEdit(before: WeatherConfig, applied: WeatherConfig, edited: WeatherConfig): WeatherConfig {
   const result = cloneWeatherConfig(before);
@@ -21,6 +23,7 @@ export function reefIsSettled(sailsRaised: boolean, deployment: number, target: 
 
 /** One authored exercise: heed a forecast, manage sail, then reach the actual berth. */
 export type ShelterStage = "get-clear" | "forecast" | "respond" | "approach" | "complete" | "failed";
+const STAGE_PROGRESS: Record<ShelterStage, number> = { "get-clear": 0, forecast: 0.25, respond: 0.5, approach: 0.75, complete: 1, failed: 0 };
 
 export interface ShelterObservation {
   dt: number;
@@ -44,6 +47,10 @@ export class WeatherShelter {
 
   constructor(readonly destination: { x: number; z: number }) {}
 
+  get progress(): number {
+    return STAGE_PROGRESS[this.stage];
+  }
+
   interrupt(): void {
     this.previous = undefined;
     this.controlledSeconds = 0;
@@ -66,7 +73,7 @@ export class WeatherShelter {
     }
     this.previous = { ...o };
     const distance = Math.hypot(o.x - this.destination.x, o.z - this.destination.z);
-    if (this.stage === "get-clear" && distance >= 150 && !o.dockedAt) this.stage = "forecast";
+    if (this.stage === "get-clear" && distance >= SHELTER_DEPARTURE_DISTANCE && !o.dockedAt) this.stage = "forecast";
     if (this.stage === "forecast") {
       this.forecastSeconds += o.dt;
       if (this.forecastSeconds >= 12) this.stage = "respond";

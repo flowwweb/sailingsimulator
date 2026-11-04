@@ -9,6 +9,8 @@ const js = stripTypeScriptTypes(source, { mode: "transform" }).replace(/^import 
 const weatherSource = readFileSync(new URL("../src/weather/types.ts", import.meta.url), "utf8");
 const weatherJs = stripTypeScriptTypes(weatherSource, { mode: "transform" }).replace(/^export /gm, "");
 const create = () => runInNewContext(`${weatherJs}\n${js}\nnew WeatherShelter({ x: 200, z: 0 })`);
+const SHELTER_DEPARTURE_DISTANCE = runInNewContext(`${weatherJs}\n${js}\nSHELTER_DEPARTURE_DISTANCE`);
+const activityScript = () => stripTypeScriptTypes(readFileSync(new URL("../src/game/activity-session.ts", import.meta.url), "utf8"), { mode: "transform" }).replace(/^import .*;\s*$/gm, "").replace(/^export /gm, "");
 const base = { dt: 1, x: 0, z: 0, speed: 2, reefed: false, reefSettled: true, attached: .8, heelRadians: .1, incident: false };
 
 test("forecast, reefed control and actual berth are required", () => {
@@ -19,6 +21,48 @@ test("forecast, reefed control and actual berth are required", () => {
   assert.equal(scenario.stage, "approach");
   for (let i = 5; i <= 99; i++) scenario.update({ ...base, reefed: true, x: i * 2 });
   assert.equal(scenario.update({ ...base, reefed: true, x: 200, dockedAt: "juniper-cove-dock" }), "complete");
+});
+
+test("exercise progress follows witnessed stages and resets after failure and retry", () => {
+  const scenario = create();
+  const session = runInNewContext(`${activityScript()}\nnew ActivitySession({ id: "weather-shelter", title: "Forecast change", x: 200, z: 0 })`, { SHELTER_DEPARTURE_DISTANCE });
+  const update = (o) => {
+    scenario.update(o);
+    return session.update({ ...o, heading: 0, tackCount: 0, depth: 10,
+      weatherShelterProgress: scenario.progress, weatherShelterComplete: scenario.stage === "complete" });
+  };
+  assert.equal(update({ ...base, x: 200 }).progress, 0);
+  for (let x = 198; x >= 50; x -= 2) update({ ...base, x });
+  assert.equal(scenario.stage, "forecast");
+  assert.equal(update({ ...base, x: 50 }).progress, .25);
+  for (let i = 0; i < 10; i++) update({ ...base, x: 50 });
+  assert.equal(scenario.stage, "respond");
+  assert.equal(update({ ...base, reefed: true, x: 50 }).progress, .5);
+  for (let i = 0; i < 4; i++) update({ ...base, reefed: true, x: 50 });
+  assert.equal(scenario.stage, "approach");
+  assert.equal(update({ ...base, reefed: true, x: 50 }).progress, .75);
+  for (let x = 52; x <= 198; x += 2) update({ ...base, reefed: true, x });
+  assert.equal(update({ ...base, reefed: true, x: 200, dockedAt: "juniper-cove-dock" }).progress, 1);
+  const failed = create();
+  failed.update({ ...base, incident: true });
+  assert.equal(failed.stage, "failed");
+  assert.equal(failed.progress, 0);
+  const retry = create();
+  const retrySession = runInNewContext(`${activityScript()}\nnew ActivitySession({ id: "weather-shelter", title: "Forecast change", x: 200, z: 0 })`, { SHELTER_DEPARTURE_DISTANCE });
+  assert.equal(retrySession.update({ ...base, heading: 0, tackCount: 0, depth: 10, weatherShelterProgress: failed.progress }).progress, 0);
+  assert.equal(retrySession.update({ ...base, heading: 0, tackCount: 0, depth: 10, weatherShelterProgress: retry.progress }).progress, 0);
+});
+
+test("weather route efficiency accounts for departure from the berth or an offshore start", () => {
+  const run = (positions) => {
+    const session = runInNewContext(`${activityScript()}\nnew ActivitySession({ id: "weather-shelter", title: "Forecast change", x: 0, z: 0 })`, { SHELTER_DEPARTURE_DISTANCE });
+    for (const x of positions) session.update({ ...base, x, heading: 0, tackCount: 0, depth: 10 });
+    return session.update({ ...base, x: 0, heading: 0, tackCount: 0, depth: 10, weatherShelterComplete: true }).score.efficiency;
+  };
+  assert.equal(run([0, 150, 0]), 100);
+  assert.equal(run([200, 0]), 100);
+  assert.equal(run([0, 150, 0, 150, 0]), 50);
+  assert.equal(run([200, 400, 0]), 33);
 });
 
 test("unsafe or discontinuous attempts cannot earn completion", () => {
@@ -47,9 +91,7 @@ test("after demonstrating a reef, sail adjustments are allowed but contact still
 });
 
 test("poor return trim and excessive heel reduce the activity score", () => {
-  const activitySource = readFileSync(new URL("../src/game/activity-session.ts", import.meta.url), "utf8");
-  const activityJs = stripTypeScriptTypes(activitySource, { mode: "transform" }).replace(/^export /gm, "");
-  const make = () => runInNewContext(`${activityJs}\nnew ActivitySession({ id: "weather-shelter", title: "Forecast change", x: 200, z: 0 })`);
+  const make = () => runInNewContext(`${activityScript()}\nnew ActivitySession({ id: "weather-shelter", title: "Forecast change", x: 200, z: 0 })`, { SHELTER_DEPARTURE_DISTANCE });
   const score = (attached, heelRadians) => {
     const session = make();
     const observation = { ...base, tackCount: 0, depth: 10 };
@@ -85,9 +127,7 @@ test("reef must have finished raising or lowering before it is settled", () => {
 });
 
 test("weather activity cannot complete from destination proximity alone", () => {
-  const source = readFileSync(new URL("../src/game/activity-session.ts", import.meta.url), "utf8");
-  const js = stripTypeScriptTypes(source, { mode: "transform" }).replace(/^export /gm, "");
-  const activity = runInNewContext(`${js}\nnew ActivitySession({ id: "weather-shelter", title: "Forecast change", x: 200, z: 0 })`);
+  const activity = runInNewContext(`${activityScript()}\nnew ActivitySession({ id: "weather-shelter", title: "Forecast change", x: 200, z: 0 })`, { SHELTER_DEPARTURE_DISTANCE });
   const observation = { ...base, x: 200, reefed: true, tackCount: 0, depth: 10, dockedAt: "juniper-cove-dock" };
   assert.equal(activity.update(observation).completed, false);
   assert.equal(activity.update({ ...observation, weatherShelterComplete: true }).completed, true);
