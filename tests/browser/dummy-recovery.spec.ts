@@ -6,8 +6,6 @@ test("training exercise starts, interrupts and retries without earning completio
   await expect(page.locator("#boot-loader")).toHaveCount(0);
   await page.locator("#set-sail").click();
   await page.locator("#start-dummy-recovery").click();
-  await expect(page.locator("#start-dummy-recovery")).toHaveAttribute("aria-pressed", "true");
-  await page.locator("#start-lesson").click();
   const shell = page.locator(".game-shell");
   await expect(shell).toHaveAttribute("data-academy-stage", "dummy-depart");
   await expect(page.locator("#lesson-title")).toHaveText("Recover the training dummy");
@@ -30,7 +28,6 @@ test("dummy instructions and retry are visible on a short landscape phone", asyn
   await expect(page.locator("#boot-loader")).toHaveCount(0);
   await page.locator("#set-sail").click();
   await page.locator("#start-dummy-recovery").click();
-  await page.locator("#start-lesson").click();
   await page.locator("#status-toggle").click();
   const scroll = (await page.locator("#status-scroll").boundingBox())!;
   for (const id of ["status-objective-detail", "lesson-skip"]) {

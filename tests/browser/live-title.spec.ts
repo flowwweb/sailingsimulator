@@ -48,7 +48,7 @@ test("portrait pauses the active lesson and landscape resumes it", async ({ page
   await page.goto("/");
   await expect(page.locator("#boot-loader")).toHaveCount(0);
   await page.locator("#set-sail").click();
-  await page.locator("#start-lesson").click();
+  await page.locator('[data-lesson="0"]').click();
   await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "trim");
   await page.setViewportSize({ width:390, height:844 });
   await expect(page.locator(".orientation-gate")).toBeVisible();

@@ -21,7 +21,7 @@ async function beginLesson(page: Page): Promise<void> {
   await expect(page.locator("#welcome")).toBeVisible();
   await expect(page.locator("#set-sail")).toBeVisible();
   await page.locator("#set-sail").click();
-  await page.locator("#start-lesson").click();
+  await page.locator('[data-lesson="0"]').click();
   await expect(page.locator(".game-shell")).not.toHaveClass(/is-welcome/);
   await expect(page.locator("#welcome")).toBeHidden();
   await expect(page.locator("#flow-state")).toBeVisible();

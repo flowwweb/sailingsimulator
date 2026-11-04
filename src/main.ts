@@ -403,10 +403,6 @@ function bindInterface(): void {
     if (event.code === "Space" || event.code === "Enter") event.stopPropagation();
   });
   required("#status-close").addEventListener("click", () => setStatusOpen(false));
-  const lessonDetail = required<HTMLDetailsElement>(".lesson-detail");
-  lessonDetail.addEventListener("toggle", () => {
-    if (lessonDetail.open) lessonDetail.scrollIntoView({ block: "end", behavior: "smooth" });
-  });
   window.addEventListener("pagehide", persistProgress);
   window.addEventListener("blur", interruptLessonAttempt);
   document.addEventListener("visibilitychange", interruptLessonAttempt);
@@ -531,21 +527,14 @@ function bindInterface(): void {
     showCompletion("Recover the training dummy", before);
   });
   lessonChoices.forEach((button) => button.addEventListener("click", () => {
-    lessonChoices.forEach((choice) => {
-      choice.classList.toggle("is-selected", choice === button);
-      choice.setAttribute("aria-pressed", String(choice === button));
-    });
-    syncLessonTargets();
-  }));
-  required("#start-lesson").addEventListener("click", () => {
-    if (required("#start-first-buoy").classList.contains("is-selected")) { startFirstBuoy(); return; }
-    if (required("#start-dummy-recovery").classList.contains("is-selected")) { startDummyRecovery(); return; }
-    const lesson = Number(required<HTMLButtonElement>("[data-lesson].is-selected").dataset.lesson);
+    if (button.id === "start-first-buoy") { startFirstBuoy(); return; }
+    if (button.id === "start-dummy-recovery") { startDummyRecovery(); return; }
+    const lesson = Number(button.dataset.lesson);
     closeTitleDialog(false);
     beginSailing(false);
     academy.restoreObjective(nextLessonObjective(progress, lesson));
     prepareLessonAttempt();
-  });
+  }));
   required("#lesson-chooser-close").addEventListener("click", () => closeTitleDialog());
   required("#title-logbook-close").addEventListener("click", () => closeTitleDialog());
   elements.titleLogbook.addEventListener("click", () => {
@@ -767,23 +756,12 @@ function resetRadio(): void {
   required<HTMLSelectElement>("#radio-channel").disabled = false;
 }
 
-function syncLessonTargets(): void {
-  const targets = required(".lesson-choice.is-selected .lesson-targets").textContent!.split("·");
-  const list = required("#chosen-lesson-targets");
-  list.replaceChildren(...targets.map((target) => {
-    const row = document.createElement("li");
-    row.textContent = target.trim();
-    return row;
-  }));
-}
-
 function openLessonChooser(opener: HTMLButtonElement = elements.continueLesson): void {
   lessonChooserOpener = opener;
   void startTitleAudio();
   elements.lessonChooser.hidden = false;
   required(".welcome-lockup").hidden = true;
-  syncLessonTargets();
-  required<HTMLButtonElement>(".lesson-choice.is-selected").focus();
+  required<HTMLButtonElement>("#start-first-buoy").focus();
 }
 
 function closeTitleDialog(restoreFocus = true): void {

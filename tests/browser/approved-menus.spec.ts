@@ -59,31 +59,22 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await expect(chooser).toBeHidden();
     await expect(page.locator("#set-sail")).toBeFocused();
     await page.locator("#set-sail").click();
-    await expect(page.locator(".lesson-choice")).toHaveCount(5);
-    await expect(page.locator("#start-first-buoy")).toContainText("01");
-    await expect(page.locator("#start-first-buoy")).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("#start-first-buoy .lesson-image")).toBeVisible();
-    await expect(page.locator("[data-lesson]")).toHaveCount(3);
-    for (const card of await page.locator("[data-lesson]").all()) {
+    await expect(page.locator(".lesson-choice")).toHaveCount(6);
+    await expect(page.locator(".lesson-choice:disabled")).toHaveCount(1);
+    await expect(page.locator(".lesson-choice:disabled")).toContainText("Coming soon");
+    await expect(page.locator("#start-lesson")).toHaveCount(0);
+    const cards = await page.locator(".lesson-choice").all();
+    const boxes = await Promise.all(cards.map(card => card.boundingBox()));
+    expect(Math.abs(boxes[0]!.y - boxes[2]!.y)).toBeLessThan(2);
+    expect(boxes[3]!.y).toBeGreaterThan(boxes[0]!.y);
+    for (const card of cards) {
       const cardBox = (await card.boundingBox())!;
       const imageBox = (await card.locator(".lesson-image").boundingBox())!;
-      expect(cardBox.width - imageBox.width).toBeLessThanOrEqual(4);
+      expect(cardBox.width - imageBox.width).toBeLessThanOrEqual(2);
     }
-    await page.locator('[data-lesson="1"]').click();
-    await expect(page.locator('[data-lesson="1"]')).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("#start-first-buoy")).toHaveAttribute("aria-pressed", "false");
-    await page.locator(".lesson-detail summary").click();
-    await expect(page.locator("#chosen-lesson-targets li")).toHaveCount(3);
-    await expect(page.locator("#chosen-lesson-targets")).toContainText("Beam reach");
-    await page.locator(".lesson-detail summary").click();
-    const start = (await page.locator("#start-lesson").boundingBox())!;
-    const cards = (await page.locator(".lesson-choices").boundingBox())!;
-    expect(start.y - (cards.y + cards.height)).toBeGreaterThan(8);
-    expect(start.y + start.height).toBeLessThan(height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.mouse.move(width - 2, height - 2);
     await page.screenshot({ path: resolve(evidence, `chooser-${label}.png`) });
-    await page.locator("#start-lesson").click();
+    await page.locator('[data-lesson="1"]').click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "close-hauled");
     await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 2 of 3 · Objective 1 of 3");
     await expect(page.locator('.wind-instrument .label')).toHaveText('Apparent wind');
@@ -123,7 +114,6 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.locator("#settings-main-menu").click();
     await page.locator("#new-journey").click();
     await page.locator('[data-lesson="2"]').click();
-    await page.locator("#start-lesson").click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "tack");
     await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 3 of 3 · Objective 1 of 3");
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v1")!));
