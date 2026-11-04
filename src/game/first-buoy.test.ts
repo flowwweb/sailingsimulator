@@ -56,13 +56,11 @@ describe("first buoy witnessed arrival", () => {
     expect(sail(new FirstBuoyJourney(), 50, 14, { sheetRate: 0, rudder: 0 })).toBe(0);
   });
 
-  it.each([
-    { sheet: 0.6, heading: Math.PI },
-    { sheet: 0.6 },
-    { heading: Math.PI },
-    { sheetRate: 0 },
-    { rudder: 0 },
-  ])("requires both controls and their resulting movement: %j", (overrides) => {
+  it("accepts unchanged trim when the sail is already drawing", () => {
+    expect(sail(new FirstBuoyJourney(), 50, 14, { sheet: 0.6, sheetRate: 0 })).toBe(1);
+  });
+
+  it.each([{ heading: Math.PI }, { rudder: 0 }])("requires demonstrated steering: %j", (overrides) => {
     expect(sail(new FirstBuoyJourney(), 50, 14, overrides)).toBe(0);
   });
 

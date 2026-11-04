@@ -42,15 +42,15 @@ function driver(journey) {
   return { line, sample, position: () => position };
 }
 
-function reachFirst(journey, direction = 1) {
+function reachFirst(journey, direction = 1, overrides = {}) {
   const boat = driver(journey), first = FIRST_BUOY_MARKS[0];
-  boat.line(first.x, first.z + 14.5);
+  boat.line(first.x, first.z + 14.5, false, overrides);
   const steps = 1_000;
   for (let i = 1; i <= steps; i++) {
     const angle = Math.PI / 2 + direction * Math.PI * i / steps;
-    boat.line(first.x + 14.5 * Math.cos(angle), first.z + 14.5 * Math.sin(angle));
+    boat.line(first.x + 14.5 * Math.cos(angle), first.z + 14.5 * Math.sin(angle), false, overrides);
   }
-  boat.line(first.x, first.z - 15.5, true);
+  boat.line(first.x, first.z - 15.5, true, overrides);
   return boat;
 }
 
@@ -123,15 +123,17 @@ test("skipping the first buoy cannot complete a later mark", () => {
   assert.equal(journey.completed, false);
 });
 
-test("first approach requires trim, while controlled straight legs can advance", () => {
-  const untrimmed = new FirstBuoyJourney(), firstBoat = driver(untrimmed);
-  firstBoat.line(FIRST_BUOY_MARKS[0].x, FIRST_BUOY_MARKS[0].z + 14.5, false, { sheetRate: 0 });
-  assert.match(untrimmed.objective(), /Sail/);
-  const journey = new FirstBuoyJourney(), boat = reachFirst(journey);
+test("drawing sails permit unchanged trim; poor sail flow does not advance", () => {
+  for (const bad of [{ luff: 0.3 }, { stall: 0.3 }, { driveForce: 0 }]) {
+    const journey = new FirstBuoyJourney(), boat = driver(journey);
+    boat.line(FIRST_BUOY_MARKS[0].x, FIRST_BUOY_MARKS[0].z + 14.5, false, { sheet: 0.6, sheetRate: 0, ...bad });
+    assert.match(journey.objective(), /Sail/);
+  }
+  const journey = new FirstBuoyJourney(), boat = reachFirst(journey, 1, { sheet: 0.6, sheetRate: 0 });
   assert.equal(journey.markIndex, 1);
-  boat.line(FIRST_BUOY_MARKS[1].x, FIRST_BUOY_MARKS[1].z, true, { rudder: 0 });
+  boat.line(FIRST_BUOY_MARKS[1].x, FIRST_BUOY_MARKS[1].z, true, { sheet: 0.6, sheetRate: 0, rudder: 0 });
   assert.equal(journey.markIndex, 2);
-  boat.line(FIRST_BUOY_MARKS[2].x, FIRST_BUOY_MARKS[2].z, true, { rudder: 0 });
+  boat.line(FIRST_BUOY_MARKS[2].x, FIRST_BUOY_MARKS[2].z, true, { sheet: 0.6, sheetRate: 0, rudder: 0 });
   assert.equal(journey.completed, true);
 });
 

@@ -61,17 +61,13 @@ export class FirstBuoyJourney {
   private roundAngle = 0;
   private previous?: LiveObservation;
   private travelM = 0;
-  private sheetStart?: number;
   private helmStart?: number;
-  private trimmed = false;
   private steered = false;
 
   interrupt(): void {
     this.previous = undefined;
     this.travelM = 0;
-    this.sheetStart = undefined;
     this.helmStart = undefined;
-    this.trimmed = false;
     this.steered = false;
     this.rounding = false;
     this.roundAngle = 0;
@@ -108,11 +104,7 @@ export class FirstBuoyJourney {
       return false;
     }
     this.travelM += stepM;
-    // Provisional action witnesses: sheet fraction 0.02; helm 0.01 and heading 0.03 rad.
-    if (Math.abs(o.sheetRate) > 0) {
-      this.sheetStart ??= previous.sheet;
-      this.trimmed ||= Math.abs(o.sheet - this.sheetStart) > 0.02;
-    }
+    // Provisional helm witness: rudder 0.01 and heading change 0.03 rad.
     if (Math.abs(o.rudder) > 0.01) {
       this.helmStart ??= previous.heading;
       const turn = o.heading - this.helmStart;
@@ -128,7 +120,7 @@ export class FirstBuoyJourney {
       && o.driveForce > 0 && o.luff < 0.3 && o.stall < 0.3
       && Math.abs(o.yawRate) < 0.12 && o.pointOfSail !== "No-go zone";
     if (this.markIndex === 0) {
-      if (entered && this.trimmed && this.steered && this.travelM >= FIRST_BUOY.minTravelM && controlled) {
+      if (entered && this.steered && this.travelM >= FIRST_BUOY.minTravelM && controlled) {
         this.rounding = true;
         this.roundAngle = 0;
       } else if (this.rounding) {
