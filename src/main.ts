@@ -706,6 +706,9 @@ function setStatusOpen(open: boolean, restoreFocus = true): void {
 function setRadioOpen(open: boolean, restoreFocus = true): void {
   if (open && !started) return;
   if (open) {
+    audio.stopRadioNotice();
+    radioSubtitleSeconds = 0;
+    required("#radio-subtitle").hidden = true;
     setStatusOpen(false, false);
     if (isChartOpen()) setChartOpen(false, false);
     if (isConditionsOpen()) setConditionsOpen(false, false);
@@ -717,14 +720,15 @@ function setRadioOpen(open: boolean, restoreFocus = true): void {
   else if (restoreFocus && started) required("#radio-toggle").focus();
 }
 
-function showRadioSubtitle(message: string): void {
+function showRadioSubtitle(message: string, audioDuration = 0): void {
   const subtitle = required("#radio-subtitle");
   subtitle.textContent = message;
   subtitle.hidden = false;
-  radioSubtitleSeconds = Math.max(4, message.length / 15);
+  radioSubtitleSeconds = Math.max(4, message.length / 15, audioDuration);
 }
 
 function resetRadio(): void {
+  audio.stopRadioNotice();
   setRadioOpen(false, false);
   harborRadio.reset();
   radioNotices.reset();
@@ -1057,7 +1061,11 @@ function loop(now: number): void {
   if (input.consumeMute()) toggleMute();
   if (input.consumeConditions() && required("#completion-screen").hidden) setConditionsOpen(!isConditionsOpen());
   const simulationPaused = document.hidden || portrait || isSimulationPaused();
-  if (simulationPaused) { academy.interrupt(); firstBuoy?.interrupt(); input.releaseAll(); }
+  if (simulationPaused) {
+    audio.stopRadioNotice();
+    if (radioSubtitleSeconds > 0) { radioSubtitleSeconds = 0; required("#radio-subtitle").hidden = true; }
+    academy.interrupt(); firstBuoy?.interrupt(); input.releaseAll();
+  }
   if (canControlBoat() && !steeringHintOffered && window.matchMedia("(pointer: coarse)").matches) {
     steeringHintOffered = true;
     steeringHintSeconds = 5;
@@ -1083,7 +1091,8 @@ function loop(now: number): void {
       simulationTime += fixedStep;
       if (!incident && firstBuoy && !firstBuoy.completed && !firstBuoy.failed && radioNotices.update(fixedStep, true, harborRadio.awaiting || !required("#radio-panel").hidden || radioSubtitleSeconds > 0)) {
         audio.playRadioSquelch();
-        showRadioSubtitle("Simulated VHF 16 · Sécurité, sécurité, sécurité. All stations, all stations, all stations. This is Juniper Coast Radio. Small sailing craft are exercising around the Juniper training buoys. Keep a lookout. Out.");
+        const duration = audio.playRadioNotice();
+        showRadioSubtitle("Simulated VHF 16 · Sécurité, sécurité, sécurité. All stations, all stations, all stations. This is Juniper Coast Radio. Small sailing craft are exercising around the Juniper training buoys. Keep a lookout. Out.", duration);
       }
       if (radioSubtitleSeconds > 0) {
         radioSubtitleSeconds = Math.max(0, radioSubtitleSeconds - fixedStep);
