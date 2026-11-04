@@ -41,7 +41,7 @@ for(const [label,width,height] of [['desktop',1440,900],['phone',844,390]] as co
    trace.push({event:'build',url:page.url(),asset:await page.locator('script[type="module"]').getAttribute('src'),viewport:{width,height},initialSaved:(await read(page)).saved});
    if(cdp){await page.locator('#title-settings').click();await page.locator('[data-ui-tab="controls"]').click();await page.locator('#touch-controls-enabled').check();await page.locator('#settings-resume').click();}
    for(let lesson=0;lesson<3;lesson++){
-    await page.locator(lesson===0?'#set-sail':'#continue-lesson').click();await page.locator(`[data-lesson="${lesson}"]`).click();await expect(page.locator('#welcome')).toBeHidden();
+    await page.locator(lesson===0?'#set-sail':'#continue-lesson').click(); if (lesson===0) { await page.locator('#start-first-buoy').click(); await page.locator('#map-toggle').click(); await page.locator('[data-activity-id="trim-practice"]').click(); } else await page.locator(`[data-lesson="${lesson}"]`).click(); await expect(page.locator('#welcome')).toBeHidden();
     for(const [offset,stage] of stages[lesson]!.entries()){
      await setControls([]);await expect(page.locator('.game-shell')).toHaveAttribute('data-academy-stage',stage);
      const initial=await read(page);trace.push({event:'initial',stage,snapshot:initial});

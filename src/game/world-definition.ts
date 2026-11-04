@@ -383,6 +383,10 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       difficulty: "Intro",
     },
     {
+      id: "trim-practice", title: "Catch the wind", kind: "lesson", x: 250, z: 50,
+      area: "School Water", objective: "Trim, stall and recover the sail.", difficulty: "Easy",
+    },
+    {
       id: "school-water-tacks",
       title: "Two clean tacks",
       kind: "lesson",

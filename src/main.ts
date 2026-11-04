@@ -585,6 +585,7 @@ function bindInterface(): void {
     if (button.id === "start-first-buoy") { startFirstBuoy(); return; }
     if (button.id === "start-dummy-recovery") { startDummyRecovery(); return; }
     if (button.id === "start-crossing") { startCrossing(); return; }
+    if (button.id === "start-anchorage") { closeTitleDialog(false); beginSailing(false); selectChartActivity("anchorage-practice"); return; }
     const lesson = Number(button.dataset.lesson);
     closeTitleDialog(false);
     beginSailing(false);
@@ -758,13 +759,13 @@ function syncTitleState(): void {
   elements.continueLesson.hidden = !returning;
   const view = academy.view();
   const lesson = view.lesson;
-  const choice = required(`[data-lesson="${lesson}"]`);
+  const targetLabels = lesson === 0 ? ["Trim", "Stall", "Recover"] : required(`[data-lesson="${lesson}"]`).querySelector(".lesson-targets")!.textContent!.split("·").map((label) => label.trim());
   const complete = view.objective === 3 || view.stage === "complete";
   elements.newJourney.hidden = !returning || complete;
   required("#returning-lesson").textContent = LESSON_TITLES[lesson]!;
   required("#returning-target").textContent = complete
     ? `${progress.academyCompleted ? "Academy" : "Lesson"} complete · All ${progress.academyCompleted ? "nine" : "three"} targets earned`
-    : `Target ${view.objective + 1} of 3 · ${choice.querySelector(".lesson-targets")!.textContent!.split("·")[view.objective]!.trim()}`;
+    : `Target ${view.objective + 1} of 3 · ${targetLabels[view.objective]}`;
   elements.continueLesson.firstChild!.textContent = complete ? "Choose lesson" : "Continue lesson";
   if (progress.activeIntroduction === FIRST_BUOY.id) {
     const earned = progress.completedIntroductions?.[FIRST_COURSE_ID] === 1;
@@ -2380,7 +2381,11 @@ function selectChartActivity(id: string): void {
   persistProgress();
   selectedActivityId = id;
   const activity = selectedActivity();
-  if (activity?.id === "anchorage-practice") {
+  if (activity?.id === "trim-practice") {
+    academy.restoreObjective(nextLessonObjective(progress, 0));
+    prepareLessonAttempt();
+    setChartOpen(false);
+  } else if (activity?.id === "anchorage-practice") {
     academy.skip();
     startAnchorage(true);
     setChartOpen(false);
@@ -2440,7 +2445,7 @@ function syncChartActivityList(): void {
     const selected = activity.id === selectedActivityId;
     const record = progress.activities[activity.id];
     button.classList.toggle("is-selected", selected);
-    button.classList.toggle("is-complete", Boolean(record) || activity.id === "anchorage-practice" && progress.completedAnchorage === true);
+    button.classList.toggle("is-complete", Boolean(record) || activity.id === "anchorage-practice" && progress.completedAnchorage === true || activity.id === "trim-practice" && (progress.completedLessons?.includes(0) || progress.academyCompleted));
     button.setAttribute("aria-pressed", String(selected));
     const distance = Math.hypot(
       activity.x - state.position.x,
@@ -2454,13 +2459,13 @@ function syncChartActivityList(): void {
       ".chart-activity-score",
     );
     if (scoreLabel) {
-      scoreLabel.textContent = activity.id === "anchorage-practice" && progress.completedAnchorage
+      scoreLabel.textContent = (activity.id === "anchorage-practice" && progress.completedAnchorage) || (activity.id === "trim-practice" && (progress.completedLessons?.includes(0) || progress.academyCompleted))
         ? "Completed"
         : record ? `Best ${record.bestScore} · ${record.completions} ${record.completions === 1 ? "completion" : "completions"}`
         : "Not yet completed";
     }
   }
-  const completed = Object.keys(progress.activities).length + (progress.completedAnchorage && !progress.activities["anchorage-practice"] ? 1 : 0);
+  const completed = Object.keys(progress.activities).length + (progress.completedAnchorage && !progress.activities["anchorage-practice"] ? 1 : 0) + ((progress.completedLessons?.includes(0) || progress.academyCompleted) && !progress.activities["trim-practice"] ? 1 : 0);
   elements.logbookSummary.textContent =
     `${completed} of ${FAIR_WINDS_WORLD.activities.length} activities complete · ${progress.voyages} ${progress.voyages === 1 ? "voyage" : "voyages"} · ${formatChartDistance(progress.distanceSailed)} sailed.`;
   elements.settingsLogbookSummary.textContent =
@@ -2609,9 +2614,9 @@ function fillLogbook(stats: HTMLElement, list: HTMLElement): void {
   const introduction = document.createElement("li");
   introduction.textContent = `${FIRST_BUOY.title} · ${progress.completedIntroductions?.[FIRST_COURSE_ID] === 1 ? "Complete" : "Not yet completed"}`;
   list.append(introduction);
-  document.querySelectorAll<HTMLButtonElement>("[data-lesson]").forEach((choice, index) => {
+  LESSON_TITLES.forEach((title, index) => {
     const row = document.createElement("li");
-    row.textContent = `${choice.querySelector(".lesson-name")!.textContent!.trim()} · ${progress.academyCompleted || progress.completedLessons?.includes(index) ? "Complete" : "Not yet completed"}`;
+    row.textContent = `${title} · ${progress.academyCompleted || progress.completedLessons?.includes(index) ? "Complete" : "Not yet completed"}`;
     list.append(row);
   });
   const recovery = document.createElement("li");

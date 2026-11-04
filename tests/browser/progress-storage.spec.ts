@@ -82,7 +82,9 @@ test("earned-objective save failure keeps subsequent frames and session mastery"
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-app-ready", "true");
   await page.locator("#set-sail").click();
-  await page.locator('[data-lesson="0"]').click();
+  await page.locator("#start-first-buoy").click();
+  await page.locator("#map-toggle").click();
+  await page.locator('[data-activity-id="trim-practice"]').click();
   await expect(page.locator("#welcome")).toBeHidden();
   const held = new Set<string>();
   const start = Date.now();

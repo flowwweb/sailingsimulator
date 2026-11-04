@@ -57,7 +57,7 @@ test("starting, pausing, retrying and reloading the first journey do not award c
   await page.goto("/");
   await expect(page.locator("#boot-loader")).toHaveCount(0);
   await page.locator("#set-sail").click();
-  await expect(page.locator("[data-lesson]")).toHaveCount(3);
+  await expect(page.locator(".lesson-choice")).toHaveCount(6);
   await page.locator("#start-first-buoy").click();
   await expectFreshJourney(page);
 
@@ -104,8 +104,8 @@ test("completed legacy drills remain available and do not grant first-journey cr
   await page.locator("#title-logbook-close").click();
   await page.locator("#continue-lesson").click();
   await expect(page.locator("#lesson-chooser")).toBeVisible();
-  await expect(page.locator("[data-lesson]")).toHaveCount(3);
-  await expect(page.locator('[data-lesson="0"]')).toContainText("Trim · Stall · Recover");
+  await expect(page.locator(".lesson-choice")).toHaveCount(6);
+  await expect(page.locator('#start-anchorage')).toContainText("Choose · Set · Recover");
   await expect(page.locator('[data-lesson="1"]')).toContainText("Close-hauled · Beam reach · Broad reach");
   await expect(page.locator('[data-lesson="2"]')).toContainText("Tack · Gybe · Reef");
   await page.locator("#start-first-buoy").click();
@@ -125,4 +125,15 @@ test("completed legacy drills remain available and do not grant first-journey cr
   expect(changedConditions.firstBuoy).toBeUndefined();
   expect(changedConditions.completedLessons).toEqual(saved.completedLessons);
   expect(changedConditions.completedObjectives).toEqual(saved.completedObjectives);
+});
+
+test("anchorage starts directly from the sixth lesson tile", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#boot-loader")).toHaveCount(0);
+  await page.locator("#set-sail").click();
+  await expect(page.locator(".lesson-choice")).toHaveCount(6);
+  await page.locator("#start-anchorage").click();
+  await expect(page.locator("#welcome")).toBeHidden();
+  await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "anchorage-approach");
+  await expect(page.locator("#anchor-drop")).toBeVisible();
 });
