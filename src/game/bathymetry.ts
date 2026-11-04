@@ -136,6 +136,12 @@ export function shoalDistance(
   );
 }
 
+// The organic radius never exceeds 1 + |irregularity|; distant shoals cannot affect depth.
+const SHOAL_BOUNDS_SQUARED = LAKE_SHOALS.map((shoal) => {
+  const radius = shoal.shelfRadius * Math.max(Math.abs(shoal.scaleX), Math.abs(shoal.scaleZ)) * (1 + Math.abs(shoal.irregularity)) * (1 + 1e-12);
+  return radius * radius;
+});
+
 export function sampleLakeDepth(x: number, z: number): number {
   const boundaryDistance = lakeBoundaryDistance(x, z);
   if (boundaryDistance >= 1) return 0;
@@ -148,7 +154,11 @@ export function sampleLakeDepth(x: number, z: number): number {
   ) * smootherstep(0.08, 0.55, edgeProgress);
   let depth = Math.min(38, Math.max(0, basinDepth + depthVariation));
 
-  for (const shoal of LAKE_SHOALS) {
+  for (let index = 0; index < LAKE_SHOALS.length; index += 1) {
+    const shoal = LAKE_SHOALS[index]!;
+    const dx = x - shoal.x;
+    const dz = z - shoal.z;
+    if (dx * dx + dz * dz > SHOAL_BOUNDS_SQUARED[index]!) continue;
     const distance = shoalDistance(shoal, x, z);
     if (distance >= shoal.shelfRadius) continue;
     const shelfDepth = 12 * smootherstep(
