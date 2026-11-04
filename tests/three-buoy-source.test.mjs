@@ -57,6 +57,7 @@ function reachFirst(journey, direction = 1, overrides = {}) {
 test("missed arrivals explain the actual condition and how to retry", () => {
   const cases = [
     [{ sailsRaised: false }, "Raise the sail fully."],
+    [{ sailDeployment: 0.6 }, "Raise the sail fully."],
     [{ pointOfSail: "No-go zone" }, "Turn away from the wind."],
     [{ forwardSpeed: 0.2 }, "Build a little more speed."],
     [{ forwardSpeed: 4.1 }, "Slow down before the buoy."],
