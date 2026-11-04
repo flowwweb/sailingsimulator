@@ -1336,6 +1336,7 @@ function loop(now: number): void {
             position: state.position, heading: state.heading, unsafe })) {
             const before = sailingRank(progress);
             progress = recordFirstBuoyCompletion(progress);
+            academy.restoreObjective(nextLessonObjective(progress, 1));
             persistProgress();
             elements.status.textContent = "Three buoys reached under control. Journey complete.";
             showCompletion(FIRST_BUOY.title, before);

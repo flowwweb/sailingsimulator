@@ -269,3 +269,32 @@ test("completion advances through the visible six lessons even on replay", () =>
     assert.equal(actual, expected, from);
   }
 });
+
+test("completing the buoy journey saves the next lesson before pressing Next", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const academySrc = readFileSync(new URL("../src/game/academy.ts", import.meta.url), "utf8");
+  const session = readFileSync(new URL("../src/game/lesson-session.ts", import.meta.url), "utf8");
+  const academyJs = stripTypeScriptTypes(academySrc, { mode: "strip" }).replace(/^import .*;\s*$/gm, "").replace(/^export /gm, "");
+  const start = session.indexOf("export function checkpointLesson(");
+  assert.ok(start >= 0);
+  const sessionJs = stripTypeScriptTypes(session.slice(start), { mode: "strip" }).replace(/^export /gm, "");
+  const completionStart = main.indexOf("            progress = recordFirstBuoyCompletion(progress);");
+  const completionEnd = main.indexOf("            elements.status.textContent", completionStart);
+  assert.ok(completionStart >= 0 && completionEnd > completionStart);
+  const completion = main.slice(completionStart, completionEnd);
+  const ctx = { FIRST_BUOY: { id: "intro.buoy-1", revision: 1 }, FIRST_COURSE_ID: "intro.three-buoy-course" };
+  const result = runInNewContext(js + "\n" + academyJs + "\n" + sessionJs + `
+    let progress = { ...createProgress(), activeIntroduction: FIRST_BUOY.id, voyages: 1 };
+    let academy = new SailingAcademy(); academy.skip();
+    let saved;
+    function persistProgress() { progress = checkpointLesson(progress, academy); saved = JSON.stringify(progress); }
+  ` + completion + `
+    let restored = parseProgress(saved); let nextAcademy = new SailingAcademy(); restoreLesson(nextAcademy, restored);
+    ({ active: restored.activeIntroduction, objective: nextAcademy.objectiveIndex(), stage: nextAcademy.view().stage,
+       xp: sailingRank(restored).xp, replayXp: sailingRank(recordFirstBuoyCompletion(restored)).xp });`, ctx);
+  assert.equal(result.active, undefined);
+  assert.equal(result.objective, 3);
+  assert.equal(result.stage, "close-hauled");
+  assert.equal(result.xp, 100);
+  assert.equal(result.replayXp, 100);
+});
