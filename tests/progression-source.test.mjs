@@ -101,12 +101,14 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   const context = { required, elements: { statusToggle, gameShell: { inert: false } }, input: { releaseAll() {} },
     window: { matchMedia: () => ({ matches: false }) }, firstBuoy: {}, completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false,
     performance: { now: () => 0 }, requestAnimationFrame: (fn) => { callback = fn; return 1; }, cancelAnimationFrame() { callback = undefined; },
+    setRadioOpen(open) { context.radioOpen = open; },
     storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 1,
     sailingRank: () => ({ xp: 100, level: 2, rank: "Deckhand", levelXp: 0 }),
     completionProgressFrame: evaluate("completionProgressFrame") };
   runInNewContext(`${functions}\nshowCompletion("Find your course", { xp: 0, level: 1, rank: 'Newcomer', levelXp: 0 });`, context);
   assert.equal(required("#completion-screen").hidden, false);
   assert.equal(context.elements.gameShell.inert, true);
+  assert.equal(context.radioOpen, false);
   assert.equal(context.accumulator, 0);
   assert.equal(required("#completion-reward").textContent, "+100 XP earned");
   assert.equal(required("#completion-level-number").textContent, "Level 1");
@@ -181,7 +183,7 @@ test("reduced motion and replay show the final rank without scheduling animation
   const context = { required, elements: { gameShell: { inert: false }, statusToggle: { focus() {} } },
     input: { releaseAll() {} }, window: { matchMedia: () => ({ matches: true }) }, firstBuoy: {},
     completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false, requestAnimationFrame: () => { scheduled++; return 1; },
-    cancelAnimationFrame() {}, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 0,
+    cancelAnimationFrame() {}, setRadioOpen() {}, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 0,
     sailingRank: () => ({ xp: 100, level: 2, rank: "Deckhand", levelXp: 0 }) };
   runInNewContext(`${functions}\nshowCompletion("First buoy", { xp: 0, level: 1, rank: "Newcomer", levelXp: 0 });`, context);
   assert.equal(required("#completion-level-number").textContent, "Level 1");
