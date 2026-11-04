@@ -42,6 +42,13 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
             LAKE_SHOALS.flatMap((shoal) => [shoal.x, shoal.z]),
           ),
         },
+        // A slightly expanded bound remains conservative after float32 rounding.
+        uShoalBoundSquared: {
+          value: new Float32Array(LAKE_SHOALS.map((shoal) => {
+            const radius = shoal.shelfRadius * Math.max(Math.abs(shoal.scaleX), Math.abs(shoal.scaleZ)) * (1 + Math.abs(shoal.irregularity)) * 1.0001;
+            return radius * radius;
+          })),
+        },
         uShoalIslandRadius: {
           value: new Float32Array(
             LAKE_SHOALS.map((shoal) => shoal.islandRadius),
@@ -167,6 +174,7 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
         uniform float uHullMaxWidth;
         uniform float uSignificantWaveHeight;
         uniform vec2 uShoalCenter[${LAKE_SHOALS.length}];
+        uniform float uShoalBoundSquared[${LAKE_SHOALS.length}];
         uniform float uShoalIslandRadius[${LAKE_SHOALS.length}];
         uniform float uShoalShelfRadius[${LAKE_SHOALS.length}];
         uniform vec2 uShoalScale[${LAKE_SHOALS.length}];
@@ -241,8 +249,10 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
           ) * smootherstep(0.08, 0.55, edgeProgress);
           depth = clamp(depth + depthVariation, 0.0, 38.0);
           for (int index = 0; index < ${LAKE_SHOALS.length}; index += 1) {
+            vec2 shoalDelta = point - uShoalCenter[index];
+            if (dot(shoalDelta, shoalDelta) > uShoalBoundSquared[index]) continue;
             float localShoalDistance = organicDistance(
-              point - uShoalCenter[index],
+              shoalDelta,
               uShoalScale[index],
               uShoalRotation[index],
               uShoalIrregularity[index],
