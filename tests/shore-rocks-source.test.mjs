@@ -61,4 +61,3 @@ test("all seeded shoreline rock and stone bounds remain on physical land", () =>
     }
   }
 });
-
