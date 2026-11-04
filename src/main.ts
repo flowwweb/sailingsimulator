@@ -1138,7 +1138,6 @@ function loop(now: number): void {
   wasPortrait = portrait;
   if (portrait || document.hidden) interruptLessonAttempt();
   if (droppedFrame && !isSimulationPaused()) {
-    academy.interrupt();
     dummyRecovery?.interrupt();
     weatherShelter?.interrupt();
     accumulator = 0;
@@ -1329,7 +1328,7 @@ function loop(now: number): void {
             persistProgress();
           }
         }
-        const eligible = !droppedFrame && !incident && nextIncident.kind !== "docking"
+        const eligible = !incident && nextIncident.kind !== "docking"
           && nextIncident.severity !== "touch" && !activitySession && !dockedAt;
         if (firstBuoy) {
           const unsafe = Boolean(incident) || nextIncident.severity === "touch" || nextIncident.severity === "impact"

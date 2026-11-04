@@ -215,5 +215,5 @@ test("a slow frame while status is open does not clear lesson witnesses", () => 
   assert.equal(interruptions, 0);
   ctx.elements.statusDetails.hidden = true;
   runInNewContext(hud.slice(begin, end), ctx);
-  assert.equal(interruptions, 3);
+  assert.equal(interruptions, 2);
 });

@@ -175,3 +175,36 @@ test("retry and free sail close status before transitioning and restore focus", 
   elements.statusDetails.hidden = false; ctx.firstBuoy = undefined;
   callback(); assert.equal(action, "free sail"); assert.equal(elements.statusDetails.hidden, true); assert.equal(focus, 2);
 });
+
+test("academy observes bounded slow-frame ticks but interrupts on contact and invalid input", () => {
+  const droppedStart = main.indexOf("  if (droppedFrame && !isSimulationPaused()) {");
+  const droppedEnd = main.indexOf("  if (!portrait) presentationTime", droppedStart);
+  const eligibleStart = main.indexOf("        const eligible = ", main.indexOf("function loop("));
+  const eligibleEnd = main.indexOf(";", eligibleStart) + 1;
+  const academyStart = main.indexOf("        if (!eligible || firstBuoy || dummyRecovery || crossing)", eligibleEnd);
+  const academyEnd = main.indexOf("        updateActivitySession(", academyStart);
+  assert.ok(droppedStart >= 0 && droppedEnd > droppedStart && eligibleStart >= 0 && academyStart > eligibleEnd && academyEnd > academyStart);
+  const dispatch = stripTypeScriptTypes(main.slice(eligibleStart, eligibleEnd) + "\n" + main.slice(academyStart, academyEnd), { mode: "transform" });
+  const frame = main.slice(droppedStart, droppedEnd);
+  const ctx = { FIRST_BUOY: { id: "intro.buoy-1", revision: 1 }, FIRST_COURSE_ID: "intro.three-buoy-course",
+    droppedFrame: true, isSimulationPaused: () => false, dummyRecovery: undefined, weatherShelter: undefined,
+    crossing: undefined, firstBuoy: undefined, accumulator: 0, incident: undefined, dockedAt: undefined,
+    activitySession: undefined, nextIncident: { kind: "none", severity: "none" }, fixedStep: 1 / 60,
+    simulationTimeScale: 1, state: {}, diagnostics: {}, controls: {}, elements: { status: {} },
+    observeLesson: () => ctx.observation, persistProgress() {}, showCompletion() {} };
+  runInNewContext(`${academyCode}\n${progressCode}\nlet academy = new SailingAcademy(); let progress = createProgress(); academy.restoreObjective(3);`, ctx);
+  ctx.observation = { ...base, apparentWindAngle: 70 * Math.PI / 180 };
+  runInNewContext("{\n" + frame + "\n" + dispatch + "\n}", ctx);
+  ctx.observation = { ...base, pointOfSail: "Close-hauled", apparentWindAngle: 48 * Math.PI / 180, rudder: .2 };
+  for (let i = 0; i < 100; i++) runInNewContext("{\n" + frame + "\n" + dispatch + "\n}", ctx);
+  assert.equal(runInNewContext("academy.objectiveIndex()", ctx), 4);
+  assert.equal(runInNewContext("progress.completedObjectives.includes(3)", ctx), true);
+  runInNewContext("academy.restoreObjective(3)", ctx);
+  ctx.nextIncident = { kind: "none", severity: "touch" };
+  for (let i = 0; i < 100; i++) runInNewContext("{\n" + frame + "\n" + dispatch + "\n}", ctx);
+  assert.equal(runInNewContext("academy.objectiveIndex()", ctx), 3);
+  ctx.nextIncident = { kind: "none", severity: "none" };
+  ctx.observation = { ...base, apparentWindAngle: NaN };
+  for (let i = 0; i < 100; i++) runInNewContext("{\n" + frame + "\n" + dispatch + "\n}", ctx);
+  assert.equal(runInNewContext("academy.objectiveIndex()", ctx), 3);
+});
