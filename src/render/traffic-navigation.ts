@@ -85,11 +85,13 @@ export function classifyEncounter(
     role: EncounterAdvisory["role"],
     advice: string,
   ): EncounterAdvisory => ({ type, role, distance, advice });
-  if (distance > advisoryRange || rangeRate >= -0.15) {
+  if (distance > advisoryRange || rangeRate > 0.15) {
     return result("clear", "clear", "No nearby closing traffic");
   }
   // Ambient poses omit mainsail side and vessel status, so they cannot establish a COLREG role.
-  return result("traffic", "traffic", "Traffic closing · maintain lookout");
+  return result("traffic", "traffic", rangeRate < -0.15
+    ? "Traffic closing · maintain lookout"
+    : "Traffic nearby · maintain lookout");
 }
 
 export function wrapAngle(value: number): number {

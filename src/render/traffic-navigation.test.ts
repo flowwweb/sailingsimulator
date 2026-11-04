@@ -63,4 +63,13 @@ describe("ambient traffic navigation", () => {
     );
     expect(distant.type).toBe("clear");
   });
+
+  it("keeps stationary and coincident nearby vessels visible", () => {
+    const own = { x: 0, z: 0, heading: 0, speed: 0 };
+    for (const x of [0, 5]) {
+      const advisory = classifyEncounter(own, { x, z: 0, heading: 0, speed: 0 });
+      expect(advisory.type).toBe("traffic");
+      expect(advisory.advice).toBe("Traffic nearby · maintain lookout");
+    }
+  });
 });
