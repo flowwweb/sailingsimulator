@@ -21,6 +21,29 @@ const base: ActivityObservation = {
 };
 
 describe("ActivitySession", () => {
+  it.each([
+    ["juniper-arrival", { dockedAt: "juniper-cove-dock" }, { dockedAt: undefined }],
+    ["school-water-tacks", { tackCount: 2 }, { tackCount: 2, attached: 0 }],
+    ["fresh-air-reef", { x: -760, z: -620, reefed: true }, { reefed: false }],
+  ] as const)("keeps %s terminal after completion without duplicate credit", (id, finish, leave) => {
+    const session = new ActivitySession(activity(id));
+    session.update(base);
+    const completed = session.update({ ...base, ...finish });
+    expect(completed.completed).toBe(true);
+    expect(completed.progress).toBe(1);
+    const score = { ...completed.score };
+    let previousCompleted = true;
+    let credits = 1;
+    for (const observation of [leave, finish]) {
+      const result = session.update({ ...base, ...observation });
+      if (!previousCompleted && result.completed && result.score) credits++;
+      previousCompleted = result.completed;
+      expect(result).toEqual(completed);
+      expect(result.score).toEqual(score);
+    }
+    expect(credits).toBe(1);
+  });
+
   it("grades two recovered tacks rather than waypoint arrival", () => {
     const session = new ActivitySession(activity("school-water-tacks"));
     session.update(base);
