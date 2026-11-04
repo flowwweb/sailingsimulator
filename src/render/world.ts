@@ -361,6 +361,10 @@ export class SailingWorld {
     this.ambientLife.setCrossingBoat(pose);
   }
 
+  setCrossingExercise(active: boolean): void {
+    this.ambientLife.setCrossingExercise(active);
+  }
+
   setTrainingDummy(position?: { x: number; z: number }): void {
     this.trainingDummy.visible = Boolean(position);
     if (position) this.trainingDummy.position.set(position.x, 0, position.z);

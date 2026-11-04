@@ -29,7 +29,7 @@ import {
 import { SailingAcademy, LESSON_TITLES } from "./game/academy";
 import { FIRST_BUOY, FIRST_BUOY_MARKS, FIRST_COURSE_ID, FirstBuoyJourney, firstBuoyWorld } from "./game/first-buoy";
 import { DummyRecovery } from "./game/dummy-recovery";
-import { CROSSING_PLAYER_HEADING, CrossingEncounter } from "./game/crossing-encounter";
+import { CROSSING_OTHER_SPEED, CROSSING_PLAYER_HEADING, CrossingEncounter } from "./game/crossing-encounter";
 import { createLessonState, createLessonWeather, observeLesson, checkpointLesson, restoreLesson } from "./game/lesson-session";
 import {
   ActivitySession,
@@ -1273,9 +1273,11 @@ function loop(now: number): void {
           else crossing.update(fixedStep, { x: state.position.x, z: state.position.y, velocityX: state.velocity.x, velocityZ: state.velocity.y, heading: state.heading, rudder: controls.rudder, unsafe, sailsRaised: state.sailsRaised, sailSide: state.sailSide });
           if (crossing.other && (crossing.stage === "crossing" || crossing.stage === "complete")) {
             const other = crossing.other;
-            const otherState = { ...state, position: { x: other.x, y: other.z }, heading: other.heading };
+            const otherState = { ...state, position: { x: other.x, y: other.z }, heading: other.heading,
+              velocity: { x: Math.sin(other.heading) * CROSSING_OTHER_SPEED, y: Math.cos(other.heading) * CROSSING_OTHER_SPEED }, heel: 0 };
             const previousOtherState = previousOther ? { ...otherState, position: { x: previousOther.x, y: previousOther.z }, heading: previousOther.heading } : undefined;
-            if (evaluateIncident(otherState, activeBoat, FAIR_WINDS_WORLD, weather.tideLevel, undefined, previousOtherState).severity !== "none") {
+            const otherIncident = evaluateIncident(otherState, activeBoat, FAIR_WINDS_WORLD, weather.tideLevel, undefined, previousOtherState);
+            if (otherIncident.severity !== "none" || otherIncident.kind === "docking") {
               crossing.stage = "failed"; crossing.failure = "unsafe";
             }
           }
@@ -1958,6 +1960,7 @@ function startFirstBuoy(): void {
 function stopDummyRecovery(): void {
   crossing = undefined;
   world.setCrossingBoat();
+  world.setCrossingExercise(false);
   dummyRecovery = undefined;
   world.setTrainingDummy();
   required<HTMLButtonElement>("#recover-training-dummy").hidden = true;
@@ -1985,6 +1988,7 @@ function startCrossing(): void {
   academy.skip();
   prepareLessonAttempt("crossing");
   crossing = new CrossingEncounter();
+  world.setCrossingExercise(true);
   updateHud();
 }
 

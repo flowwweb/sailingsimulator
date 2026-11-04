@@ -4,7 +4,7 @@
 export const CROSSING_WIND_FROM = 0;
 export const CROSSING_PLAYER_HEADING = Math.PI / 4;
 export const CROSSING_OTHER_HEADING = -Math.PI / 4;
-const OTHER_SPEED = 1.7;
+export const CROSSING_OTHER_SPEED = 1.7;
 const CLEARANCE = 10;
 // Conservative combined hull radius for this small-boat exercise.
 const CONTACT = 5;
@@ -38,8 +38,8 @@ export class CrossingEncounter {
       const speed = player.velocityX * Math.sin(player.heading) + player.velocityZ * Math.cos(player.heading);
       const difference = Math.atan2(Math.sin(player.heading - CROSSING_PLAYER_HEADING), Math.cos(player.heading - CROSSING_PLAYER_HEADING));
       if (speed < 0.8 || Math.abs(difference) > .12 || !player.sailsRaised || player.sailSide !== 1) return;
-      const otherX = Math.sin(CROSSING_OTHER_HEADING) * OTHER_SPEED;
-      const otherZ = Math.cos(CROSSING_OTHER_HEADING) * OTHER_SPEED;
+      const otherX = Math.sin(CROSSING_OTHER_HEADING) * CROSSING_OTHER_SPEED;
+      const otherZ = Math.cos(CROSSING_OTHER_HEADING) * CROSSING_OTHER_SPEED;
       this.other = { x: player.x + (player.velocityX - otherX) * 50, z: player.z + (player.velocityZ - otherZ) * 50, heading: CROSSING_OTHER_HEADING };
       const relativeBearing = Math.atan2(player.x - this.other.x, player.z - this.other.z) - this.other.heading;
       const ownBearing = Math.atan2(this.other.x - player.x, this.other.z - player.z) - player.heading;
@@ -52,8 +52,8 @@ export class CrossingEncounter {
     // The exercise teaches only the known opposite-tack case; stop if it no longer applies.
     if (!player.sailsRaised || player.sailSide !== 1) { this.failure = "conditions"; this.stage = "failed"; return; }
     const other = this.other!;
-    other.x += Math.sin(other.heading) * OTHER_SPEED * dt;
-    other.z += Math.cos(other.heading) * OTHER_SPEED * dt;
+    other.x += Math.sin(other.heading) * CROSSING_OTHER_SPEED * dt;
+    other.z += Math.cos(other.heading) * CROSSING_OTHER_SPEED * dt;
     this.elapsed += dt;
     if (this.elapsed > 100) { this.failure = "timeout"; this.stage = "failed"; return; }
     const relative = { x: player.x - other.x, z: player.z - other.z };

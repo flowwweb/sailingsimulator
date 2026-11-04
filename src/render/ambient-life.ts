@@ -40,6 +40,11 @@ export class AmbientLife {
     }
   }
 
+  setCrossingExercise(active: boolean): void {
+    // Ambient boats are visual-only; the exercise models one specific encounter.
+    for (const boat of this.boats) boat.root.visible = !active;
+  }
+
   update(time: number, player: BoatState, trueWind: { x: number; y: number }, weather: WeatherSnapshot): void {
     if (this.crossingBoat.visible) {
       const position = this.crossingBoat.position;
