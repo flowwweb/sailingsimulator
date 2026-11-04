@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: 01ac75ac01472e1a67d4308726e5b5425d5941f4
+          SOURCE_COMMIT: e2256c61afad89196fed0ccbda60476b96ea73d5
         run: |
           set -euo pipefail
           umask 077
@@ -52,12 +52,12 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "01ac75ac01472e1a67d4308726e5b5425d5941f4" and .tree.sha == "1745a7f576ddd9e74eb473acd7fd7807cfce3d1f"' "$work/commit.json"
+          jq -e '.sha == "e2256c61afad89196fed0ccbda60476b96ea73d5" and .tree.sha == "1b7dc61a446cc18002f977e0482dee75ec8bc67c"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "01ac75ac01472e1a67d4308726e5b5425d5941f4",
-            "tree": "1745a7f576ddd9e74eb473acd7fd7807cfce3d1f",
+            "commit": "e2256c61afad89196fed0ccbda60476b96ea73d5",
+            "tree": "1b7dc61a446cc18002f977e0482dee75ec8bc67c",
             "publishedChangesCovered": 23,
             "files": [
               {
@@ -620,9 +620,9 @@ jobs:
               },
               {
                 "path": "src/render/wind-cues.ts",
-                "bytes": 7238,
-                "sha256": "385c830da87967231dd97e10e4a0fa583ec41e529dcb43e4bd8ccbc6efd96c6c",
-                "blobSha1": "04f7c15379b0ae77c1682c1dfc71388bcfc574a4"
+                "bytes": 7315,
+                "sha256": "f851e5b2e59aed50bad7c07a08c540a513a1bb674350cce2a152e7ac7d2431a5",
+                "blobSha1": "44530594accb48a0c89fe94d3fa92ad0a24af7ec"
               },
               {
                 "path": "src/render/world.ts",
@@ -925,6 +925,12 @@ jobs:
                 "blobSha1": "2cd0b02b998593895a2cb767b5b70abac88b0589"
               },
               {
+                "path": "tests/wind-cues-source.test.mjs",
+                "bytes": 2068,
+                "sha256": "f7ed8bbb281624b102e688b803ea6d46b94883ea90499807a0ee814d6974d101",
+                "blobSha1": "1fa3e93a87a1b23984ee3d7e91dd7414b5a4a680"
+              },
+              {
                 "path": "tsconfig.json",
                 "bytes": 480,
                 "sha256": "3a322b47860174f0cc841bc6a41e4d4bce658457468209d3f499c64ed35f9370",
@@ -939,7 +945,7 @@ jobs:
             ]
           }
           SOURCE
-          jq -e '.commit == "01ac75ac01472e1a67d4308726e5b5425d5941f4" and (.files | length) == 146' "$work/source-files.json"
+          jq -e '.commit == "e2256c61afad89196fed0ccbda60476b96ea73d5" and (.files | length) == 147' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -963,7 +969,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: '01ac75ac01472e1a67d4308726e5b5425d5941f4', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: 'e2256c61afad89196fed0ccbda60476b96ea73d5', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -995,8 +1001,8 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, '1745a7f576ddd9e74eb473acd7fd7807cfce3d1f');
-            assert.equal(source.files.length, 146);
+            assert.equal(source.tree, '1b7dc61a446cc18002f977e0482dee75ec8bc67c');
+            assert.equal(source.files.length, 147);
             process.chdir('/work/project');
             function verifySource() {
               assert.deepEqual(filesIn('.', ['node_modules', 'dist']), source.files.map(f => f.path).sort(), 'Unexpected source/config file');
@@ -1133,7 +1139,7 @@ jobs:
             report.dependencyGates = 'PASS_AUDIT_AND_INSTALLED_SIGNATURE_COVERAGE_NOT_MALWARE_CLEARANCE';
             npm('unit-tests', ['run', 'test'], 120000);
             verifySource();
-            const contracts = spawnSync(process.execPath, ["--test","tests/first-buoy-source.test.mjs","tests/progression-source.test.mjs","tests/three-buoy-source.test.mjs","tests/title-render-scheduling.test.mjs","tests/radio-flow-source.test.mjs","tests/radio-voice-source.test.mjs","tests/dummy-recovery-source.test.mjs","tests/weather-cache-source.test.mjs","tests/audio-sampling-source.test.mjs","tests/lesson-chooser-source.test.mjs"], { env, encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024 });
+            const contracts = spawnSync(process.execPath, ["--test","tests/first-buoy-source.test.mjs","tests/progression-source.test.mjs","tests/three-buoy-source.test.mjs","tests/title-render-scheduling.test.mjs","tests/radio-flow-source.test.mjs","tests/radio-voice-source.test.mjs","tests/dummy-recovery-source.test.mjs","tests/weather-cache-source.test.mjs","tests/audio-sampling-source.test.mjs","tests/lesson-chooser-source.test.mjs","tests/wind-cues-source.test.mjs"], { env, encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024 });
             report.stages.push({ stage: 'source-contract-tests', status: contracts.status, error: contracts.error?.message, stdout: contracts.stdout, stderr: contracts.stderr });
             assert.equal(contracts.error, undefined); assert.equal(contracts.status, 0);
             verifySource();
