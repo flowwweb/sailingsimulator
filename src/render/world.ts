@@ -22,7 +22,7 @@ import {
   type BoatDefinition,
 } from "../sim/boats";
 import {
-  sampleWaves,
+  sampleWaveHeight,
 } from "../weather/waves";
 import type { WeatherSnapshot } from "../weather/types";
 import { LakeScenery } from "./scenery";
@@ -1056,9 +1056,9 @@ export class SailingWorld {
           const bandX = localX + side * (band * foamReach + bowBurst);
           const worldX = x + bandX * cosine + localZ * sine;
           const worldZ = z - bandX * sine + localZ * cosine;
-          const wave = sampleWaves(weather.waves, worldX, worldZ, weather.time);
+          const height = sampleWaveHeight(weather.waves, worldX, worldZ, weather.time);
           const vertex = sideIndex * sampleCount * 2 + index * 2 + band;
-          positions.setXYZ(vertex, worldX, weather.tideLevel + wave.height + 0.028, worldZ);
+          positions.setXYZ(vertex, worldX, weather.tideLevel + height + 0.028, worldZ);
         }
       }
     }

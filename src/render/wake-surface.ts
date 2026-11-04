@@ -1,7 +1,7 @@
 import type { BoatState } from "../sim/model";
 import type { BoatDefinition } from "../sim/boats";
 import type { WeatherSnapshot } from "../weather/types";
-import { sampleWaves } from "../weather/waves";
+import { sampleWaveHeight } from "../weather/waves";
 
 export interface WakeSurfacePoint {
   x: number;
@@ -30,7 +30,7 @@ export function wakeSurfacePoints(
       x,
       y:
         weather.tideLevel +
-        sampleWaves(weather.waves, x, z, weather.time).height +
+        sampleWaveHeight(weather.waves, x, z, weather.time) +
         WAKE_SURFACE_CLEARANCE,
       z,
     };

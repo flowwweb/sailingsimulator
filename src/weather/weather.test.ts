@@ -10,12 +10,21 @@ import { HARBOR_20 } from "../sim/boats";
 import { advanceBoatWavePose, createInitialState, stepBoat } from "../sim/model";
 import {
   buildWaveComponents,
+  sampleWaveHeight,
   sampleWaves,
   significantWaveHeight,
   waveShaderArrays,
 } from "./waves";
 
 describe("deterministic weather and analytic waves", () => {
+  it("keeps height-only rendering samples identical to full wave samples", () => {
+    for (const speed of [0, 6, 14]) {
+      const waves = buildWaveComponents(DEFAULT_WEATHER.waves, speed, 90, 42);
+      for (const [x, z, t] of [[0, 0, 0], [123.5, -88.25, 14], [-700, 400, 250]]) {
+        expect(sampleWaveHeight(waves, x!, z!, t!)).toBe(sampleWaves(waves, x!, z!, t!).height);
+      }
+    }
+  });
   it("reuses the wave spectrum until the weather configuration changes", () => {
     const config = cloneWeatherConfig(DEFAULT_WEATHER);
     const system = new WeatherSystem(config);

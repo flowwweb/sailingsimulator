@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { BoatState, Vec2 } from "../sim/model";
 import { depthAtTide, sampleLakeDepth } from "../game/bathymetry";
 import type { WeatherSnapshot } from "../weather/types";
-import { sampleWaves } from "../weather/waves";
+import { sampleWaveHeight } from "../weather/waves";
 import { createRandom } from "../weather/prng";
 
 const CUE_COUNT = 18;
@@ -137,7 +137,7 @@ export function updateWindCues(
       const fraction = point / SEGMENTS;
       const px = baseX + directionX * length * fraction;
       const pz = baseZ + directionZ * length * fraction;
-      const py = weather.tideLevel + sampleWaves(weather.waves, px, pz, weather.time).height + 0.045;
+      const py = weather.tideLevel + sampleWaveHeight(weather.waves, px, pz, weather.time) + 0.045;
       const alpha = Math.sin(Math.PI * fraction) * intensity * edgeFade * boatFade * landFade * envelope;
       const first = index * SEGMENTS * 2 + point * 2;
       if (point > 0) { positions.setXYZ(first - 1, px, py, pz); opacity.setX(first - 1, alpha); }

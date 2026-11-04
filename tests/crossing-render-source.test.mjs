@@ -12,7 +12,7 @@ test("visible crossing boat follows tide and wave; hidden boat does not sample",
   let samples = 0;
   const crossingBoat = { visible: true, position: { x: 3, z: 4, y: 0 } };
   const context = { boat: { crossingBoat }, weather: { tideLevel: 1.5, waves: [] }, time: 10,
-    sampleWaves: (_waves, x, z, t) => { samples++; assert.deepEqual([x, z, t], [3, 4, 10]); return { height: .4 }; } };
+    sampleWaveHeight: (_waves, x, z, t) => { samples++; assert.deepEqual([x, z, t], [3, 4, 10]); return .4; } };
   runInNewContext(`(function(){ ${body} }).call(boat)`, context);
   assert.equal(crossingBoat.position.y, 1.9);
   crossingBoat.visible = false;

@@ -14,7 +14,7 @@ test("wind cue segments share wave samples without gaps", () => {
     SEGMENTS: 6, FIELD_SIZE: 110,
     THREE: { MathUtils: { smoothstep, clamp: (x, a, b) => Math.min(Math.max(x, a), b), euclideanModulo: (n, m) => (n % m + m) % m } },
     sampleLakeDepth: () => 10, depthAtTide: x => x,
-    sampleWaves: (_, x, z) => { samples++; return { height: waveHeight(x, z) }; },
+    sampleWaveHeight: (_, x, z) => { samples++; return waveHeight(x, z); },
   });
   const position = { array: new Float32Array(216 * 3), setXYZ(i, x, y, z) { this.array.set([x, y, z], i * 3); } };
   const opacity = { array: new Float32Array(216), setX(i, value) { this.array[i] = value; } };
