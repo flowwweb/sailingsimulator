@@ -125,7 +125,8 @@ export class FirstBuoyJourney {
       && o.driveForce > 0 && o.luff < 0.3 && o.stall < 0.3
       && Math.abs(o.yawRate) < 0.12 && o.pointOfSail !== "No-go zone";
     if (entered) {
-      this.arrivalCue = !o.sailsRaised || o.sailDeployment <= 0.6 ? "Raise the sail fully."
+      this.arrivalCue = !o.sailsRaised ? "Raise the sail."
+        : o.sailDeployment <= 0.6 ? "Let the sail finish adjusting."
         : o.pointOfSail === "No-go zone" ? "Turn away from the wind."
         : o.forwardSpeed <= 0.3 ? "Build a little more speed."
         : o.forwardSpeed > FIRST_BUOY.maxArrivalSpeedMps ? "Slow down before the buoy."
