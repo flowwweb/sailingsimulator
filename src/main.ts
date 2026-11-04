@@ -640,6 +640,7 @@ function bindInterface(): void {
       gybeCount: state.gybeCount,
     });
     persistProgress();
+    syncTitleRank();
     syncChartActivityList();
     updateLesson();
     elements.status.textContent = "Local logbook reset. Academy coaching is ready.";
@@ -669,8 +670,19 @@ function titleMenuItems(): HTMLButtonElement[] {
   ].filter((item) => !item.hidden);
 }
 
+function syncTitleRank(): void {
+  const rank = sailingRank(progress);
+  required("#title-rank-name").textContent = `Level ${rank.level} · ${rank.rank}`;
+  required("#title-rank-xp").textContent = `${rank.xp} XP`;
+  required("#title-rank-fill").style.width = `${rank.levelXp}%`;
+  const track = required("#title-rank-track");
+  track.setAttribute("aria-valuenow", String(rank.levelXp));
+  track.setAttribute("aria-valuetext", `${rank.levelXp} of 100 XP toward level ${rank.level + 1}`);
+}
+
 function syncTitleState(): void {
   setStatusOpen(false, false);
+  syncTitleRank();
   const returning = progress.voyages > 0;
   const titleConfig = createTitleWeatherConfig();
   titleConfig.timeOfDay = returning ? 17.4 : 14.7;
