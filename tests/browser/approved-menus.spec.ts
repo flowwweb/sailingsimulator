@@ -123,19 +123,35 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
 }
 
 
-test("completed first journey return controls fit on a landscape phone", async ({ page }) => {
-  await page.setViewportSize({ width: 844, height: 390 });
-  await page.addInitScript(() => localStorage.setItem("fair-winds-progress-v1", JSON.stringify({
-    version: 2, activeIntroduction: "intro.buoy-1", completedIntroductions: { "intro.buoy-1": 1, "intro.three-buoy-course": 1 },
-    academyCompleted: false, academyObjective: 0, academyLesson: 0, completedObjectives: [], completedLessons: [], activities: {}, voyages: 1, distanceSailed: 400,
-  })));
-  await page.goto("/");
-  await expect(page.locator("#boot-loader")).toHaveCount(0);
-  await expect(page.locator("#continue-lesson")).toContainText("Repeat journey");
-  for (const id of ["continue-lesson", "new-journey", "title-free-sail", "title-logbook", "title-settings"]) {
-    const box = (await page.locator(`#${id}`).boundingBox())!;
-    expect(box.height).toBeGreaterThanOrEqual(44);
-    expect(box.y).toBeGreaterThanOrEqual(0);
-    expect(box.y + box.height).toBeLessThanOrEqual(390);
-  }
-});
+for (const [width, height] of [[844, 390], [640, 360], [1920, 650]] as const) {
+  test(`completed journey title actions fit at ${width}×${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.addInitScript(() => localStorage.setItem("fair-winds-progress-v1", JSON.stringify({
+      version: 2, activeIntroduction: "intro.buoy-1", completedIntroductions: { "intro.buoy-1": 1, "intro.three-buoy-course": 1 },
+      academyCompleted: false, academyObjective: 0, academyLesson: 0, completedObjectives: [], completedLessons: [], activities: {}, voyages: 1, distanceSailed: 400,
+    })));
+    await page.goto("/");
+    await expect(page.locator("#boot-loader")).toHaveCount(0);
+    await expect(page.locator("#continue-lesson")).toContainText("Repeat journey");
+    const logo = (await page.locator(".welcome-brand").boundingBox())!;
+    const menu = (await page.locator(".title-menu").boundingBox())!;
+    expect(menu.y - logo.y - logo.height).toBeGreaterThanOrEqual(8);
+    const ids = ["continue-lesson", "new-journey", "title-free-sail", "title-logbook", "title-settings"];
+    const [repeat, choose, sail, logbook, settings] = await Promise.all(ids.map(async id => {
+      const box = (await page.locator(`#${id}`).boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.y).toBeGreaterThanOrEqual(menu.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(Math.min(height, menu.y + menu.height) + 1);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      return box;
+    }));
+    expect(choose.y - repeat.y - repeat.height).toBeGreaterThanOrEqual(6);
+    expect(sail.y - choose.y - choose.height).toBeGreaterThanOrEqual(6);
+    expect(settings.x - logbook.x - logbook.width).toBeGreaterThanOrEqual(6);
+    expect(await page.locator("#welcome").evaluate(el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.locator("#continue-lesson").focus();
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#new-journey")).toBeFocused();
+  });
+}
