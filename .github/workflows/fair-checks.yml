@@ -58,7 +58,7 @@ jobs:
             "schema": 1,
             "commit": "8f87f9755a7db9e60b57d0ea00368740c15be997",
             "tree": "fc9bdc8051e226faee5ac1b3ffb17c112c90d8f7",
-            "publishedChangesCovered": 2,
+            "publishedChangesCovered": 7,
             "files": [
               {
                 "path": "AGENTS.md",
