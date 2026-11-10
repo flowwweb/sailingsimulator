@@ -13,7 +13,7 @@ import {
   evaluateIncident,
   type IncidentResult,
 } from "./game/hazards";
-import { GameInput } from "./game/input";
+import { GameInput, isTextEntryTarget } from "./game/input";
 import {
   castOffRequested,
   dockingPoint,
@@ -424,7 +424,7 @@ function bindInterface(): void {
   });
   required("#radio-call").addEventListener("click", () => {
     const distance = harborDistance();
-    const message = harborRadio.call(distance);
+    const message = harborRadio.call(distance, required<HTMLTextAreaElement>("#radio-message").value);
     required("#radio-caption").textContent = message;
     showRadioSubtitle(message);
     required<HTMLSelectElement>("#radio-channel").disabled = harborRadio.awaiting;
@@ -501,6 +501,7 @@ function bindInterface(): void {
       setPauseOpen(true);
       return;
     }
+    if (isTextEntryTarget(event.target)) return;
     if (!event.repeat && event.code === "KeyN" && started) {
       event.preventDefault();
       setChartOpen(!isChartOpen());
@@ -792,7 +793,7 @@ function harborDistance(): number {
 
 function updateRadioGuidance(): void {
   const distance = harborDistance();
-  const next = harborRadio.nextStep(distance);
+  const next = harborRadio.nextStep(distance, required<HTMLTextAreaElement>("#radio-message").value);
   const guidance = required("#radio-next-step");
   if (guidance.textContent !== next) guidance.textContent = next;
   const toggle = required("#radio-toggle");
@@ -843,6 +844,7 @@ function resetRadio(): void {
   radioSubtitleSeconds = 0;
   required("#radio-subtitle").hidden = true;
   required("#radio-caption").textContent = "Select the marina channel and listen before calling.";
+  required<HTMLTextAreaElement>("#radio-message").value = "";
   required<HTMLSelectElement>("#radio-channel").value = "16";
   required<HTMLSelectElement>("#radio-channel").disabled = false;
 }

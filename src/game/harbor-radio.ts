@@ -1,4 +1,8 @@
 // Fictional UK-inspired marina scenario; no signal leaves the device.
+function normalizeCall(message: string): string {
+  return message.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 240);
+}
+
 export class HarborRadio {
   channel = 16;
   listened = false;
@@ -21,13 +25,13 @@ export class HarborRadio {
   }
 
   /** Guidance describes the current fictional scenario; it does not transmit. */
-  nextStep(distanceM: number): string {
+  nextStep(distanceM: number, message = ""): string {
     if (this.completed) return this.channel === 16 ? "Channel 16 selected. Continue sailing." : "Return to channel 16 to keep watch.";
     if (this.awaiting) return "Wait for the marina's reply.";
     if (this.channel !== 80) return "Tune to Juniper Marina's channel 80.";
     if (!this.listened) return "Listen on channel 80 before calling.";
     if (!Number.isFinite(distanceM) || distanceM < 0 || distanceM > 400) return "Sail within 400 m of Juniper Marina to call.";
-    return "Call Juniper Marina.";
+    return normalizeCall(message) ? "Transmit your call." : "Write your call, then transmit.";
   }
 
   listen(): string {
@@ -38,15 +42,17 @@ export class HarborRadio {
       : "Channel 16 is for distress, safety and calling. Juniper Marina's simulated working channel is 80.";
   }
 
-  call(distanceM: number): string {
+  call(distanceM: number, message = ""): string {
     if (this.completed) return "The marina has replied. Continue navigating safely.";
     if (this.awaiting) return "Waiting for the marina's reply.";
     if (this.channel !== 80) return "Select the marina's working channel, 80.";
     if (!this.listened) return "Listen on the selected channel before calling.";
     if (!Number.isFinite(distanceM) || distanceM > 400 || distanceM < 0) return "Sail within 400 m of Juniper Marina before calling.";
+    const call = normalizeCall(message);
+    if (!call) return "Write your call before transmitting.";
     this.awaiting = true;
     this.replyDelay = 2;
-    return `Juniper Marina, this is Fair Winds, approximately ${Math.round(distanceM)} metres from the marina. Request a visitor berth. Over.`;
+    return call;
   }
 
   update(dt: number): boolean {

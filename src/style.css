@@ -4720,6 +4720,8 @@ input:disabled {
 .radio-panel h2 { margin: 0 0 6px; }
 .radio-panel p { line-height: 1.4; }
 .radio-panel button, .radio-panel select { min-height: 44px; margin: 4px 4px 4px 0; }
+.radio-panel textarea { display: block; box-sizing: border-box; width: 100%; min-height: 72px; padding: 8px; resize: vertical; font: inherit; color: #fff; background: #092f42; border: 1px solid #b8d4df; border-radius: 6px; }
+.radio-panel textarea::placeholder { color: #c6d9e0; }
 .radio-subtitle { position: fixed; z-index: 26; bottom: 10%; left: 50%; transform: translateX(-50%); width: min(680px, 85vw); color: white; text-align: center; text-shadow: 0 2px 5px #000, 0 0 12px #000; pointer-events: none; }
 .radio-subtitle .fw-icon { width: 1.2em; height: 1.2em; margin-right: .2em; filter: drop-shadow(0 2px 3px #000); }
 .radio-subtitle[hidden] { display: none; }

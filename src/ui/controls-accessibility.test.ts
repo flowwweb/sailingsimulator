@@ -16,6 +16,10 @@ class Element extends EventTarget {
   id = "";
   tagName = "DIV";
   parent?: Element;
+  contentEditable = "inherit";
+  get isContentEditable(): boolean {
+    return ["true", "plaintext-only"].includes(this.contentEditable) || (this.contentEditable !== "false" && Boolean(this.parent?.isContentEditable));
+  }
   classList = { toggle() {} };
   setAttribute(name: string, value: string) { this.attributes.set(name, value); }
   getAttribute(name: string) { return this.attributes.get(name) ?? null; }
@@ -27,7 +31,7 @@ class Element extends EventTarget {
     }
     return null;
   }
-  focus() { doc.activeElement = this; }
+  focus() { doc.activeElement = this; doc.dispatchEvent(event("focusin", { target: this })); }
   setPointerCapture() {}
   hasPointerCapture() { return true; }
   releasePointerCapture() {}
@@ -35,6 +39,7 @@ class Element extends EventTarget {
 }
 class Button extends Element {}
 class Input extends Element { value = "1"; }
+class TextArea extends Element { value = ""; }
 class Select extends Element {}
 class Root extends Element {
   elements: Element[] = [];
@@ -59,6 +64,7 @@ beforeEach(() => {
   vi.stubGlobal("document", doc); vi.stubGlobal("window", win);
   vi.stubGlobal("HTMLElement", Element); vi.stubGlobal("HTMLButtonElement", Button);
   vi.stubGlobal("HTMLInputElement", Input); vi.stubGlobal("HTMLSelectElement", Select);
+  vi.stubGlobal("HTMLTextAreaElement", TextArea);
   vi.stubGlobal("performance", { now: () => clock });
 });
 
@@ -175,11 +181,12 @@ describe("anchor recovery hold", () => {
     clock = 4_000; input!.repeatAnchorHaul(); key("keydown", button, code, true); input!.repeatAnchorHaul();
     expect(hauls).toEqual([0, 2_000]);
   });
-  for (const reason of ["pointerup", "pointercancel", "lostpointercapture", "button-blur", "window-blur", "hidden", "releaseAll", "modal", "destroy"]) it(`stops a held haul on ${reason} without stale rearming`, () => {
+  for (const reason of ["pointerup", "pointercancel", "lostpointercapture", "button-blur", "window-blur", "hidden", "releaseAll", "text-focus", "modal", "destroy"]) it(`stops a held haul on ${reason} without stale rearming`, () => {
     setup(); button.dispatchEvent(event("pointerdown", { pointerId: 1 }));
     if (reason === "window-blur") win.dispatchEvent(event("blur"));
     else if (reason === "hidden") { doc.hidden = true; doc.dispatchEvent(event("visibilitychange")); doc.hidden = false; }
     else if (reason === "releaseAll") input!.releaseAll();
+    else if (reason === "text-focus") new TextArea().focus();
     else if (reason === "modal") { enabled = false; input!.repeatAnchorHaul(); enabled = true; }
     else if (reason === "destroy") input!.destroy();
     else button.dispatchEvent(event(reason === "button-blur" ? "blur" : reason));
@@ -203,6 +210,43 @@ describe("anchor recovery hold", () => {
       input!.repeatAnchorHaul();
     }
     expect(hauls).toEqual([0]);
+  });
+});
+
+describe("editable text shortcut isolation", () => {
+  const editor = (kind: string) => {
+    if (kind === "textarea") return new TextArea();
+    const parent = new Element(); parent.contentEditable = "true";
+    if (kind === "contenteditable") return parent;
+    const child = new Element(); child.parent = parent; return child;
+  };
+  for (const kind of ["textarea", "contenteditable", "editable child"]) it(`keeps wasdqxr, arrows and action shortcuts native in ${kind}`, () => {
+    const button = controls().port!, target = editor(kind); target.focus();
+    for (const code of ["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyX", "KeyR", "KeyM", "KeyC", "KeyN", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter"]) {
+      expect(key("keydown", target, code).defaultPrevented).toBe(false);
+      expect(input!.read()).toEqual(neutral); expect(input!.isFastForwarding()).toBe(false);
+      expect(input!.consumeReset()).toBe(false); expect(input!.consumeReef()).toBe(false); expect(input!.consumeSails()).toBe(false);
+      expect(input!.consumeMute()).toBe(false); expect(input!.consumeConditions()).toBe(false);
+      expect(key("keyup", target, code).defaultPrevented).toBe(false);
+    }
+    button.focus(); key("keydown", button, "Space"); expect(input!.read().rudder).toBe(-1);
+    key("keyup", button, "Space"); expect(input!.read()).toEqual(neutral);
+    key("keydown", button, "KeyD"); expect(input!.read().rudder).toBe(1);
+    key("keyup", target, "KeyD"); expect(input!.read()).toEqual(neutral);
+  });
+  it("releases held and pending controls on text focus without rearming from orphan repeats", () => {
+    const button = controls().port!, target = new TextArea(), background = new Element();
+    key("keydown", background, "KeyD"); key("keydown", background, "KeyR");
+    key("keydown", background, "KeyQ"); key("keydown", background, "KeyX");
+    expect(input!.read().rudder).toBe(1); target.focus();
+    expect(input!.read()).toEqual(neutral); expect(input!.consumeReset()).toBe(false);
+    expect(input!.consumeReef()).toBe(false); expect(input!.consumeSails()).toBe(false);
+    button.dispatchEvent(event("pointerdown", { pointerId: 1 })); expect(input!.read().rudder).toBe(-1);
+    background.focus(); target.focus(); expect(input!.read()).toEqual(neutral);
+    key("keydown", target, "KeyD"); background.focus(); key("keydown", background, "KeyD", true);
+    expect(input!.read()).toEqual(neutral); key("keyup", background, "KeyD");
+    key("keydown", background, "KeyD"); expect(input!.read().rudder).toBe(1);
+    key("keyup", background, "KeyD"); expect(input!.read()).toEqual(neutral);
   });
 });
 

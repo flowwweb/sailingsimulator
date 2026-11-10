@@ -2,6 +2,13 @@ import type { Controls } from "../sim/model";
 
 type ControlName = "port" | "starboard" | "ease" | "sheet" | "anchor-haul";
 
+export function isTextEntryTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement || target.isContentEditable
+  );
+}
+
 export class GameInput {
   private readonly active = new Set<ControlName>();
   private readonly keys = new Set<string>();
@@ -27,6 +34,7 @@ export class GameInput {
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("blur", this.clear);
     document.addEventListener("visibilitychange", this.onVisibilityChange);
+    document.addEventListener("focusin", this.onFocusIn);
     this.canvas = root.querySelector<HTMLCanvasElement>("#lake");
     this.canvas?.addEventListener("pointerdown", this.startSteering);
     this.canvas?.addEventListener("pointermove", this.moveSteering);
@@ -155,6 +163,7 @@ export class GameInput {
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("blur", this.clear);
     document.removeEventListener("visibilitychange", this.onVisibilityChange);
+    document.removeEventListener("focusin", this.onFocusIn);
     window.removeEventListener("pointerdown", this.rejectSecondPointer);
     this.canvas?.removeEventListener("pointerdown", this.startSteering);
     this.canvas?.removeEventListener("pointermove", this.moveSteering);
@@ -162,6 +171,9 @@ export class GameInput {
   }
 
   private readonly onVisibilityChange = (): void => { if (document.hidden) this.clear(); };
+  private readonly onFocusIn = (event: FocusEvent): void => {
+    if (isTextEntryTarget(event.target)) this.releaseAll();
+  };
 
   private readonly startSteering = (event: PointerEvent): void => {
     if (event.pointerType !== "touch" || !event.isPrimary || !this.canControl() || document.hidden) return;
@@ -208,6 +220,7 @@ export class GameInput {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
+    if (isTextEntryTarget(event.target)) { this.releaseAll(); return; }
     if (event.target instanceof HTMLElement && event.target.closest('[role="dialog"], summary')) return;
     if (!this.canControl() && !["KeyM", "KeyC"].includes(event.code)) return;
     const control = event.target instanceof HTMLButtonElement ? event.target.dataset.control as ControlName | undefined : undefined;
@@ -221,7 +234,6 @@ export class GameInput {
       return;
     }
     if (event.target instanceof HTMLButtonElement && ["Space", "Enter"].includes(event.code)) return;
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
       event.preventDefault();
     }
@@ -230,7 +242,7 @@ export class GameInput {
     if (!event.repeat && event.code === "KeyC") this.conditionsRequested = true;
     if (!event.repeat && event.code === "KeyQ") this.reefRequested = true;
     if (!event.repeat && event.code === "KeyX") this.sailsRequested = true;
-    this.keys.add(event.code);
+    if (!event.repeat) this.keys.add(event.code);
   };
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
