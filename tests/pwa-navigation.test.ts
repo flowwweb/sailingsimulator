@@ -66,10 +66,10 @@ function harness() {
       });
       return response;
     },
-    async navigate() {
+    async navigate(path = "/") {
       let response!: Promise<Response>;
       navigationHandler({
-        request: { method: "GET", url: "https://fairwinds.example/", mode: "navigate" },
+        request: { method: "GET", url: new URL(path, "https://fairwinds.example").href, mode: "navigate" },
         respondWith(promise: Promise<Response>) { response = promise; },
       });
       const result = await response;
@@ -84,12 +84,28 @@ const html = (body: string, status = 200) => new Response(body, {
 });
 
 describe("offline navigation shell", () => {
-  it("installs every rank icon and serves an unseen level-up rank offline", async () => {
+  it("installs the boat, lesson media, nonmusic audio and unseen level-up ranks for a fresh offline boot", async () => {
     const app = harness();
     app.online(html('<script src="/assets/game.js"></script>'));
     app.serve("/assets/game.js", new Response("bootGame();", {
       headers: { "content-type": "text/javascript" },
     }));
+    const core = [
+      ["/models/fair-winds-boat-v2.glb", "model/gltf-binary"],
+      ["/brand/fairwinds-icons.svg", "image/svg+xml"],
+      ["/brand/fairwinds-approved-menu-board.png", "image/png"],
+      ["/brand/first-buoy-concept.png", "image/png"],
+      ["/brand/dummy-recovery-concept.png", "image/png"],
+      ["/audio/water-hull.wav", "audio/wav"],
+      ["/audio/soft-sea-wind.wav", "audio/wav"],
+      ["/audio/distant-harbor.wav", "audio/wav"],
+      ["/audio/vhf-juniper-33a89e30.mp3", "audio/mpeg"],
+      ["/audio/wood-pigeon.ogg", "audio/ogg"],
+      ["/audio/loon-calls.ogg", "audio/ogg"],
+    ] as const;
+    for (const [path, contentType] of core) {
+      app.serve(path, new Response(`asset:${path}`, { headers: { "content-type": contentType } }));
+    }
     const ranks = ["landlubber", "deckhand", "sailor", "helmsman", "navigator", "skipper", "captain", "sea-legend"];
     for (const rank of ranks) {
       app.serve(`/brand/ranks/${rank}.png`, new Response(`icon:${rank}`, {
@@ -99,6 +115,12 @@ describe("offline navigation shell", () => {
     expect(await app.install()).toBe(true);
     const beforeOffline = app.networkRequests;
     app.offline();
+    for (const [path, contentType] of core) {
+      const response = await app.asset(path);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe(contentType);
+      expect(await response.text()).toBe(`asset:${path}`);
+    }
     for (const rank of ranks) {
       const icon = await app.asset(`/brand/ranks/${rank}.png`);
       expect(icon.status).toBe(200);
@@ -141,5 +163,22 @@ describe("offline navigation shell", () => {
     await app.navigate();
     app.offline();
     expect(await (await app.navigate()).text()).toBe("working app");
+  });
+
+  it("keeps valid credits HTML separate from the offline game and accepts root/index query refreshes", async () => {
+    const credits = readFileSync("public/credits.html", "utf8");
+    for (const path of ["/credits", "/credits.html"]) {
+      const app = harness();
+      app.online(html("working game"));
+      await app.navigate();
+      app.online(html(credits));
+      expect(await (await app.navigate(path)).text()).toBe(credits);
+      app.offline();
+      expect(await (await app.navigate("/?offline=1")).text()).toBe("working game");
+      app.online(html("refreshed game"));
+      await app.navigate("/index.html?revision=2");
+      app.offline();
+      expect(await (await app.navigate("/?offline=2")).text()).toBe("refreshed game");
+    }
   });
 });
