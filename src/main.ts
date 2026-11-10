@@ -1810,9 +1810,7 @@ function updateHud(): void {
     elements.status.textContent = anchorage.message;
     elements.statusMessage.textContent = anchorage.message;
   }
-  if (dummyRecovery?.stage === "failed") elements.status.textContent = "Exercise failed. Open status to retry.";
-  if (dummyRecovery?.stage === "ready") elements.status.textContent = "Ready to recover the training dummy. Open status.";
-  if (dummyRecovery?.stage === "complete") elements.status.textContent = "Training dummy recovered.";
+  if (dummyRecovery && !dummyActive) elements.status.textContent = elements.lessonInstruction.textContent;
   if (crossing) elements.status.textContent = crossing.stage === "failed" ? "Crossing failed. Open status to retry."
     : crossing.stage === "complete" ? "Crossing complete."
     : crossing.stage === "crossing" ? "Keep clear of the starboard-tack boat." : "Sail northeast to begin the crossing.";
@@ -2007,26 +2005,26 @@ function updateLesson(): void {
   }
   if (dummyRecovery) {
     const stage = dummyRecovery.stage;
-    const distance = Math.hypot(state.position.x - DUMMY_COURSE.x, state.position.y - DUMMY_COURSE.z);
-    const instruction = stage === "depart" ? dummyRecovery.needsDepartureStart({ x: state.position.x, z: state.position.y }) ? "Return within 8 m of the dummy to restart the departure after an interruption." : "Sail 40 m away from the dummy, then turn back." : stage === "return" ? "Trim and steer back. Settle beside the dummy at low speed." : stage === "ready" ? "The boat is settled. Open status and recover the training dummy." : stage === "failed" ? "Contact interrupted this attempt. Open status to retry." : "Training dummy recovered.";
+    const view = dummyRecovery.view({ x: state.position.x, z: state.position.y });
+    const course = courseMetrics(state.position, state.velocity, state.heading, DUMMY_COURSE);
     elements.gameShell.classList.add("is-learning");
     elements.gameShell.dataset.academyStage = `dummy-${stage}`;
     delete elements.gameShell.dataset.activeActivity;
     delete elements.gameShell.dataset.activityProgress;
     delete elements.gameShell.dataset.activityScore;
     required("#status-lesson-progress").hidden = false;
-    required("#status-lesson-progress").textContent = stage === "complete" ? "Dummy recovered" : stage === "failed" ? "Attempt failed · Open status to retry" : `Training dummy · ${formatChartDistance(distance)}`;
+    required("#status-lesson-progress").textContent = stage === "complete" ? "Dummy recovered" : stage === "failed" ? "Attempt failed · Open status to retry" : `Training dummy · ${formatChartDistance(course.distance)} · ${Math.round(course.bearingDegrees).toString().padStart(3, "0")}°`;
     required("#status-pips").hidden = true;
     elements.lessonCard.hidden = false;
     elements.lessonCard.classList.remove("is-minimized");
     elements.lessonCard.classList.toggle("is-complete", stage === "complete");
     elements.lessonEyebrow.textContent = stage === "failed" ? "Attempt failed" : stage === "complete" ? "Recovery complete" : "Training exercise";
     elements.lessonTitle.textContent = "Recover the training dummy";
-    elements.lessonInstruction.textContent = instruction;
+    elements.lessonInstruction.textContent = view.instruction;
     required("#status-objective-detail").hidden = false;
-    required("#status-objective-detail").textContent = instruction;
+    required("#status-objective-detail").textContent = view.instruction;
     required<HTMLButtonElement>("#recover-training-dummy").hidden = stage !== "ready";
-    elements.lessonProgress.style.width = stage === "complete" ? "100%" : "0%";
+    elements.lessonProgress.style.width = `${view.progress * 100}%`;
     elements.lessonSkip.textContent = stage === "complete" ? "Choose lesson" : "Retry exercise";
     elements.lessonSkip.disabled = false;
     return;

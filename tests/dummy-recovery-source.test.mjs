@@ -107,3 +107,40 @@ test("dummy recovery advances on slow frames but still rejects unsafe contact an
   ctx.dummyRecovery = make(); sample(5); sample(5, true); assert.equal(ctx.dummyRecovery.stage, "failed");
   ctx.dummyRecovery = make(); sample(5); sample(100); assert.equal(ctx.dummyRecovery.stage, "failed");
 });
+
+test("the existing dummy HUD shows assessor guidance, bearing and real hold progress", () => {
+  const session = make(); travel(session, 5, 41); travel(session, 41, 1.8);
+  for (let i = 0; i < 60; i++) tick(session, 1.8);
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const start = main.indexOf("function updateLesson(");
+  const end = main.indexOf("\n}", start) + 2;
+  assert.ok(start >= 0 && end > start);
+  const update = stripTypeScriptTypes(main.slice(start, end), { mode: "transform" });
+  const navigation = stripTypeScriptTypes(readFileSync(new URL("../src/game/course-navigation.ts", import.meta.url), "utf8"), { mode: "transform" }).replace(/^export /gm, "");
+  const courseMetrics = runInNewContext(`${navigation}\ncourseMetrics`);
+  const nodes = new Map();
+  const required = selector => {
+    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", dataset: {}, style: {}, classList: { add() {}, remove() {}, toggle() {} } });
+    return nodes.get(selector);
+  };
+  const elements = Object.fromEntries(["gameShell", "lessonCard", "lessonEyebrow", "lessonTitle", "lessonInstruction", "lessonProgress", "lessonSkip"].map(name => [name, required(name)]));
+  const context = { anchorage: undefined, crossing: undefined, dummyRecovery: session,
+    DUMMY_COURSE: { x: 0, z: 0 }, state: { position: { x: 1.8, y: 0 }, velocity: { x: 0, y: 0 }, heading: 0 },
+    elements, required, courseMetrics, formatChartDistance: value => `${Math.round(value)} m` };
+  const render = () => runInNewContext(`${update}\nupdateLesson();`, context);
+  render();
+  assert.equal(elements.lessonInstruction.textContent, "Hold steady for 3 seconds.");
+  assert.equal(required("#status-objective-detail").textContent, elements.lessonInstruction.textContent);
+  assert.match(required("#status-lesson-progress").textContent, /2 m · 270°$/);
+  assert.ok(parseFloat(elements.lessonProgress.style.width) > 30 && parseFloat(elements.lessonProgress.style.width) < 40);
+  assert.equal(required("#recover-training-dummy").hidden, true);
+  for (let i = 0; i < 190; i++) tick(session, 1.8);
+  render(); assert.equal(elements.lessonProgress.style.width, "100%");
+  assert.equal(required("#recover-training-dummy").hidden, false);
+  assert.equal(elements.lessonInstruction.textContent, "Open status to recover the dummy.");
+  session.interrupt(); render();
+  assert.equal(elements.lessonProgress.style.width, "0%");
+  assert.equal(required("#recover-training-dummy").hidden, true);
+  assert.equal(elements.lessonInstruction.textContent, "Trim and steer back alongside.");
+  assert.equal(session.recover(), false);
+});
