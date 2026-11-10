@@ -10,7 +10,9 @@ const hud = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
 const start = hud.indexOf("  const completedManeuver =", hud.indexOf("function updateHud(): void {"));
 const end = hud.indexOf("\n}", start);
 assert.ok(start >= 0 && end > start);
-const status = `function updateStatus() {\n${hud.slice(start, end)}\n} updateStatus();`;
+const summaryStart = hud.indexOf("  const statusSummary =", hud.indexOf("function updateHud(): void {"));
+const statusSummary = hud.slice(summaryStart, hud.indexOf("\n", summaryStart));
+const status = `function updateStatus() {\n${statusSummary}\n${hud.slice(start, end)}\n} updateStatus();`;
 function statusContext(context) {
   context.touchCooldown ??= 0;
   context.academy ??= { view: () => ({ stage: "free-sail" }) };

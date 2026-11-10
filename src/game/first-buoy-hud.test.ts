@@ -12,7 +12,9 @@ const courseEnd = source.indexOf("\n}", courseStart) + 2;
 const course = source.slice(courseStart, courseEnd).replace("function activeCourse(): WorldActivity | undefined", "function activeCourse()");
 const hudStart = source.indexOf("  const completedManeuver =", source.indexOf("function updateHud(): void {"));
 const hudEnd = source.indexOf("\n}", hudStart);
-const hudStatus = `function updateHudStatus() {\n${source.slice(hudStart, hudEnd)}\n}`;
+const summaryStart = source.indexOf("  const statusSummary =", source.indexOf("function updateHud(): void {"));
+const statusSummary = source.slice(summaryStart, source.indexOf("\n", summaryStart));
+const hudStatus = `function updateHudStatus() {\n${statusSummary}\n${source.slice(hudStart, hudEnd)}\n}`;
 
 test("failed journey replaces the collapsed destination and offers retry", () => {
   const journey = new FirstBuoyJourney();
