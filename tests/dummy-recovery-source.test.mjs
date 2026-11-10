@@ -116,6 +116,16 @@ test("the existing dummy HUD shows assessor guidance, bearing and real hold prog
   const end = main.indexOf("\n}", start) + 2;
   assert.ok(start >= 0 && end > start);
   const update = stripTypeScriptTypes(main.slice(start, end), { mode: "transform" });
+  const headlineStart = main.indexOf("  const academyView = academy.view();", main.indexOf("function updateHud("));
+  const headlineEnd = main.indexOf("\n}", headlineStart);
+  assert.ok(headlineStart > 0 && headlineEnd > headlineStart);
+  const headline = stripTypeScriptTypes(main.slice(headlineStart, headlineEnd), { mode: "transform" });
+  const coachStart = main.indexOf("  const coach =", main.indexOf("function updateHud("));
+  const coachEnd = main.indexOf("  const rudderDegrees", coachStart);
+  const coachOutputStart = main.indexOf("  elements.coach.textContent = coach;", coachEnd);
+  const coachOutputEnd = main.indexOf("  elements.marker.style", coachOutputStart);
+  assert.ok(coachStart > 0 && coachEnd > coachStart && coachOutputStart > coachEnd && coachOutputEnd > coachOutputStart);
+  const coachSource = stripTypeScriptTypes(main.slice(coachStart, coachEnd) + main.slice(coachOutputStart, coachOutputEnd), { mode: "transform" });
   const navigation = stripTypeScriptTypes(readFileSync(new URL("../src/game/course-navigation.ts", import.meta.url), "utf8"), { mode: "transform" }).replace(/^export /gm, "");
   const courseMetrics = runInNewContext(`${navigation}\ncourseMetrics`);
   const nodes = new Map();
@@ -123,24 +133,47 @@ test("the existing dummy HUD shows assessor guidance, bearing and real hold prog
     if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", dataset: {}, style: {}, classList: { add() {}, remove() {}, toggle() {} } });
     return nodes.get(selector);
   };
-  const elements = Object.fromEntries(["gameShell", "lessonCard", "lessonEyebrow", "lessonTitle", "lessonInstruction", "lessonProgress", "lessonSkip"].map(name => [name, required(name)]));
+  const elements = Object.fromEntries(["gameShell", "lessonCard", "lessonEyebrow", "lessonTitle", "lessonInstruction", "lessonProgress", "lessonSkip", "status", "statusMessage", "statusFeedback", "coach", "statusCue", "motion"].map(name => [name, required(name)]));
   const context = { anchorage: undefined, crossing: undefined, dummyRecovery: session,
     DUMMY_COURSE: { x: 0, z: 0 }, state: { position: { x: 1.8, y: 0 }, velocity: { x: 0, y: 0 }, heading: 0 },
+    firstBuoy: undefined, activitySession: undefined, academy: { view: () => ({ stage: "free-sail" }) }, completedManeuver: false,
+    flow: "Lowered", pointOfSailName: "Beam reach", collisionNotice: "", storageUnavailable: false, weatherShelter: undefined,
     elements, required, courseMetrics, formatChartDistance: value => `${Math.round(value)} m` };
-  const render = () => runInNewContext(`${update}\nupdateLesson();`, context);
+  const render = () => runInNewContext(`${update}\nupdateLesson();\n(() => { ${coachSource}\n${headline} })();`, context);
   render();
-  assert.equal(elements.lessonInstruction.textContent, "Hold steady for 3 seconds.");
+  assert.equal(elements.lessonInstruction.textContent, "Hold steady · 1.0 / 3 s");
+  assert.equal(elements.status.textContent, elements.lessonInstruction.textContent);
+  assert.equal(elements.coach.textContent, elements.lessonInstruction.textContent);
+  assert.equal(elements.statusMessage.textContent, elements.lessonInstruction.textContent);
+  assert.ok(!elements.statusCue.textContent.includes("Hoist"));
+  assert.equal(elements.statusFeedback.textContent, "");
   assert.equal(required("#status-objective-detail").textContent, elements.lessonInstruction.textContent);
   assert.match(required("#status-lesson-progress").textContent, /2 m · 270°$/);
   assert.ok(parseFloat(elements.lessonProgress.style.width) > 30 && parseFloat(elements.lessonProgress.style.width) < 40);
   assert.equal(required("#recover-training-dummy").hidden, true);
-  for (let i = 0; i < 190; i++) tick(session, 1.8);
+  context.collisionNotice = "Touched Juniper buoy. Steer clear and continue."; render();
+  assert.equal(elements.status.textContent, context.collisionNotice);
+  assert.equal(elements.statusMessage.textContent, context.collisionNotice);
+  context.collisionNotice = "";
+  for (let i = 0; i < 60; i++) tick(session, 1.8);
+  render(); assert.equal(elements.lessonInstruction.textContent, "Hold steady · 2.0 / 3 s");
+  assert.equal(elements.status.textContent, elements.lessonInstruction.textContent);
+  assert.equal(required("#status-objective-detail").textContent, elements.lessonInstruction.textContent);
+  for (let i = 0; i < 130; i++) tick(session, 1.8);
   render(); assert.equal(elements.lessonProgress.style.width, "100%");
   assert.equal(required("#recover-training-dummy").hidden, false);
   assert.equal(elements.lessonInstruction.textContent, "Open status to recover the dummy.");
+  assert.equal(elements.status.textContent, elements.lessonInstruction.textContent);
+  assert.equal(elements.coach.textContent, elements.lessonInstruction.textContent);
+  assert.ok(!elements.statusCue.textContent.includes("Hoist"));
   session.interrupt(); render();
   assert.equal(elements.lessonProgress.style.width, "0%");
   assert.equal(required("#recover-training-dummy").hidden, true);
   assert.equal(elements.lessonInstruction.textContent, "Trim and steer back alongside.");
+  assert.equal(elements.status.textContent, elements.lessonInstruction.textContent);
   assert.equal(session.recover(), false);
+  const departing = make(); tick(departing, 5);
+  context.dummyRecovery = departing; context.state.position.x = 5; render();
+  assert.equal(elements.coach.textContent, "Hoist sail to make way");
+  assert.ok(elements.statusMessage.textContent.includes("Hoist"));
 });

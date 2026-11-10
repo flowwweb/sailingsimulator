@@ -22,6 +22,7 @@ export class DummyRecovery {
   private trimmed = false;
   private steered = false;
   private approachCue?: string;
+  private nearDummy = false;
 
   constructor(readonly target: { x: number; z: number }, readonly hull: { halfLength: number; halfBeam: number }) {}
 
@@ -29,14 +30,18 @@ export class DummyRecovery {
     return this.stage === "depart" && !this.startedNearDummy && Math.hypot(position.x - this.target.x, position.z - this.target.z) > RECOVERY_RADIUS_M;
   }
 
-  view(position: { x: number; z: number }): { instruction: string; progress: number } {
+  view(position: { x: number; z: number }): { instruction: string; progress: number; coaching?: string } {
     const instruction = this.stage === "depart"
       ? this.needsDepartureStart(position) ? `Return within ${RECOVERY_RADIUS_M} m, then sail away.` : `Sail ${DEPARTURE_M} m away, then turn back.`
       : this.stage === "ready" ? "Open status to recover the dummy."
       : this.stage === "failed" ? "Attempt failed. Open status to retry."
       : this.stage === "complete" ? "Training dummy recovered."
       : this.approachCue ?? "Trim and steer back alongside.";
-    return { instruction, progress: this.stage === "complete" ? 1 : Math.min(this.hold / HOLD_SECONDS, 1) };
+    return {
+      instruction,
+      progress: this.stage === "complete" ? 1 : Math.min(this.hold / HOLD_SECONDS, 1),
+      coaching: this.stage === "ready" || (this.stage === "return" && this.nearDummy) ? instruction : undefined,
+    };
   }
 
   interrupt(): void {
@@ -49,6 +54,7 @@ export class DummyRecovery {
     this.trimmed = false;
     this.steered = false;
     this.approachCue = undefined;
+    this.nearDummy = false;
     if (this.stage === "depart") this.startedNearDummy = false;
     if (this.stage === "ready") this.stage = "return";
   }
@@ -74,6 +80,7 @@ export class DummyRecovery {
     const contact = Math.abs(alongHull) <= this.hull.halfLength + DUMMY_CLEARANCE_M && Math.abs(acrossHull) <= this.hull.halfBeam + DUMMY_CLEARANCE_M;
     if (contact) { this.stage = "failed"; this.interrupt(); return; }
     const withinRadius = distance <= RECOVERY_RADIUS_M;
+    this.nearDummy = withinRadius;
     if (this.stage === "depart" && withinRadius) this.startedNearDummy = true;
     if (this.stage === "depart" && this.startedNearDummy && this.previous && distance >= DEPARTURE_M) this.stage = "return";
     const hadPrevious = Boolean(this.previous);
@@ -101,7 +108,7 @@ export class DummyRecovery {
         : !this.trimmed ? "Adjust the sheet, then settle."
         : !this.steered ? "Steer to settle alongside."
         : !steady ? "Center the helm. Let the boat settle."
-        : `Hold steady for ${HOLD_SECONDS} seconds.`;
+        : `Hold steady · ${this.hold.toFixed(1)} / ${HOLD_SECONDS} s`;
     }
   }
 

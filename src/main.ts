@@ -1701,7 +1701,7 @@ function updateHud(): void {
         ? "Stalled"
         : "Attached"
   );
-  const coach = flow === "Lowered"
+  const coach = dummyRecovery?.view({ x: state.position.x, z: state.position.y }).coaching ?? (flow === "Lowered"
     ? "Hoist sail to make way"
     : flow === "Lowering"
       ? "Sail drive reducing"
@@ -1717,7 +1717,7 @@ function updateHud(): void {
                 ? "Ease a little"
                 : state.reefLevel === 1
                   ? "Reefed flow attached"
-                  : "Flow attached";
+                  : "Flow attached");
   const rudderDegrees = Math.round(radiansToDegrees(state.rudderAngle));
   const boomDegrees = Math.round(Math.abs(radiansToDegrees(state.boomAngle)));
   const boomSide = state.boomAngle < 0 ? "port" : "starboard";
@@ -1803,7 +1803,8 @@ function updateHud(): void {
   if (academyActive || dummyActive) {
     const detail = elements.status.textContent;
     const headline = academyActive ? academyView.title : elements.lessonInstruction.textContent;
-    elements.statusMessage.textContent = completedManeuver ? detail : academyActive ? academyView.feedback || coach : coach;
+    const pickupCoach = dummyRecovery?.view({ x: state.position.x, z: state.position.y }).coaching;
+    elements.statusMessage.textContent = pickupCoach ?? (completedManeuver ? detail : academyActive ? academyView.feedback || coach : coach);
     elements.status.textContent = headline;
   }
   if (anchorage) {
@@ -1828,7 +1829,8 @@ function updateHud(): void {
   if (storageUnavailable && !elements.statusMessage.textContent?.includes(STORAGE_WARNING)) {
     elements.statusMessage.textContent += ` ${STORAGE_WARNING}`;
   }
-  const feedback = !collisionNotice && ((firstBuoy && !firstBuoy.failed && !firstBuoy.completed) || academyActive || dummyActive)
+  const duplicatePickupCue = dummyActive && elements.statusMessage.textContent === elements.status.textContent;
+  const feedback = !collisionNotice && !duplicatePickupCue && ((firstBuoy && !firstBuoy.failed && !firstBuoy.completed) || academyActive || dummyActive)
     ? elements.statusMessage.textContent : "";
   if (elements.statusFeedback.textContent !== feedback) elements.statusFeedback.textContent = feedback;
 }

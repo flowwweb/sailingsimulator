@@ -38,8 +38,8 @@ test("deep-water recovery ends interrupted activities before teleportation can e
 
 test("academy and dummy actions lead the status while contextual trim feedback stays separate", () => {
   const status = (stage, title, dummyRecovery) => {
-    const elements = { status: { textContent: "Luffing. Sheet in or bear away." }, statusMessage: {}, lessonInstruction: { textContent: "Sail 40 m away from the dummy, then turn back." } };
-    const context = { academy: { view: () => ({ stage, title, feedback: "Ease the sail as you turn." }) }, firstBuoy: undefined, activitySession: undefined, dummyRecovery, anchorage: undefined, crossing: undefined, completedManeuver: false, coach: "Sheet in or bear away", elements };
+    const elements = { status: { textContent: "Luffing. Sheet in or bear away." }, statusMessage: {}, lessonInstruction: { textContent: "Sail 40 m away, then turn back." } };
+    const context = { academy: { view: () => ({ stage, title, feedback: "Ease the sail as you turn." }) }, firstBuoy: undefined, activitySession: undefined, dummyRecovery, anchorage: undefined, crossing: undefined, completedManeuver: false, coach: "Sheet in or bear away", state: { position: { x: 0, y: 0 } }, elements };
     runInNewContext(`(() => { ${headline} })()`, context);
     return elements;
   };
@@ -48,7 +48,7 @@ test("academy and dummy actions lead the status while contextual trim feedback s
     assert.equal(elements.status.textContent, title);
     assert.equal(elements.statusMessage.textContent, "Ease the sail as you turn.");
   }
-  const dummy = status("free-sail", "Free sail", { stage: "depart" });
+  const dummy = status("free-sail", "Free sail", { stage: "depart", view: () => ({ coaching: undefined }) });
   assert.match(dummy.status.textContent, /Sail 40 m away/);
   assert.equal(dummy.statusMessage.textContent, "Sheet in or bear away");
   const free = status("free-sail", "Free sail");
