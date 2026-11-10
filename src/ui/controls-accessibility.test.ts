@@ -172,14 +172,23 @@ describe("anchor recovery hold", () => {
     expect(hauls).toEqual([0, 2_000, 12_000]);
     expect(input!.read()).toEqual(neutral);
   });
-  for (const code of ["Enter", "Space"]) it(`holds with ${code} without native key-repeat or fast-forward`, () => {
-    setup(); expect(key("keydown", button, code).defaultPrevented).toBe(true);
-    clock = 500; key("keydown", button, code, true); expect(hauls).toEqual([0]);
+  for (const code of ["Enter", "Space", "NumpadEnter"]) it(`holds with ${code} without native key-repeat or fast-forward`, () => {
+    setup();
+    const activate = (type: "keydown" | "keyup", repeat = false) => {
+      const activation = key(type, button, code, repeat);
+      // Model repeated native button defaults when keydown is not prevented.
+      if (!activation.defaultPrevented && ((type === "keydown" && code !== "Space") || (type === "keyup" && code === "Space"))) button.dispatchEvent(event("click", { detail: 0 }));
+      return activation;
+    };
+    const initial = activate("keydown");
+    for (let i = 1; i <= 10; i++) { clock = i * 50; activate("keydown", true); input!.repeatAnchorHaul(); }
+    expect(hauls).toEqual([0]); expect(initial.defaultPrevented).toBe(true);
     clock = 2_000; input!.repeatAnchorHaul(); expect(hauls).toEqual([0, 2_000]);
     expect(input!.isFastForwarding()).toBe(false);
-    expect(key("keyup", button, code).defaultPrevented).toBe(true);
-    clock = 4_000; input!.repeatAnchorHaul(); key("keydown", button, code, true); input!.repeatAnchorHaul();
+    expect(activate("keyup").defaultPrevented).toBe(true);
+    clock = 4_000; input!.repeatAnchorHaul(); activate("keydown", true); input!.repeatAnchorHaul();
     expect(hauls).toEqual([0, 2_000]);
+    button.dispatchEvent(event("click", { detail: 0 })); expect(hauls).toEqual([0, 2_000, 4_000]);
   });
   for (const reason of ["pointerup", "pointercancel", "lostpointercapture", "button-blur", "window-blur", "hidden", "releaseAll", "text-focus", "modal", "destroy"]) it(`stops a held haul on ${reason} without stale rearming`, () => {
     setup(); button.dispatchEvent(event("pointerdown", { pointerId: 1 }));
@@ -193,11 +202,11 @@ describe("anchor recovery hold", () => {
     clock = 10_000; input!.repeatAnchorHaul(); input!.repeatAnchorHaul();
     expect(hauls).toEqual([0]);
   });
-  it("clears keyboard holds on button blur and permits a fresh press", () => {
-    setup(); key("keydown", button, "Enter"); button.dispatchEvent(event("blur"));
-    clock = 2_000; input!.repeatAnchorHaul(); key("keydown", button, "Enter", true);
+  for (const code of ["Enter", "Space", "NumpadEnter"]) it(`clears ${code} holds on button blur and permits a fresh press`, () => {
+    setup(); key("keydown", button, code); button.dispatchEvent(event("blur"));
+    clock = 2_000; input!.repeatAnchorHaul(); key("keydown", button, code, true);
     expect(hauls).toEqual([0]);
-    key("keyup", button, "Enter"); key("keydown", button, "Enter");
+    key("keyup", button, code); key("keydown", button, code);
     expect(hauls).toEqual([0, 2_000]);
   });
   it("keeps native or assistive activation to one haul and rejects hidden or paused starts", () => {
@@ -222,7 +231,7 @@ describe("editable text shortcut isolation", () => {
   };
   for (const kind of ["textarea", "contenteditable", "editable child"]) it(`keeps wasdqxr, arrows and action shortcuts native in ${kind}`, () => {
     const button = controls().port!, target = editor(kind); target.focus();
-    for (const code of ["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyX", "KeyR", "KeyM", "KeyC", "KeyN", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter"]) {
+    for (const code of ["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyX", "KeyR", "KeyM", "KeyC", "KeyN", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter", "NumpadEnter"]) {
       expect(key("keydown", target, code).defaultPrevented).toBe(false);
       expect(input!.read()).toEqual(neutral); expect(input!.isFastForwarding()).toBe(false);
       expect(input!.consumeReset()).toBe(false); expect(input!.consumeReef()).toBe(false); expect(input!.consumeSails()).toBe(false);
@@ -290,7 +299,7 @@ describe("shared Settings focus wrap", () => {
 
 describe("focused helm and sheet activation", () => {
   for (const [control, expected] of Object.entries({ port: { rudder: -1, sheetRate: 0 }, starboard: { rudder: 1, sheetRate: 0 }, ease: { rudder: 0, sheetRate: 1 }, sheet: { rudder: 0, sheetRate: -1 } })) {
-    for (const code of ["Enter", "Space"]) it(`holds/releases ${control} with ${code}`, () => {
+    for (const code of ["Enter", "Space", "NumpadEnter"]) it(`holds/releases ${control} with ${code}`, () => {
       const button = controls()[control]!;
       expect(key("keydown", button, code).defaultPrevented).toBe(true);
       expect(input!.read()).toEqual(expected); expect(input!.isFastForwarding()).toBe(false);
@@ -368,7 +377,11 @@ describe("focused helm and sheet activation", () => {
     key("keyup", button, "KeyD"); key("keydown", button, "KeyX"); expect(input!.consumeSails()).toBe(true);
     input!.releaseAll(); const dialog = new Element(); dialog.setAttribute("role", "dialog"); button.parent = dialog;
     key("keydown", button, "Enter"); key("keydown", button, "KeyD"); expect(input!.read()).toEqual(neutral);
-    const native = new Button(); expect(key("keydown", native, "Space").defaultPrevented).toBe(false); expect(input!.isFastForwarding()).toBe(false);
+    const native = new Button();
+    for (const code of ["Space", "Enter", "NumpadEnter"]) {
+      expect(key("keydown", native, code).defaultPrevented).toBe(false); expect(input!.isFastForwarding()).toBe(false);
+      expect(key("keyup", native, code).defaultPrevented).toBe(false);
+    }
     const background = new Element(); key("keydown", background, "Space"); expect(input!.isFastForwarding()).toBe(true);
     key("keyup", background, "Space"); expect(input!.isFastForwarding()).toBe(false);
   });
@@ -384,7 +397,7 @@ describe("focused helm and sheet activation", () => {
   it("leaves native sail disclosure and trim slider keys to the browser", () => {
     controls();
     const summary = new Element(); summary.tagName = "SUMMARY";
-    for (const code of ["Space", "Enter", "ArrowLeft", "KeyQ", "KeyX"]) {
+    for (const code of ["Space", "Enter", "NumpadEnter", "ArrowLeft", "KeyQ", "KeyX"]) {
       expect(key("keydown", summary, code).defaultPrevented).toBe(false);
       expect(input!.read()).toEqual(neutral);
       expect(input!.isFastForwarding()).toBe(false);
