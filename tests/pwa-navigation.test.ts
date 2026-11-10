@@ -52,6 +52,7 @@ function harness() {
   return {
     online(response: Response) { network = response; },
     serve(path: string, response: Response) { responses.set(path, response); },
+    seedCached(path: string, response: Response) { entries.set(path, response); },
     offline() { network = new Error("offline"); },
     get networkRequests() { return requests.length; },
     get rootRequests() { return requests.filter(path => path === "/").length; },
@@ -91,22 +92,24 @@ function harness() {
 const html = (body: string, status = 200) => new Response(body, {
   status, headers: { "content-type": "text/html; charset=utf-8" },
 });
+const javascript = (body: string) => new Response(body, { headers: { "content-type": "text/javascript" } });
+const css = (body: string) => new Response(body, { headers: { "content-type": "text/css" } });
 
 describe("offline navigation shell", () => {
   it("keeps the warm shell when a new bundle fails, then commits a recovered upgrade", async () => {
     const app = harness();
     app.online(html('<script src="/assets/old.js"></script>'));
-    app.serve("/assets/old.js", new Response("oldBoot();"));
+    app.serve("/assets/old.js", javascript("oldBoot();"));
     await app.navigate();
     app.online(html('<link href="/assets/new.css"><script src="/assets/new.js"></script>'));
-    app.serve("/assets/new.css", new Response("body { color: white; }"));
+    app.serve("/assets/new.css", css("body { color: white; }"));
     app.serve("/assets/new.js", new Response("unavailable", { status: 503 }));
     expect(await (await app.navigate()).text()).toContain("/assets/old.js");
     app.offline();
     expect(await (await app.navigate("/?interrupted=1")).text()).toContain("/assets/old.js");
     expect(await (await app.asset("/assets/old.js")).text()).toBe("oldBoot();");
     app.online(html('<link href="/assets/new.css"><script src="/assets/new.js"></script>'));
-    app.serve("/assets/new.js", new Response("newBoot();"));
+    app.serve("/assets/new.js", javascript("newBoot();"));
     expect(await (await app.navigate()).text()).toContain("/assets/new.js");
     app.offline();
     expect(await (await app.navigate("/?recovered=1")).text()).toContain("/assets/new.js");
@@ -114,10 +117,32 @@ describe("offline navigation shell", () => {
     expect(await (await app.asset("/assets/new.css")).text()).toBe("body { color: white; }");
   });
 
+  it("rejects HTTP200 HTML boot fallbacks and poisoned cache hits, then recovers valid JS and CSS", async () => {
+    for (const [path, markup, validResponse] of [
+      ["/assets/new.js", '<script src="/assets/new.js"></script>', javascript("newBoot();")],
+      ["/assets/new.css", '<link href="/assets/new.css">', css("body { color: white; }")],
+    ] as const) for (const cached of [false, true]) {
+      const app = harness();
+      app.online(html('<script src="/assets/old.js"></script>'));
+      app.serve("/assets/old.js", javascript("oldBoot();"));
+      await app.navigate();
+      if (cached) app.seedCached(path, html("<!doctype html>stale fallback"));
+      app.online(html(markup)); app.serve(path, html("<!doctype html>missing asset"));
+      expect(await (await app.navigate()).text()).toContain("/assets/old.js");
+      app.offline(); expect(await (await app.navigate()).text()).toContain("/assets/old.js");
+      app.online(html(markup)); app.serve(path, validResponse);
+      expect(await (await app.navigate()).text()).toBe(markup);
+      app.offline(); expect(await (await app.navigate()).text()).toBe(markup);
+      const boot = await app.asset(path);
+      expect(boot.headers.get("content-type")).toBe(validResponse.headers.get("content-type"));
+      expect(await boot.text()).toBe(await validResponse.clone().text());
+    }
+  });
+
   it("uses one root response during install and never activates an incomplete upgrade", async () => {
     const app = harness();
     app.online(html('<script src="/assets/old.js"></script>'));
-    app.serve("/assets/old.js", new Response("oldBoot();"));
+    app.serve("/assets/old.js", javascript("oldBoot();"));
     await app.navigate();
     app.online(html('<script src="/assets/new.js"></script>'));
     app.serve("/assets/new.js", new Response("missing", { status: 404 }));

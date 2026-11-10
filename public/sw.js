@@ -27,13 +27,25 @@ const CORE_SHELL = [
   "/brand/ranks/sea-legend.png",
 ];
 
+function validBootAsset(asset, response) {
+  if (!response?.ok) return false;
+  const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  if (/\.m?js(?:[?#]|$)/.test(asset)) return ["text/javascript", "application/javascript", "text/ecmascript", "application/ecmascript"].includes(contentType);
+  if (/\.css(?:[?#]|$)/.test(asset)) return contentType === "text/css";
+  return contentType !== "text/html";
+}
+
 async function cacheRootDocument(cache, response) {
   if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) throw new Error("Invalid app document");
   const indexMarkup = await response.clone().text();
   const builtAssets = [...indexMarkup.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((match) => match[1]);
-  const missingAssets = [];
-  for (const asset of builtAssets) if (!(await cache.match(asset))) missingAssets.push(asset);
-  if (missingAssets.length > 0) await cache.addAll(missingAssets);
+  const fetchedAssets = await Promise.all(builtAssets.map(async (asset) => {
+    if (validBootAsset(asset, await cache.match(asset))) return;
+    const assetResponse = await fetch(asset);
+    if (!validBootAsset(asset, assetResponse)) throw new Error(`Invalid boot asset: ${asset}`);
+    return { asset, response: assetResponse };
+  }));
+  await Promise.all(fetchedAssets.filter(Boolean).map(({ asset, response: assetResponse }) => cache.put(asset, assetResponse)));
   await cache.put("/", response.clone());
 }
 
