@@ -175,6 +175,70 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(context.startedNext, true);
 });
 
+test("the final rank fills completion truthfully after the Captain threshold and on replay", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const start = main.indexOf("function renderCompletionProgress(");
+  const end = main.indexOf("\n}", main.indexOf("function closeCompletion(", start)) + 2;
+  assert.ok(start >= 0 && end > start);
+  const functions = stripTypeScriptTypes(main.slice(start, end), { mode: "strip" });
+  const nodes = new Map();
+  const required = selector => {
+    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", style: {}, dataset: {},
+      setAttribute(name, value) { this[name] = value; }, focus() {} });
+    return nodes.get(selector);
+  };
+  const finalRank = { xp: 700, level: 8, rank: "Sea Legend", levelXp: 0 };
+  const context = { required, anchorage: {}, dummyRecovery: undefined, crossing: undefined, firstBuoy: undefined,
+    elements: { gameShell: { inert: false } }, input: { releaseAll() {} },
+    window: { matchMedia: () => ({ matches: true }) }, completionAnimationFrame: undefined,
+    completionPendingRank: undefined, completionRevealing: false, completionNextLesson: undefined,
+    cancelAnimationFrame() {}, setRadioOpen() {}, storageUnavailable: false, progress: {}, accumulator: 0,
+    sailingRank: () => finalRank };
+  runInNewContext(`${functions}\nshowCompletion("Anchorage practice", { xp: 600, level: 7, rank: "Captain", levelXp: 0 });`, context);
+  assert.equal(required("#completion-level-number").textContent, "Level 7");
+  assert.match(required("#completion-xp").textContent, /100 \/ 100 XP to next level/);
+  assert.match(required(".completion-track")["aria-valuetext"], /Captain: 100 of 100 XP toward the next level/);
+  runInNewContext("advanceCompletion();", context);
+  const assertFinalRank = () => {
+    assert.equal(required("#completion-level-number").textContent, "Level 8");
+    assert.match(required("#completion-rank").textContent, /Sea Legend/);
+    assert.equal(required("#completion-xp").textContent, "All ranks earned · 700 XP total");
+    assert.equal(required(".completion-fill").style.width, "100%");
+    assert.equal(required(".completion-marker").style.left, "100%");
+    assert.equal(required(".completion-track")["aria-valuenow"], "100");
+    assert.equal(required(".completion-track")["aria-label"], "Sailing ranks complete");
+    assert.match(required(".completion-track")["aria-valuetext"], /Sea Legend: all ranks earned, 700 XP total/);
+    assert.doesNotMatch(required(".completion-track")["aria-valuetext"], /next level/);
+  };
+  assertFinalRank();
+  runInNewContext('showCompletion("Anchorage practice", sailingRank(progress));', context);
+  assert.equal(required("#completion-reward").textContent, "Previously completed");
+  assertFinalRank();
+});
+
+test("completion blocks held Enter and Space repeats while preserving fresh activation and dialog keys", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  const start = main.indexOf('  window.addEventListener("keydown", (event) => {');
+  const end = main.indexOf("\n  });", start);
+  assert.ok(start >= 0 && end > start);
+  const handler = stripTypeScriptTypes(`(event => { ${main.slice(main.indexOf("{", start) + 1, end)} })`, { mode: "strip" });
+  let trapped = 0, closed = 0;
+  const context = { required: selector => ({ hidden: selector !== "#completion-screen" }),
+    trapFocusWithin() { trapped++; }, closeCompletion() { closed++; } };
+  const run = (code, repeat) => {
+    const event = new Event("keydown", { cancelable: true });
+    Object.defineProperties(event, { code: { value: code }, repeat: { value: repeat } });
+    context.event = event; runInNewContext(`${handler}(event);`, context);
+    return event;
+  };
+  for (const code of ["Enter", "Space"]) {
+    assert.equal(run(code, true).defaultPrevented, true, `${code} auto-repeat cannot activate Continue`);
+    assert.equal(run(code, false).defaultPrevented, false, `${code} fresh press retains native button activation`);
+  }
+  run("Tab", false); assert.equal(trapped, 1);
+  assert.equal(run("Escape", false).defaultPrevented, true); assert.equal(closed, 1);
+});
+
 test("rotating with a completion open isolates the game and restores dialog focus", () => {
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   const start = main.indexOf('  const portrait = window.matchMedia("(orientation: portrait)").matches;', main.indexOf("function loop("));
@@ -264,8 +328,8 @@ test("completion advances through the visible six lessons even on replay", () =>
       elements: { gameShell: { inert: false }, statusToggle: { focus() {} } }, input: { releaseAll() {} }, window: { matchMedia: () => ({ matches: false }) },
       completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false, completionNextLesson: undefined,
       cancelAnimationFrame() {}, setRadioOpen() {}, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: { completedLessons: [0, 1, 2] }, accumulator: 0,
-      sailingRank: () => ({ xp: 700, level: 8, rank: "Captain", levelXp: 0 }) };
-    runInNewContext(`${functions}\nshowCompletion("Replay", { xp: 700, level: 8, rank: "Captain", levelXp: 0 }); advanceCompletion();`, context);
+      sailingRank: () => ({ xp: 700, level: 8, rank: "Sea Legend", levelXp: 0 }) };
+    runInNewContext(`${functions}\nshowCompletion("Replay", { xp: 700, level: 8, rank: "Sea Legend", levelXp: 0 }); advanceCompletion();`, context);
     assert.equal(actual, expected, from);
   }
 });

@@ -1,6 +1,5 @@
-const CACHE_VERSION = "fair-winds-shell-v4";
+const CACHE_VERSION = "fair-winds-shell-v5";
 const CORE_SHELL = [
-  "/",
   "/manifest.webmanifest",
   "/favicon.svg",
   "/brand/fairwinds-icon.svg",
@@ -28,18 +27,24 @@ const CORE_SHELL = [
   "/brand/ranks/sea-legend.png",
 ];
 
+async function cacheRootDocument(cache, response) {
+  if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) throw new Error("Invalid app document");
+  const indexMarkup = await response.clone().text();
+  const builtAssets = [...indexMarkup.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((match) => match[1]);
+  const missingAssets = [];
+  for (const asset of builtAssets) if (!(await cache.match(asset))) missingAssets.push(asset);
+  if (missingAssets.length > 0) await cache.addAll(missingAssets);
+  await cache.put("/", response.clone());
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE_VERSION)
       .then(async (cache) => {
-        await cache.addAll(CORE_SHELL);
         const indexResponse = await fetch("/");
-        const indexMarkup = await indexResponse.clone().text();
-        const builtAssets = [
-          ...indexMarkup.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g),
-        ].map((match) => match[1]);
-        if (builtAssets.length > 0) await cache.addAll(builtAssets);
+        await cache.addAll(CORE_SHELL);
+        await cacheRootDocument(cache, indexResponse);
       })
       .then(() => self.skipWaiting()),
   );
@@ -69,10 +74,14 @@ self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
+        .then(async (response) => {
           if ((url.pathname === "/" || url.pathname === "/index.html") && response.ok && response.headers.get("content-type")?.includes("text/html")) {
-            const copy = response.clone();
-            void caches.open(CACHE_VERSION).then((cache) => cache.put("/", copy));
+            try {
+              const cache = await caches.open(CACHE_VERSION);
+              await cacheRootDocument(cache, response);
+            } catch {
+              return (await caches.match("/").catch(() => undefined)) ?? response;
+            }
           }
           return response;
         })

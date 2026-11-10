@@ -39,7 +39,7 @@ export class HarborRadio {
     this.listened = true;
     return this.channel === 80
       ? "Channel 80 is clear. Juniper Marina is listening."
-      : "Channel 16 is for distress, safety and calling. Juniper Marina's simulated working channel is 80.";
+      : "Channel 16 is for distress, safety and calling. Juniper Marina's working channel is 80.";
   }
 
   call(distanceM: number, message = ""): string {

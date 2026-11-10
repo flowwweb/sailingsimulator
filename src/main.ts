@@ -455,7 +455,8 @@ function bindInterface(): void {
       return;
     }
     if (!required("#completion-screen").hidden) {
-      if (event.code === "Tab") trapFocusWithin(required(".completion-content"), event);
+      if (event.repeat && ["Enter", "Space"].includes(event.code)) event.preventDefault();
+      else if (event.code === "Tab") trapFocusWithin(required(".completion-content"), event);
       else if (event.code === "Escape") { event.preventDefault(); closeCompletion(); }
       return;
     }
@@ -1836,6 +1837,8 @@ function updateHud(): void {
   const feedback = !collisionNotice && !duplicatePickupCue && ((firstBuoy && !firstBuoy.failed && !firstBuoy.completed) || academyActive || dummyActive)
     ? elements.statusMessage.textContent : "";
   if (elements.statusFeedback.textContent !== feedback) elements.statusFeedback.textContent = feedback;
+  elements.statusMessage.hidden = Boolean(dummyRecovery && elements.statusMessage.textContent === elements.lessonInstruction.textContent);
+  if (dummyRecovery && coach === elements.lessonInstruction.textContent) elements.statusCue.textContent = `${flow}. ${elements.motion.textContent}`;
 }
 
 function syncSailControls(): void {
@@ -2586,17 +2589,21 @@ function renderCompletionProgress(frame: ReturnType<typeof sailingRank>): void {
   const rank = required("#completion-rank");
   const levelText = `Level ${frame.level}`;
   const rankText = `${completionRevealing ? " " : " · "}${frame.rank}`;
+  const highestRank = frame.level >= 8;
+  const displayedXp = highestRank ? 100 : frame.levelXp;
   if (number.textContent !== levelText) number.textContent = levelText;
   if (rank.textContent !== rankText) rank.textContent = rankText;
-  required("#completion-xp").textContent = `${Math.round(frame.levelXp)} / 100 XP to next level · ${Math.floor(frame.xp)} XP total`;
-  required(".completion-fill").style.width = `${frame.levelXp}%`;
-  required(".completion-marker").style.left = `${frame.levelXp}%`;
+  required("#completion-xp").textContent = highestRank ? `All ranks earned · ${Math.floor(frame.xp)} XP total` : `${Math.round(frame.levelXp)} / 100 XP to next level · ${Math.floor(frame.xp)} XP total`;
+  required(".completion-fill").style.width = `${displayedXp}%`;
+  required(".completion-marker").style.left = `${displayedXp}%`;
 }
 
 function setCompletionSemanticProgress(frame: ReturnType<typeof sailingRank>): void {
   const track = required(".completion-track");
-  track.setAttribute("aria-valuenow", String(frame.levelXp));
-  track.setAttribute("aria-valuetext", `Level ${frame.level}, ${frame.rank}: ${frame.levelXp} of 100 XP toward the next level, ${frame.xp} XP total`);
+  const highestRank = frame.level >= 8;
+  track.setAttribute("aria-label", highestRank ? "Sailing ranks complete" : "XP toward the next level");
+  track.setAttribute("aria-valuenow", String(highestRank ? 100 : frame.levelXp));
+  track.setAttribute("aria-valuetext", highestRank ? `Level ${frame.level}, ${frame.rank}: all ranks earned, ${frame.xp} XP total` : `Level ${frame.level}, ${frame.rank}: ${frame.levelXp} of 100 XP toward the next level, ${frame.xp} XP total`);
 }
 
 function showCompletion(title: string, before: ReturnType<typeof sailingRank>): void {

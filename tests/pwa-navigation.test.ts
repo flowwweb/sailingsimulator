@@ -10,6 +10,7 @@ function harness() {
   const responses = new Map<string, Response>();
   const requests: string[] = [];
   const entries = new Map<string, Response>();
+  let writeBarrier: Promise<void> | undefined;
   const keyFor = (request: string | { url: string }) => {
     const url = new URL(typeof request === "string" ? request : request.url, "https://fairwinds.example");
     return url.pathname + url.search;
@@ -32,7 +33,8 @@ function harness() {
     },
     caches: {
       open: async () => ({
-        put: async (key: string | { url: string }, value: Response) => { entries.set(keyFor(key), value); },
+        match: async (key: string | { url: string }) => entries.get(keyFor(key))?.clone(),
+        put: async (key: string | { url: string }, value: Response) => { if (writeBarrier) await writeBarrier; entries.set(keyFor(key), value); },
         addAll: async (urls: string[]) => {
           const loaded = await Promise.all(urls.map(async url => {
             const response = await fetchNetwork(url);
@@ -52,6 +54,13 @@ function harness() {
     serve(path: string, response: Response) { responses.set(path, response); },
     offline() { network = new Error("offline"); },
     get networkRequests() { return requests.length; },
+    get rootRequests() { return requests.filter(path => path === "/").length; },
+    get didSkipWaiting() { return skippedWaiting; },
+    pauseWrites() {
+      let release!: () => void;
+      writeBarrier = new Promise<void>(resolve => { release = resolve; });
+      return () => { writeBarrier = undefined; release(); };
+    },
     async install() {
       let installed!: Promise<unknown>;
       installHandler({ waitUntil(promise: Promise<unknown>) { installed = promise; } });
@@ -84,6 +93,56 @@ const html = (body: string, status = 200) => new Response(body, {
 });
 
 describe("offline navigation shell", () => {
+  it("keeps the warm shell when a new bundle fails, then commits a recovered upgrade", async () => {
+    const app = harness();
+    app.online(html('<script src="/assets/old.js"></script>'));
+    app.serve("/assets/old.js", new Response("oldBoot();"));
+    await app.navigate();
+    app.online(html('<link href="/assets/new.css"><script src="/assets/new.js"></script>'));
+    app.serve("/assets/new.css", new Response("body { color: white; }"));
+    app.serve("/assets/new.js", new Response("unavailable", { status: 503 }));
+    expect(await (await app.navigate()).text()).toContain("/assets/old.js");
+    app.offline();
+    expect(await (await app.navigate("/?interrupted=1")).text()).toContain("/assets/old.js");
+    expect(await (await app.asset("/assets/old.js")).text()).toBe("oldBoot();");
+    app.online(html('<link href="/assets/new.css"><script src="/assets/new.js"></script>'));
+    app.serve("/assets/new.js", new Response("newBoot();"));
+    expect(await (await app.navigate()).text()).toContain("/assets/new.js");
+    app.offline();
+    expect(await (await app.navigate("/?recovered=1")).text()).toContain("/assets/new.js");
+    expect(await (await app.asset("/assets/new.js")).text()).toBe("newBoot();");
+    expect(await (await app.asset("/assets/new.css")).text()).toBe("body { color: white; }");
+  });
+
+  it("uses one root response during install and never activates an incomplete upgrade", async () => {
+    const app = harness();
+    app.online(html('<script src="/assets/old.js"></script>'));
+    app.serve("/assets/old.js", new Response("oldBoot();"));
+    await app.navigate();
+    app.online(html('<script src="/assets/new.js"></script>'));
+    app.serve("/assets/new.js", new Response("missing", { status: 404 }));
+    const before = app.rootRequests;
+    let failed = false;
+    try { await app.install(); } catch { failed = true; }
+    expect(failed).toBe(true); expect(app.didSkipWaiting).toBe(false);
+    expect(app.rootRequests - before).toBe(1);
+    app.offline();
+    expect(await (await app.navigate()).text()).toContain("/assets/old.js");
+  });
+
+  it("keeps navigation pending until the new root cache write finishes", async () => {
+    const app = harness(); app.online(html("old app")); await app.navigate();
+    app.online(html("new app")); const release = app.pauseWrites();
+    let finished = false;
+    const navigation = app.navigate().then(response => { finished = true; return response; });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(finished).toBe(false);
+    app.offline(); expect(await (await app.navigate()).text()).toBe("old app");
+    release(); expect(await (await navigation).text()).toBe("new app");
+    expect(await (await app.navigate()).text()).toBe("new app");
+  });
+
   it("installs the boat, lesson media, nonmusic audio and unseen level-up ranks for a fresh offline boot", async () => {
     const app = harness();
     app.online(html('<script src="/assets/game.js"></script>'));

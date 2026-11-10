@@ -145,6 +145,9 @@ test("the existing dummy HUD shows assessor guidance, bearing and real hold prog
   assert.equal(elements.status.textContent, elements.lessonInstruction.textContent);
   assert.equal(elements.coach.textContent, elements.lessonInstruction.textContent);
   assert.equal(elements.statusMessage.textContent, elements.lessonInstruction.textContent);
+  assert.equal(elements.statusMessage.hidden, true);
+  assert.equal(required("#status-objective-detail").hidden, false);
+  assert.ok(!elements.statusCue.textContent.includes("Hold steady"));
   assert.ok(!elements.statusCue.textContent.includes("Hoist"));
   assert.equal(elements.statusFeedback.textContent, "");
   assert.equal(required("#status-objective-detail").textContent, elements.lessonInstruction.textContent);
@@ -154,6 +157,7 @@ test("the existing dummy HUD shows assessor guidance, bearing and real hold prog
   context.collisionNotice = "Touched Juniper buoy. Steer clear and continue."; render();
   assert.equal(elements.status.textContent, context.collisionNotice);
   assert.equal(elements.statusMessage.textContent, context.collisionNotice);
+  assert.equal(elements.statusMessage.hidden, false);
   context.collisionNotice = "";
   for (let i = 0; i < 60; i++) tick(session, 1.8);
   render(); assert.equal(elements.lessonInstruction.textContent, "Hold steady · 2.0 / 3 s");
@@ -182,5 +186,10 @@ test("the existing dummy HUD shows assessor guidance, bearing and real hold prog
   const returning = make(); travel(returning, 5, 41);
   context.dummyRecovery = returning; context.state.position.x = 41; context.flow = "Attached";
   elements.motion.textContent = "Heel 8°"; render();
-  assert.equal(elements.statusCue.textContent, "Attached. Return alongside the dummy. Heel 8°");
+  assert.equal(elements.statusCue.textContent, "Attached. Heel 8°");
+  assert.equal(required("#status-objective-detail").textContent, "Return alongside the dummy.");
+  assert.equal(elements.statusMessage.hidden, true);
+  const summaryStart = main.indexOf("  const statusSummary =", main.indexOf("function updateHud("));
+  const summary = main.slice(summaryStart, main.indexOf("\n", summaryStart));
+  assert.equal(runInNewContext(`${summary}\nstatusSummary;`, { flow: "Attached", coach: "Return alongside the dummy." }), "Attached. Return alongside the dummy.");
 });
