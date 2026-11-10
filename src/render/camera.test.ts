@@ -4,10 +4,15 @@ import { runInNewContext } from "node:vm";
 import { assert, expect, test, vi } from "vitest";
 import { BOAT_DEFINITIONS, HARBOR_20 } from "../sim/boats";
 import { SailingWorld } from "./world";
+import { SAILING_TO_RENDER } from "./sailing-frame";
+import { GameInput } from "../game/input";
+import { createInitialState, stepBoat, wrappedAngle } from "../sim/model";
 
 function cameraWorld() {
   return Object.assign(Object.create(SailingWorld.prototype), {
     camera: new THREE.PerspectiveCamera(52, 844 / 390, 0.1, 3500),
+    renderCamera: new THREE.PerspectiveCamera(52, 844 / 390, 0.1, 3500),
+    renderLookAt: new THREE.Vector3(),
     activeBoat: HARBOR_20,
     desiredCameraPosition: new THREE.Vector3(),
     cameraLookAt: new THREE.Vector3(),
@@ -134,10 +139,36 @@ test("both title states leave the right side clear for the approved F menu", () 
       const world = cameraWorld();
       world.camera.aspect = aspect;
       world.updateCamera(991, -236, 130 * Math.PI / 180, 0.15, 1 / 60, undefined, title, 0);
-      world.camera.updateMatrixWorld();
-      const boat = new THREE.Vector3(991, 0.65, -236).project(world.camera);
+      const boat = new THREE.Vector3(991, 0.65, -236).applyMatrix4(SAILING_TO_RENDER).project(world.renderCamera);
       expect(boat.x).toBeLessThan(-0.2);
       expect(boat.x).toBeGreaterThan(-0.8);
     }
   }
+});
+
+test("chase projection keeps port left and a real right-key turn to starboard", () => {
+  vi.stubGlobal("document", { hidden: false });
+  try {
+    const input = Object.assign(Object.create(GameInput.prototype), {
+      canControl: () => true, keys: new Set(["ArrowRight"]), active: new Set(),
+      buttonKeys: new Map(), clickControls: new Map(), dragRudder: 0, sheetTarget: undefined,
+    });
+    const controls = input.read();
+    expect(controls.rudder).toBe(1);
+    for (const headingDegrees of [0, 90, 155, 180, 270]) {
+      const heading = headingDegrees * Math.PI / 180;
+      const world = cameraWorld();
+      world.updateCamera(0, 0, heading, 0, 1 / 60);
+      const project = (x: number, z: number) => new THREE.Vector3(x, .7, z).applyMatrix4(SAILING_TO_RENDER).project(world.renderCamera).x;
+      const boatX = project(0, 0);
+      const portBearing = heading - 68 * Math.PI / 180;
+      expect(project(11 * Math.sin(portBearing), 11 * Math.cos(portBearing))).toBeLessThan(boatX);
+      expect(project(10 * Math.cos(heading), -10 * Math.sin(heading))).toBeGreaterThan(boatX);
+      let state = { ...createInitialState(), heading, velocity: { x: 4 * Math.sin(heading), y: 4 * Math.cos(heading) } };
+      for (let tick = 0; tick < 60; tick++) state = stepBoat(state, controls, { trueWind: { x: 0, y: 0 }, boat: HARBOR_20 }, 1 / 60).state;
+      expect(wrappedAngle(state.heading - heading)).toBeGreaterThan(0);
+      expect(project(30 * Math.sin(state.heading), 30 * Math.cos(state.heading)))
+        .toBeGreaterThan(project(30 * Math.sin(heading), 30 * Math.cos(heading)));
+    }
+  } finally { vi.unstubAllGlobals(); }
 });

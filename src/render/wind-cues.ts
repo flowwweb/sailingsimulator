@@ -4,6 +4,7 @@ import { depthAtTide, sampleLakeDepth } from "../game/bathymetry";
 import type { WeatherSnapshot } from "../weather/types";
 import { sampleWaveHeight } from "../weather/waves";
 import { createRandom } from "../weather/prng";
+import { SAILING_TO_RENDER } from "./sailing-frame";
 
 const CUE_COUNT = 18;
 const SEGMENTS = 6;
@@ -33,7 +34,7 @@ export function updateWindPennant(
 ): void {
   pennant.parent?.updateWorldMatrix(true, false);
   const inverse = pennant.userData.inverse as THREE.Matrix4;
-  inverse.copy(pennant.parent?.matrixWorld ?? new THREE.Matrix4()).invert();
+  inverse.copy(pennant.parent?.matrixWorld ?? new THREE.Matrix4()).invert().multiply(SAILING_TO_RENDER);
   const speed = Math.hypot(apparentWind.x, apparentWind.y);
   const flow = pennant.userData.flow as THREE.Vector3;
   const up = pennant.userData.up as THREE.Vector3;

@@ -4,6 +4,7 @@ import { createWaterSurface, updateWaterSurface } from "./water-surface";
 import { DEFAULT_WEATHER, cloneWeatherConfig } from "../weather/types";
 import { WeatherSystem } from "../weather/weather";
 import { sampleWaves, significantWaveHeight, waveShaderArrays } from "../weather/waves";
+import { SAILING_TO_RENDER } from "./sailing-frame";
 
 function surface(compact = false) {
   return createWaterSurface({ reflectionTexture: new THREE.Texture(), reflectionMatrix: new THREE.Matrix4(), compact });
@@ -83,7 +84,8 @@ describe("Mediterranean water renderer contract", () => {
     const water = createWaterSurface({ reflectionTexture, reflectionMatrix, compact: true });
     const pose = new THREE.Matrix4().compose(new THREE.Vector3(82, 1.4, -27), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.12, 1.3, -0.45)), new THREE.Vector3(0.8, 1.2, 1.2));
     const original = pose.clone();
-    updateWaterSurface(water, new WeatherSystem(DEFAULT_WEATHER).sample(30), 82, -27, pose);
+    const renderPose = pose.clone().premultiply(SAILING_TO_RENDER);
+    updateWaterSurface(water, new WeatherSystem(DEFAULT_WEATHER).sample(30), 82, -27, renderPose);
     const local = new THREE.Vector3(0.3, 0.1, -0.8);
     const restored = local.clone().applyMatrix4(pose).applyMatrix4(water.material.uniforms.uHullWorldToLocal!.value);
     expect(restored.distanceTo(local)).toBeLessThan(1e-10);

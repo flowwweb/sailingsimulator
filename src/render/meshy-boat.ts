@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { getSailingQuaternion } from "./sailing-frame";
 
 export function sailCamberDirection(target: THREE.Vector3, head: THREE.Vector3, tack: THREE.Vector3, clew: THREE.Vector3, wind: THREE.Vector3): THREE.Vector3 {
   const hx = head.x - tack.x, hy = head.y - tack.y, hz = head.z - tack.z;
@@ -82,6 +83,7 @@ export class MeshyBoat {
   private readonly movingClew = new THREE.Vector3();
   private readonly vertex = new THREE.Vector3();
   private readonly inverseBoom = new THREE.Quaternion();
+  private readonly sailingMatrix = new THREE.Matrix4();
   private readonly surfaceVertex = new THREE.Vector3();
   private readonly telltaleAttachments: { indices: number[]; weights: number[] }[] = [];
   readonly waterMask: ReturnType<typeof sampleHullWaterMask>;
@@ -165,7 +167,7 @@ export class MeshyBoat {
     this.boom.rotation.copy(boom.rotation);
     this.rudder.rotation.copy(rudder.rotation);
     this.movingClew.copy(this.clew).sub(this.boom.position).applyEuler(this.boom.rotation).add(this.boom.position);
-    this.rig.getWorldQuaternion(this.inverseBoom).invert();
+    getSailingQuaternion(this.rig, this.inverseBoom, this.sailingMatrix).invert();
     this.surfaceVertex.copy(worldWind).applyQuaternion(this.inverseBoom);
     sailCamberDirection(this.camberDirection, this.head, this.tack, this.movingClew, this.surfaceVertex);
     const positions = this.sail.geometry.getAttribute("position");

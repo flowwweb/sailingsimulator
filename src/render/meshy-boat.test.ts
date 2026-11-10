@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { Vector3, Group, Mesh, BoxGeometry, ConeGeometry, BufferGeometry, Float32BufferAttribute, ShaderMaterial } from "three";
 import { MeshyBoat, sailPoint, sampleHullWaterMask, deformSailPoint, sailCamberDirection } from "./meshy-boat";
+import { SAILING_TO_RENDER } from "./sailing-frame";
 
 test("deformation pins the three corners while the telltale surface moves", () => {
   for (const side of [-1, 1]) {
@@ -76,6 +77,9 @@ test("sheet and rudder poses preserve mast anchors and tiller linkage", () => {
   geometry.setIndex([0,1,2]);
   const cloth = new Mesh(geometry); cloth.name = "Mainsail"; rig.add(cloth);
   const asset = new MeshyBoat(root, new ShaderMaterial());
+  const frame = new Group();
+  frame.applyMatrix4(SAILING_TO_RENDER);
+  frame.add(root);
   const hullOwner = new Group(), rigOwner = new Group(), boomOwner = new Group(), rudderOwner = new Group();
   boomOwner.rotation.y = Math.PI / 2; rudderOwner.rotation.y = -.4;
   asset.sync(hullOwner, rigOwner, boomOwner, rudderOwner, 1, 1, new Vector3(0, 0, 6));

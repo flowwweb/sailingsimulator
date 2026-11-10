@@ -38,6 +38,7 @@ export class LakeScenery {
     THREE.PointsMaterial
   >;
   private readonly dynamicMaterials: DynamicMaterial[] = [];
+  private readonly celestialFacing = new THREE.Matrix4();
   private readonly lighting = createLightingState();
 
   constructor() {
@@ -82,7 +83,8 @@ export class LakeScenery {
         lighting.sunDirection,
         celestialDistance,
       );
-    this.celestial.lookAt(camera.position);
+    this.celestialFacing.lookAt(camera.position, this.celestial.position, this.celestial.up);
+    this.celestial.quaternion.setFromRotationMatrix(this.celestialFacing);
     this.celestial.material.color.copy(lighting.celestialColor);
     this.celestial.material.opacity = lighting.celestialOpacity;
     this.celestial.scale.setScalar(

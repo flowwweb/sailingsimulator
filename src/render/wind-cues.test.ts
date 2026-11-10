@@ -5,6 +5,7 @@ import { createInitialState } from "../sim/model";
 import { DEFAULT_WEATHER } from "../weather/types";
 import { WeatherSystem } from "../weather/weather";
 import { sampleWaves } from "../weather/waves";
+import { SAILING_TO_RENDER } from "./sailing-frame";
 
 const state = { ...createInitialState(), position: { x: 0, y: 0 } };
 const snapshot = new WeatherSystem(DEFAULT_WEATHER).sample(13);
@@ -20,13 +21,16 @@ describe("true-wind surface cues", () => {
   });
   it("flies the mast pennant down apparent wind despite boat heading and heel", () => {
     const rig = new THREE.Group();
+    const frame = new THREE.Group();
+    frame.applyMatrix4(SAILING_TO_RENDER);
+    frame.add(rig);
     rig.rotation.set(0.1, 1.6, -0.35);
     const pennant = createWindPennant();
     rig.add(pennant);
     updateWindPennant(pennant, { x: 5, y: -3 }, 4);
     const positions = pennant.geometry.getAttribute("position");
     const tip = new THREE.Vector3(positions.getX(16), positions.getY(16), positions.getZ(16)).transformDirection(rig.matrixWorld);
-    const expected = new THREE.Vector3(5, 0, -3).normalize();
+    const expected = new THREE.Vector3(5, 0, -3).transformDirection(SAILING_TO_RENDER);
     expect(tip.dot(expected)).toBeGreaterThan(0.995);
     expect(positions.getX(0) + positions.getX(1)).toBeCloseTo(0);
     updateWindPennant(pennant, { x: 0, y: 0 }, 4);
