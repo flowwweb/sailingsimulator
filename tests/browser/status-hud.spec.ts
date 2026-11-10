@@ -7,6 +7,28 @@ test.beforeAll(() => mkdirSync(evidence, { recursive: true }));
 test.afterEach(async ({ page }, info) => {
   if (info.status !== info.expectedStatus) await page.screenshot({ path: resolve(evidence, `failed-${info.title.replace(/[^a-z0-9]+/gi, "-")}.png`) });
 });
+
+for (const [width, height] of [[1440, 900], [640, 360]] as const) {
+  test(`radio composer and actions fit the first view at ${width}x${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/");
+    await expect(page.locator("#boot-loader")).toHaveCount(0);
+    await page.locator("#title-free-sail").click();
+    await page.locator("#radio-toggle").click();
+    const panel = page.locator("#radio-panel"), bounds = (await panel.boundingBox())!;
+    expect(await panel.evaluate(node => node.scrollTop)).toBe(0);
+    for (const id of ["radio-channel", "radio-listen", "radio-message", "radio-call", "radio-close"]) {
+      const control = page.locator(`#${id}`); await expect(control).toBeVisible();
+      const box = (await control.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+      expect(box.y).toBeGreaterThanOrEqual(bounds.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(Math.min(bounds.y + bounds.height, height));
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: resolve(evidence, `radio-first-view-${width}x${height}.png`) });
+  });
+}
 for (const [name, width, height] of [["desktop",1440,900],["phone",844,390]] as const) {
   test(`status disclosure and HUD placement at ${name}`, async ({ page }) => {
     await page.setViewportSize({ width, height });

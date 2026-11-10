@@ -10,7 +10,7 @@ export class AnchorageExercise {
   holdSeconds = 0;
   tension = 0;
   private haulImpulse = 0;
-  message = "Approach the anchorage slowly and check depth and swing room.";
+  message = "Check depth and swing room.";
 
   constructor(readonly target: { x: number; y: number }, readonly hull: { halfLength: number; draft: number }) {}
 
@@ -70,7 +70,7 @@ export class AnchorageExercise {
       this.message = this.stage === "payout" ? "The anchor is dragging. Slow down and pay out more rode." : "The anchor is dragging. Ease the load and set it again.";
       return;
     }
-    if (this.anchor.rode < 5 * (depth + 0.6)) { this.stage = "payout"; this.holdSeconds = 0; this.message = "Pay out more rode; this exercise uses at least 5:1 scope."; return; }
+    if (this.anchor.rode < 5 * (depth + 0.6)) { this.stage = "payout"; this.holdSeconds = 0; this.message = "Pay out to at least 5:1 scope."; return; }
     if (!this.anchor.set) { this.stage = "set"; this.holdSeconds = 0; this.message = "Let the boat drift back gently until the rode takes load and the anchor sets."; return; }
     this.stage = "holding";
     this.holdSeconds = this.tension > 0.025 ? this.holdSeconds + Math.max(0, dt) : 0;

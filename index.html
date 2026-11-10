@@ -137,17 +137,19 @@
 
       <aside id="radio-panel" class="radio-panel" role="dialog" aria-labelledby="radio-heading" hidden>
         <h2 id="radio-heading">Harbor radio</h2>
-        <p>Simulation · Juniper Marina · UK channel example</p>
-        <p>Helm controls remain available while the radio is open.</p>
-        <label for="radio-channel">Channel</label>
-        <select id="radio-channel"><option value="16">16</option><option value="80">80</option></select>
-        <button id="radio-listen" class="secondary-button" type="button">Listen</button>
+        <div class="radio-tuning">
+          <label for="radio-channel">Channel</label>
+          <select id="radio-channel"><option value="16">16 · Calling</option><option value="80">80 · Juniper Marina</option></select>
+          <button id="radio-listen" class="secondary-button" type="button">Listen</button>
+        </div>
         <label for="radio-message">Your call</label>
-        <p id="radio-message-help">Include who you're calling, your boat, position and request. End with “over”.</p>
         <textarea id="radio-message" rows="3" maxlength="240" aria-describedby="radio-message-help" placeholder="Juniper Marina, this is Fair Winds. [Your position]. Request a visitor berth. Over."></textarea>
-        <button id="radio-call" class="secondary-button" type="button">Transmit call</button>
-        <button id="radio-close" class="secondary-button" type="button">Close</button>
+        <div class="radio-actions">
+          <button id="radio-call" class="secondary-button" type="button">Transmit call</button>
+          <button id="radio-close" class="secondary-button" type="button">Close</button>
+        </div>
         <p id="radio-next-step" aria-live="polite">Tune to Juniper Marina's channel 80.</p>
+        <p id="radio-message-help">Station, boat, position, request. End with “over”.</p>
         <p id="radio-caption">Select the marina channel and listen before calling.</p>
       </aside>
 
