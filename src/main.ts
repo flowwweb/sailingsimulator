@@ -350,12 +350,14 @@ function registerServiceWorker(): void {
     window.location.hostname === "127.0.0.1" ||
     window.location.hostname === "localhost";
   if (!("serviceWorker" in navigator) || local || !import.meta.env.PROD) return;
-  window.addEventListener("load", () => {
+  const register = () => {
     void navigator.serviceWorker.register("/sw.js").catch(() => {
       elements.status.textContent =
         "Offline support is unavailable; online sailing is unaffected.";
     });
-  });
+  };
+  if (document.readyState === "complete") register();
+  else window.addEventListener("load", register, { once: true });
 }
 
 function createGameState(

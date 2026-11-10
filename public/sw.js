@@ -1,4 +1,4 @@
-const CACHE_VERSION = "fair-winds-shell-v3";
+const CACHE_VERSION = "fair-winds-shell-v4";
 const CORE_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -7,6 +7,17 @@ const CORE_SHELL = [
   "/brand/fairwinds-app-icon.svg",
   "/brand/fairwinds-wordmark.svg",
   "/brand/fairwinds-full.svg",
+  "/brand/fairwinds-icons.svg",
+  "/brand/fairwinds-approved-menu-board.png",
+  "/brand/first-buoy-concept.png",
+  "/brand/dummy-recovery-concept.png",
+  "/models/fair-winds-boat-v2.glb",
+  "/audio/water-hull.wav",
+  "/audio/soft-sea-wind.wav",
+  "/audio/distant-harbor.wav",
+  "/audio/vhf-juniper-33a89e30.mp3",
+  "/audio/wood-pigeon.ogg",
+  "/audio/loon-calls.ogg",
   "/brand/ranks/landlubber.png",
   "/brand/ranks/deckhand.png",
   "/brand/ranks/sailor.png",
@@ -59,7 +70,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          if (response.ok && response.headers.get("content-type")?.includes("text/html")) {
+          if ((url.pathname === "/" || url.pathname === "/index.html") && response.ok && response.headers.get("content-type")?.includes("text/html")) {
             const copy = response.clone();
             void caches.open(CACHE_VERSION).then((cache) => cache.put("/", copy));
           }
