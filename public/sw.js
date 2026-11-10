@@ -1,4 +1,4 @@
-const CACHE_VERSION = "fair-winds-shell-v5";
+const CACHE_VERSION = "fair-winds-shell-v6";
 const CORE_SHELL = [
   "/manifest.webmanifest",
   "/favicon.svg",
@@ -27,7 +27,7 @@ const CORE_SHELL = [
   "/brand/ranks/sea-legend.png",
 ];
 
-function validBootAsset(asset, response) {
+function validCachedAsset(asset, response) {
   if (!response?.ok) return false;
   const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
   if (/\.m?js(?:[?#]|$)/.test(asset)) return ["text/javascript", "application/javascript", "text/ecmascript", "application/ecmascript"].includes(contentType);
@@ -35,17 +35,21 @@ function validBootAsset(asset, response) {
   return contentType !== "text/html";
 }
 
+async function cacheAssets(cache, assets) {
+  const fetchedAssets = await Promise.all(assets.map(async (asset) => {
+    if (validCachedAsset(asset, await cache.match(asset))) return;
+    const assetResponse = await fetch(asset);
+    if (!validCachedAsset(asset, assetResponse)) throw new Error(`Invalid cached asset: ${asset}`);
+    return { asset, response: assetResponse };
+  }));
+  await Promise.all(fetchedAssets.filter(Boolean).map(({ asset, response: assetResponse }) => cache.put(asset, assetResponse)));
+}
+
 async function cacheRootDocument(cache, response) {
   if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) throw new Error("Invalid app document");
   const indexMarkup = await response.clone().text();
   const builtAssets = [...indexMarkup.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((match) => match[1]);
-  const fetchedAssets = await Promise.all(builtAssets.map(async (asset) => {
-    if (validBootAsset(asset, await cache.match(asset))) return;
-    const assetResponse = await fetch(asset);
-    if (!validBootAsset(asset, assetResponse)) throw new Error(`Invalid boot asset: ${asset}`);
-    return { asset, response: assetResponse };
-  }));
-  await Promise.all(fetchedAssets.filter(Boolean).map(({ asset, response: assetResponse }) => cache.put(asset, assetResponse)));
+  await cacheAssets(cache, builtAssets);
   await cache.put("/", response.clone());
 }
 
@@ -55,7 +59,7 @@ self.addEventListener("install", (event) => {
       .open(CACHE_VERSION)
       .then(async (cache) => {
         const indexResponse = await fetch("/");
-        await cache.addAll(CORE_SHELL);
+        await cacheAssets(cache, CORE_SHELL);
         await cacheRootDocument(cache, indexResponse);
       })
       .then(() => self.skipWaiting()),
@@ -102,18 +106,20 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   event.respondWith(
-    caches.match(event.request).then(
-      (cached) =>
-        cached ??
-        fetch(event.request).then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            void caches
-              .open(CACHE_VERSION)
-              .then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        }),
-    ),
+    caches.match(event.request).then(async (cached) => {
+      const guarded = CORE_SHELL.includes(url.pathname) || url.pathname.startsWith("/assets/");
+      if (cached && (!guarded || validCachedAsset(url.pathname, cached))) return cached;
+      const response = await fetch(event.request);
+      if (guarded && !validCachedAsset(url.pathname, response)) throw new Error(`Invalid cached asset: ${url.pathname}`);
+      if (response.ok) {
+        try {
+          const cache = await caches.open(CACHE_VERSION);
+          await cache.put(event.request, response.clone());
+        } catch {
+          // A usable network response remains available when offline storage fails.
+        }
+      }
+      return response;
+    }),
   );
 });

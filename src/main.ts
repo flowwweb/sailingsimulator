@@ -455,7 +455,7 @@ function bindInterface(): void {
       return;
     }
     if (!required("#completion-screen").hidden) {
-      if (event.repeat && ["Enter", "Space"].includes(event.code)) event.preventDefault();
+      if (event.repeat && ["Enter", "NumpadEnter", "Space"].includes(event.code)) event.preventDefault();
       else if (event.code === "Tab") trapFocusWithin(required(".completion-content"), event);
       else if (event.code === "Escape") { event.preventDefault(); closeCompletion(); }
       return;
