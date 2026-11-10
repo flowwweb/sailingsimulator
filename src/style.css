@@ -4836,6 +4836,7 @@ input:disabled {
 .anchor-controls { display: flex; flex-wrap: wrap; gap: 8px; }
 .anchor-controls[hidden] { display: none; }
 .anchor-controls button { min-height: 44px; padding: 6px 10px; }
+#anchor-haul { touch-action: none; user-select: none; }
 
 .anchor-controls { grid-column: 1 / -1; }
 .anchor-controls button[hidden] { display: none; }
