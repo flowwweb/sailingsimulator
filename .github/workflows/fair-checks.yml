@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: e1747312562e307d34d365714f2d617915844cc6
+          SOURCE_COMMIT: 435b6d57868cab03ba69c3380cb700f4bcd1103b
         run: |
           set -euo pipefail
           umask 077
@@ -52,13 +52,13 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "e1747312562e307d34d365714f2d617915844cc6" and .tree.sha == "84485a619ff3bd94685e568c6242b9d026ecf27e"' "$work/commit.json"
+          jq -e '.sha == "435b6d57868cab03ba69c3380cb700f4bcd1103b" and .tree.sha == "27bde55dffac7e2699f0e0ca3b73de02e1d890fc"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "e1747312562e307d34d365714f2d617915844cc6",
-            "tree": "84485a619ff3bd94685e568c6242b9d026ecf27e",
-            "publishedChangesCovered": 7,
+            "commit": "435b6d57868cab03ba69c3380cb700f4bcd1103b",
+            "tree": "27bde55dffac7e2699f0e0ca3b73de02e1d890fc",
+            "publishedChangesCovered": 5,
             "files": [
               {
                 "path": "AGENTS.md",
@@ -356,15 +356,15 @@ jobs:
               },
               {
                 "path": "src/game/dummy-recovery.test.ts",
-                "bytes": 5647,
-                "sha256": "59255cd8ad63e873e5790ecba9755027d7275164fb14a428f598a2f86a0fc15e",
-                "blobSha1": "796b09d8ea253341df3c6011da453e674c6a51bc"
+                "bytes": 9285,
+                "sha256": "cfdb34f8442329b2aa647d1a383840efac1c661c203b1447531bc2674edb003d",
+                "blobSha1": "e8778aedd46a813e43c6ac971af53f906caca6b8"
               },
               {
                 "path": "src/game/dummy-recovery.ts",
-                "bytes": 4251,
-                "sha256": "f516a8fb988d332fc01504b7ff5b84289fd0372ce48b9fc6620fd1002e2b146c",
-                "blobSha1": "52e83e35d1c8efe9775524c11afbe26df923c10d"
+                "bytes": 5638,
+                "sha256": "f35a8f98d7faffd9c160100d0318cfe6eaba36ed3364bc5c866cba34f0ff178f",
+                "blobSha1": "d4156a1b1844af595308a12cb3a1cf732a41e47c"
               },
               {
                 "path": "src/game/first-buoy-hud.test.ts",
@@ -554,9 +554,9 @@ jobs:
               },
               {
                 "path": "src/main.ts",
-                "bytes": 135092,
-                "sha256": "dd1aec44497a12b64a3294af8137c11a14164aa414921c0562255b901c5b7932",
-                "blobSha1": "1ac134210a23b504daa29198769fe076d62b88d7"
+                "bytes": 134468,
+                "sha256": "b4988246d2d8dac93caea162440f7a7ecb8acf43b7ab17b2636c6e777e67bd53",
+                "blobSha1": "5fd8b2265b4d23c4332ec5d4ecd533e13c833ef0"
               },
               {
                 "path": "src/render/ambient-life.ts",
@@ -1028,9 +1028,9 @@ jobs:
               },
               {
                 "path": "tests/dummy-recovery-source.test.mjs",
-                "bytes": 5065,
-                "sha256": "b34c382ca47e64221d66e98c8f3b8b9bc9373702eb8e0e351d7d09d3e863cae6",
-                "blobSha1": "bb4b6cf019060c99106efc17451d1266ee2e5036"
+                "bytes": 7719,
+                "sha256": "6f7e1fe9cfa1fc3c33ef6b902266d0cb411658993e0e3bece0b8d4aa5aec6b96",
+                "blobSha1": "ccdcb5af98f07db25e9cee1f2e7dc6043e2f4ccf"
               },
               {
                 "path": "tests/first-buoy-source.test.mjs",
@@ -1185,7 +1185,7 @@ jobs:
             ]
           }
           SOURCE
-          jq -e '.commit == "e1747312562e307d34d365714f2d617915844cc6" and (.files | length) == 187' "$work/source-files.json"
+          jq -e '.commit == "435b6d57868cab03ba69c3380cb700f4bcd1103b" and (.files | length) == 187' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -1209,7 +1209,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: 'e1747312562e307d34d365714f2d617915844cc6', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: '435b6d57868cab03ba69c3380cb700f4bcd1103b', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -1241,7 +1241,7 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, '84485a619ff3bd94685e568c6242b9d026ecf27e');
+            assert.equal(source.tree, '27bde55dffac7e2699f0e0ca3b73de02e1d890fc');
             assert.equal(source.files.length, 187);
             process.chdir('/work/project');
             function verifySource() {
