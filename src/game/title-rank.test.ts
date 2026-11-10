@@ -26,6 +26,13 @@ describe("title sailing progress", () => {
     expect(nodes["#title-profile"]!.attributes["aria-label"]).toBe("Player profile, Level 2, Deckhand, 100 XP");
     expect(nodes["#settings-rank"]!.textContent).toBe("Level 2 · Deckhand · 100 XP");
     expect(nodes["#profile-xp-track"]!.attributes["aria-valuetext"]).toBe("0 of 100 XP toward level 3");
+    context.progress = parseProgress(JSON.stringify(recordFirstBuoyCompletion({ ...createProgress(), completedObjectives: [0, 1, 2, 3, 4, 5, 6, 7, 8], completedDummyRecovery: true, completedCrossing: true, completedAnchorage: true })));
+    runInNewContext(`${render}; syncTitleRank()`, context);
+    expect(nodes["#title-level"]!.textContent).toBe("8");
+    expect(nodes["#profile-rank"]!.textContent).toBe("Sea Legend");
+    expect(nodes["#profile-total-xp"]!.textContent).toBe("700 XP total");
+    expect(nodes["#profile-next-rank"]!.textContent).toBe("All sailing ranks earned");
+    expect(nodes["#profile-xp-fill"]!.style.width).toBe("100%");
     context.progress = createProgress();
     runInNewContext(`${render}; syncTitleRank()`, context);
     expect(nodes["#title-level"]!.textContent).toBe("1");

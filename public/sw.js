@@ -1,4 +1,4 @@
-const CACHE_VERSION = "fair-winds-shell-v2";
+const CACHE_VERSION = "fair-winds-shell-v3";
 const CORE_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -7,6 +7,14 @@ const CORE_SHELL = [
   "/brand/fairwinds-app-icon.svg",
   "/brand/fairwinds-wordmark.svg",
   "/brand/fairwinds-full.svg",
+  "/brand/ranks/landlubber.png",
+  "/brand/ranks/deckhand.png",
+  "/brand/ranks/sailor.png",
+  "/brand/ranks/helmsman.png",
+  "/brand/ranks/navigator.png",
+  "/brand/ranks/skipper.png",
+  "/brand/ranks/captain.png",
+  "/brand/ranks/sea-legend.png",
 ];
 
 self.addEventListener("install", (event) => {

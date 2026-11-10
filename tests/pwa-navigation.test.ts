@@ -4,29 +4,68 @@ import { describe, expect, it } from "vitest";
 
 function harness() {
   let navigationHandler: (event: unknown) => void;
+  let installHandler: (event: unknown) => void;
+  let skippedWaiting = false;
   let network: Response | Error = new Error("offline");
+  const responses = new Map<string, Response>();
+  const requests: string[] = [];
   const entries = new Map<string, Response>();
+  const keyFor = (request: string | { url: string }) => {
+    const url = new URL(typeof request === "string" ? request : request.url, "https://fairwinds.example");
+    return url.pathname + url.search;
+  };
+  const fetchNetwork = async (request: string | { url: string }) => {
+    const key = keyFor(request);
+    requests.push(key);
+    if (network instanceof Error) throw network;
+    return (responses.get(key) ?? network).clone();
+  };
   const context = createContext({
     URL,
     self: {
       location: { origin: "https://fairwinds.example" },
+      skipWaiting: async () => { skippedWaiting = true; },
       addEventListener: (name: string, handler: typeof navigationHandler) => {
         if (name === "fetch") navigationHandler = handler;
+        if (name === "install") installHandler = handler;
       },
     },
     caches: {
-      open: async () => ({ put: async (key: string, value: Response) => { entries.set(key, value); } }),
-      match: async (key: string) => entries.get(key)?.clone(),
+      open: async () => ({
+        put: async (key: string | { url: string }, value: Response) => { entries.set(keyFor(key), value); },
+        addAll: async (urls: string[]) => {
+          const loaded = await Promise.all(urls.map(async url => {
+            const response = await fetchNetwork(url);
+            if (!response.ok) throw new Error(`Failed to precache ${url}`);
+            return { key: keyFor(url), response };
+          }));
+          for (const { key, response } of loaded) entries.set(key, response);
+        },
+      }),
+      match: async (key: string | { url: string }) => entries.get(keyFor(key))?.clone(),
     },
-    fetch: async () => {
-      if (network instanceof Error) throw network;
-      return network.clone();
-    },
+    fetch: fetchNetwork,
   });
   runInContext(readFileSync("public/sw.js", "utf8"), context);
   return {
     online(response: Response) { network = response; },
+    serve(path: string, response: Response) { responses.set(path, response); },
     offline() { network = new Error("offline"); },
+    get networkRequests() { return requests.length; },
+    async install() {
+      let installed!: Promise<unknown>;
+      installHandler({ waitUntil(promise: Promise<unknown>) { installed = promise; } });
+      await installed;
+      return skippedWaiting;
+    },
+    async asset(path: string) {
+      let response!: Promise<Response>;
+      navigationHandler({
+        request: { method: "GET", url: new URL(path, "https://fairwinds.example").href, mode: "cors" },
+        respondWith(promise: Promise<Response>) { response = promise; },
+      });
+      return response;
+    },
     async navigate() {
       let response!: Promise<Response>;
       navigationHandler({
@@ -45,6 +84,31 @@ const html = (body: string, status = 200) => new Response(body, {
 });
 
 describe("offline navigation shell", () => {
+  it("installs every rank icon and serves an unseen level-up rank offline", async () => {
+    const app = harness();
+    app.online(html('<script src="/assets/game.js"></script>'));
+    app.serve("/assets/game.js", new Response("bootGame();", {
+      headers: { "content-type": "text/javascript" },
+    }));
+    const ranks = ["landlubber", "deckhand", "sailor", "helmsman", "navigator", "skipper", "captain", "sea-legend"];
+    for (const rank of ranks) {
+      app.serve(`/brand/ranks/${rank}.png`, new Response(`icon:${rank}`, {
+        headers: { "content-type": "image/png" },
+      }));
+    }
+    expect(await app.install()).toBe(true);
+    const beforeOffline = app.networkRequests;
+    app.offline();
+    for (const rank of ranks) {
+      const icon = await app.asset(`/brand/ranks/${rank}.png`);
+      expect(icon.status).toBe(200);
+      expect(icon.headers.get("content-type")).toBe("image/png");
+      expect(await icon.text()).toBe(`icon:${rank}`);
+    }
+    expect(await (await app.asset("/assets/game.js")).text()).toBe("bootGame();");
+    expect(app.networkRequests).toBe(beforeOffline);
+  });
+
   it("caches a successful document for normal offline launch", async () => {
     const app = harness();
     app.online(html("working app"));

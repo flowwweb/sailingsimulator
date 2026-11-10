@@ -43,6 +43,24 @@ test("all eight approved ranks retain the saved XP thresholds", () => {
   });
 });
 
+test("all saved lesson credits complete Sea Legend without promising an unreachable level, and reset clears it", () => {
+  const context = { ...constants, required, elements: { titleProfile: required("#title-profile") } };
+  runInNewContext(`${progressJs}\n${sync}\nvar progress = parseProgress(JSON.stringify(recordFirstBuoyCompletion({ ...createProgress(), completedObjectives: [0,1,2,3,4,5,6,7,8], completedDummyRecovery: true, completedCrossing: true, completedAnchorage: true }))); syncTitleRank();`, context);
+  assert.equal(required("#title-level").textContent, "8");
+  assert.equal(required("#profile-rank").textContent, "Sea Legend");
+  assert.equal(required("#profile-total-xp").textContent, "700 XP total");
+  assert.equal(required("#profile-level-xp").textContent, "Highest rank");
+  assert.equal(required("#profile-next-rank").textContent, "All sailing ranks earned");
+  assert.equal(required("#profile-xp-fill").style.width, "100%");
+  assert.equal(required("#profile-xp-track").attributes["aria-valuenow"], "100");
+  assert.match(required("#profile-xp-track").attributes["aria-valuetext"], /Sea Legend: all sailing ranks earned, 700 XP total/);
+  runInNewContext("progress = createProgress(); syncTitleRank();", context);
+  assert.equal(required("#profile-rank").textContent, "Landlubber");
+  assert.equal(required("#profile-next-rank").textContent, "100 XP to Deckhand");
+  assert.equal(required("#profile-xp-fill").style.width, "0%");
+  assert.equal(required("#profile-xp-track").attributes["aria-valuenow"], "0");
+});
+
 test("closing the profile restores the avatar focus and its expanded state", () => {
   const elements = { titleProfile: required("#profile-trigger"), titleProfilePanel: { hidden: false }, titleLogbook: required("#logbook-trigger"), titleLogbookPanel: { hidden: true }, lessonChooser: { hidden: true } };
   runInNewContext(`${close}\ncloseTitleDialog();`, { elements, required });

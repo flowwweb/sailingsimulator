@@ -743,23 +743,26 @@ function titleMenuItems(): HTMLButtonElement[] {
 
 function syncTitleRank(): void {
   const rank = sailingRank(progress);
+  const next = rankForXp(rank.xp + 100 - rank.levelXp);
+  const highestRank = next.rank === rank.rank;
+  const displayedXp = highestRank ? 100 : rank.levelXp;
   const badge = `/brand/ranks/${rank.rank.toLowerCase().replace(/ /g, "-")}.png`;
   elements.titleProfile.setAttribute("aria-label", `Player profile, Level ${rank.level}, ${rank.rank}, ${rank.xp} XP`);
   required("#title-level").textContent = String(rank.level);
   required<HTMLImageElement>("#title-rank-badge").src = badge;
-  required("#title-xp-ring").setAttribute("stroke-dashoffset", String(100 - rank.levelXp));
+  required("#title-xp-ring").setAttribute("stroke-dashoffset", String(100 - displayedXp));
   required<HTMLImageElement>("#profile-rank-badge").src = badge;
   required("#profile-level").textContent = `Level ${rank.level}`;
   required("#profile-rank").textContent = rank.rank;
   required("#profile-total-xp").textContent = `${rank.xp} XP total`;
-  required("#profile-level-xp").textContent = `${rank.levelXp} / 100 XP`;
-  const next = rankForXp(rank.xp + 100 - rank.levelXp);
-  required("#profile-next-rank").textContent = `${100 - rank.levelXp} XP to ${next.rank === rank.rank ? `level ${next.level}` : next.rank}`;
+  required("#profile-level-xp").textContent = highestRank ? "Highest rank" : `${rank.levelXp} / 100 XP`;
+  required("#profile-next-rank").textContent = highestRank ? "All sailing ranks earned" : `${100 - rank.levelXp} XP to ${next.rank}`;
   required("#settings-rank").textContent = `Level ${rank.level} · ${rank.rank} · ${rank.xp} XP`;
-  required("#profile-xp-fill").style.width = `${rank.levelXp}%`;
+  required("#profile-xp-fill").style.width = `${displayedXp}%`;
   const track = required("#profile-xp-track");
-  track.setAttribute("aria-valuenow", String(rank.levelXp));
-  track.setAttribute("aria-valuetext", `${rank.levelXp} of 100 XP toward level ${rank.level + 1}`);
+  track.setAttribute("aria-label", highestRank ? "Sailing ranks complete" : "XP toward the next level");
+  track.setAttribute("aria-valuenow", String(displayedXp));
+  track.setAttribute("aria-valuetext", highestRank ? `${rank.rank}: all sailing ranks earned, ${rank.xp} XP total` : `${rank.levelXp} of 100 XP toward level ${rank.level + 1}`);
 }
 
 function syncTitleState(): void {
@@ -1771,13 +1774,18 @@ function updateHud(): void {
   miniChart.render(state, firstBuoy ? firstBuoyWorld(firstBuoy.activeCourse()?.id) : FAIR_WINDS_WORLD, weather.trueWind, activeCourse());
   const completedManeuver =
     state.maneuverCount !== lastManeuverCount && state.lastManeuver !== "none";
+  const collisionNotice = touchCooldown > 0 && elements.status.textContent?.startsWith("Touched ")
+    ? elements.status.textContent : "";
+  if (!collisionNotice && elements.status.textContent?.startsWith("Touched ")) {
+    elements.status.textContent = `${flow}. ${coach}.`;
+  }
   if (completedManeuver) {
     elements.status.textContent = state.lastManeuver === "gybe"
       ? "Gybe complete. The boom crossed with the wind astern; steady the helm and retrim."
       : "Tack complete. Build speed on the new side and retrim.";
     lastManeuverCount = state.maneuverCount;
     lastFlow = flow;
-  } else if (flow !== lastFlow && started && !dockedAt) {
+  } else if (flow !== lastFlow && started && !dockedAt && !collisionNotice) {
     elements.status.textContent = `${flow}. ${coach}.`;
     lastFlow = flow;
   }
@@ -1823,13 +1831,17 @@ function updateHud(): void {
     elements.status.textContent = activityView?.instruction ?? "Forecast change exercise.";
     elements.statusMessage.textContent = elements.status.textContent;
   }
+  if (collisionNotice) {
+    elements.status.textContent = collisionNotice;
+    elements.statusMessage.textContent = collisionNotice;
+  }
   if (storageUnavailable && !elements.status.textContent?.includes(STORAGE_WARNING)) {
     elements.status.textContent += ` ${STORAGE_WARNING}`;
   }
   if (storageUnavailable && !elements.statusMessage.textContent?.includes(STORAGE_WARNING)) {
     elements.statusMessage.textContent += ` ${STORAGE_WARNING}`;
   }
-  const feedback = (firstBuoy && !firstBuoy.failed && !firstBuoy.completed) || academyActive || dummyActive
+  const feedback = !collisionNotice && ((firstBuoy && !firstBuoy.failed && !firstBuoy.completed) || academyActive || dummyActive)
     ? elements.statusMessage.textContent : "";
   if (elements.statusFeedback.textContent !== feedback) elements.statusFeedback.textContent = feedback;
 }

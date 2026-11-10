@@ -12,6 +12,7 @@ const end = hud.indexOf("\n}", start);
 assert.ok(start >= 0 && end > start);
 const status = `function updateStatus() {\n${hud.slice(start, end)}\n} updateStatus();`;
 function statusContext(context) {
+  context.touchCooldown ??= 0;
   context.academy ??= { view: () => ({ stage: "free-sail" }) };
   context.activitySession ??= undefined;
   return context;
@@ -60,6 +61,28 @@ test("crossing status makes the active instruction and failure visible", () => {
     runInNewContext(status, statusContext(context));
     assert.equal(elements.status.textContent, expected);
   }
+});
+
+test("collision warning survives an Attached flow update above the academy objective, then gives way after cooldown", () => {
+  const startTouch = hud.indexOf("          if (touchCooldown <= 0) {");
+  const endTouch = hud.indexOf("\n          }", startTouch) + 12;
+  assert.ok(startTouch >= 0 && endTouch > startTouch);
+  const touch = hud.slice(startTouch, endTouch);
+  const elements = { status: { textContent: "Luffing. Sheet in." }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
+  const context = statusContext({ touchCooldown: 0, nextIncident: { object: { name: "Juniper buoy" } },
+    academy: { view: () => ({ stage: "close-hauled", title: "Sail close-hauled", feedback: "Trim gently." }) },
+    anchorage: undefined, dummyRecovery: undefined, crossing: undefined, weatherShelter: undefined, firstBuoy: undefined, activitySession: undefined,
+    elements, state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true, dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" });
+  runInNewContext(`${touch}\n${status}`, context);
+  assert.equal(elements.status.textContent, "Touched Juniper buoy. Steer clear and continue.");
+  assert.equal(elements.statusMessage.textContent, elements.status.textContent);
+  assert.equal(elements.statusFeedback.textContent, "");
+  runInNewContext(status, context);
+  assert.equal(elements.status.textContent, "Touched Juniper buoy. Steer clear and continue.");
+  context.touchCooldown = 0;
+  runInNewContext(status, context);
+  assert.equal(elements.status.textContent, "Sail close-hauled");
+  assert.equal(elements.statusMessage.textContent, "Trim gently.");
 });
 
 test("weather failure remains visible through sail feedback and clears its destination", () => {

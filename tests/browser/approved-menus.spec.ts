@@ -56,7 +56,7 @@ test("compact sailing objective and boat controls have separate hit targets", as
   await page.screenshot({ path: resolve(evidence, 'compact-objective-controls.png') });
 });
 
-for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape", 844, 390]] as const) {
+for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape", 844, 390], ["small-landscape", 640, 360]] as const) {
   test(`approved arrival, lesson selection and free sail at ${label}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     const errors: string[] = [];
@@ -128,7 +128,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.goto("/");
     await expect(page.locator("#boot-loader")).toHaveCount(0);
     await expect(page.locator("#continue-lesson")).toHaveText("Continue");
-    await expect(page.locator("#returning-target")).toHaveText("Target 2 of 3 · Beam reach");
+    await expect(page.locator("#title-profile")).toHaveAccessibleName(/Level 2, Deckhand, 100 XP/);
     await expect(page.locator("#set-sail")).toBeHidden();
     for (const id of ["continue-lesson", "new-journey", "title-free-sail", "title-logbook", "title-settings"]) {
       const box = (await page.locator(`#${id}`).boundingBox())!;
@@ -140,6 +140,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.locator("#continue-lesson").click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "beam-reach");
     await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 2 of 6 · Objective 2 of 3");
+    await expect(page.locator("#status-toggle")).toContainText("Settle on a beam reach");
     await page.locator("#conditions-toggle").click();
     await page.locator("#settings-main-menu").click();
     await page.locator("#new-journey").click();
