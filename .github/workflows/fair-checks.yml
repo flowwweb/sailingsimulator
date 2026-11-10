@@ -15,7 +15,7 @@ jobs:
       - name: Check pinned public source in restricted disposable container
         shell: bash
         env:
-          SOURCE_COMMIT: d2831987376909e665e776c4cc659c1cf98122c8
+          SOURCE_COMMIT: a2eb1be6e955ee5d5e525b61e5920355a1249cf7
         run: |
           set -euo pipefail
           umask 077
@@ -52,13 +52,13 @@ jobs:
           get_public https://api.github.com/repos/flowwweb/sailingsimulator > "$work/repository.json"
           jq -e '.full_name == "flowwweb/sailingsimulator" and .private == false and .visibility == "public"' "$work/repository.json"
           get_public "https://api.github.com/repos/flowwweb/sailingsimulator/git/commits/$SOURCE_COMMIT" > "$work/commit.json"
-          jq -e '.sha == "d2831987376909e665e776c4cc659c1cf98122c8" and .tree.sha == "002e7fbe191796522bc86c00d36acbc69948e5bd"' "$work/commit.json"
+          jq -e '.sha == "a2eb1be6e955ee5d5e525b61e5920355a1249cf7" and .tree.sha == "ff7c1da024d2ef656002d7cd92caf03bdc1feccb"' "$work/commit.json"
           cat > "$work/source-files.json" <<'SOURCE'
           {
             "schema": 1,
-            "commit": "d2831987376909e665e776c4cc659c1cf98122c8",
-            "tree": "002e7fbe191796522bc86c00d36acbc69948e5bd",
-            "publishedChangesCovered": 3,
+            "commit": "a2eb1be6e955ee5d5e525b61e5920355a1249cf7",
+            "tree": "ff7c1da024d2ef656002d7cd92caf03bdc1feccb",
+            "publishedChangesCovered": 14,
             "files": [
               {
                 "path": "AGENTS.md",
@@ -578,9 +578,9 @@ jobs:
               },
               {
                 "path": "src/render/camera.test.ts",
-                "bytes": 6782,
-                "sha256": "d5428fc523bff251fd4f2427a8353464b185f7224936089372bcf75e89bc7c2b",
-                "blobSha1": "306ad1fd7006e9613bc80d1c144f9970a44ca7e7"
+                "bytes": 8704,
+                "sha256": "b30c9fa63ac39323627ca755ed60a586b3828345d1e64dab1a06aa2653cadc4b",
+                "blobSha1": "59785e74f684678a48acfb39dc287ab4eb3fc99b"
               },
               {
                 "path": "src/render/fishing-town.test.ts",
@@ -632,15 +632,27 @@ jobs:
               },
               {
                 "path": "src/render/meshy-boat.test.ts",
-                "bytes": 5673,
-                "sha256": "60a3cb359a4d4396769a6a4840a1b83a79149f157543063747f51d169957a8d2",
-                "blobSha1": "ff2dfafaa58b7f0f414dfe50e47a498219be7fb2"
+                "bytes": 5815,
+                "sha256": "1c942b8345ecc9247c798ee6747e8c9a23514d3aea1cc0fcf078c1c2669d7ec8",
+                "blobSha1": "656968cd3417bc72e0fbc88fecc9ee89bb5ec007"
               },
               {
                 "path": "src/render/meshy-boat.ts",
-                "bytes": 9506,
-                "sha256": "fadcac9330cc3ed6f2f6d982be128a6d18e89d8020572dd6c35b488c57d9c3f7",
-                "blobSha1": "3b0b522d23607844f3ad9fc8e45db2b4ba1482f7"
+                "bytes": 9641,
+                "sha256": "5a50bbe0e1a4f6a82ec8f3e408ce7dd61859f671fe43c9e84cd9fe55dacc62e5",
+                "blobSha1": "1aceb6a692bf4d64f00d09d83b6f5ea092e20db4"
+              },
+              {
+                "path": "src/render/sailing-frame.test.ts",
+                "bytes": 1012,
+                "sha256": "f7562377fa26ba600ea7b973f44f984ff5e9f5fad5ad06673c18fe473003ea9a",
+                "blobSha1": "aaf2551c96a91d65142c7a16c06330a76b40f62e"
+              },
+              {
+                "path": "src/render/sailing-frame.ts",
+                "bytes": 594,
+                "sha256": "ec45f1832c60de3bc8411815d06e97472c5b034d9961cd9a4c781fd326b33293",
+                "blobSha1": "1e3484ddf824d1bdf906af8b36368a8b802c32ed"
               },
               {
                 "path": "src/render/scenery.test.ts",
@@ -650,9 +662,9 @@ jobs:
               },
               {
                 "path": "src/render/scenery.ts",
-                "bytes": 33836,
-                "sha256": "759e26f61beb3e9453371fdfb0c1d17b6b6b57ae55533bf92fe312c2bf003ba0",
-                "blobSha1": "7c258759582284d629f3b8e9f555f244c1566046"
+                "bytes": 34019,
+                "sha256": "22e4990e46fbdaac5159e7bf981e3580993bb2cb45824a83226e65f2f46071ed",
+                "blobSha1": "b7715831dc9715e19d239ccbabbd3622644ebf6a"
               },
               {
                 "path": "src/render/shoreline-contact.test.ts",
@@ -698,33 +710,33 @@ jobs:
               },
               {
                 "path": "src/render/water-surface.test.ts",
-                "bytes": 7684,
-                "sha256": "7b397277180fe42c31490bd61ac0bf50dd03ca4ab6cacfe3b83a19c4ad11f3b1",
-                "blobSha1": "9fd0c6a52a94ef61be3ec76e81c00ad30f0d64c1"
+                "bytes": 7811,
+                "sha256": "d91e5768f840baacea9f39c7bf1b17ee2d4c8ff30babb5a2e653b3d70bd1bad9",
+                "blobSha1": "3fe9d40028f9d7a98528ff84a7966bf1e91bed7f"
               },
               {
                 "path": "src/render/water-surface.ts",
-                "bytes": 21866,
-                "sha256": "b0f61d14f65679e04a33192e8edfb419254dee2de99ba9b01aa359c0c5da7d5e",
-                "blobSha1": "ac3b5091d2a0cfc2dc991cba6970b00b01e7e7e7"
+                "bytes": 22261,
+                "sha256": "cef09ea152da0f7413d30a4f789bf183f014929ad83a098a8e0856a2429b5d97",
+                "blobSha1": "228e6723c794f5fa42acd3864cec48cda07f6732"
               },
               {
                 "path": "src/render/wind-cues.test.ts",
-                "bytes": 4348,
-                "sha256": "85b591c155cdc5b64b00139d14e33c9971f6661aa917534381a9421d8f9f89c9",
-                "blobSha1": "256d44a8d1ed8bb22910603cd573f3377b218057"
+                "bytes": 4527,
+                "sha256": "cc52d609fc77c7d502508c609a24a2689a26de0fc62dac428c76a902cce64929",
+                "blobSha1": "dbfca2c2e8aea9059c36b1a33165107e688c56e9"
               },
               {
                 "path": "src/render/wind-cues.ts",
-                "bytes": 7318,
-                "sha256": "96f094e3981d1eed7895bc104b681c3892131e02eca9752885a382057f97ffd6",
-                "blobSha1": "0bedd13558a3adef97726c3d65bf28da108e3075"
+                "bytes": 7399,
+                "sha256": "83548e4bd9f1cbbe7223b1d2040153f9c51e39a90a9ce1b3132494e02afa3598",
+                "blobSha1": "2e46ea30ea2cddc2de1a8096267292ee5cf00f1c"
               },
               {
                 "path": "src/render/world.ts",
-                "bytes": 86174,
-                "sha256": "80971c72127d30d25ba4097647e17732a1c742aab0405a8d04e1c0c4cb03ba34",
-                "blobSha1": "bd71997e21296b7931ca10db919707b4f2064842"
+                "bytes": 87290,
+                "sha256": "f93197b3dc61f683b4e230625faacb4d1b149c957b24c5ef65c9a416ebd55def",
+                "blobSha1": "d6ca5cbe5383f9238a433100c97d27d9c95af2b3"
               },
               {
                 "path": "src/sim/boats.test.ts",
@@ -1081,6 +1093,12 @@ jobs:
                 "blobSha1": "64fe2272bb4889ed34b7221d439b1d8304c8a0b4"
               },
               {
+                "path": "tests/render-handedness-source.test.mjs",
+                "bytes": 5849,
+                "sha256": "bcc314ac13322eed9762c15e61de1f1234755a1b961eaa1088f1c245a0f25f37",
+                "blobSha1": "9118ef3dc56b25557d75b1cd645f3205f3b64585"
+              },
+              {
                 "path": "tests/service-worker-registration-source.test.mjs",
                 "bytes": 3277,
                 "sha256": "b53c0815849017317dc76a182a43749b8a7cc31c5c6f48efef4ce646a27df1fb",
@@ -1112,9 +1130,9 @@ jobs:
               },
               {
                 "path": "tests/title-render-scheduling.test.mjs",
-                "bytes": 2209,
-                "sha256": "58e8a93328572ef16db598a440292a4624a4f1bf300dcfa3e34f4a15ba2f687f",
-                "blobSha1": "4cf1dde6d815baab457ad63da1a7e3b1e9d6ed6b"
+                "bytes": 2215,
+                "sha256": "610f6f45996123bf5a46c9c87d9825ef04925568715d196a2d6af56a94c19a64",
+                "blobSha1": "274d194c1589ed4d4aebe40e655b24d144ae05fc"
               },
               {
                 "path": "tests/title-stats-source.test.mjs",
@@ -1167,7 +1185,7 @@ jobs:
             ]
           }
           SOURCE
-          jq -e '.commit == "d2831987376909e665e776c4cc659c1cf98122c8" and (.files | length) == 184' "$work/source-files.json"
+          jq -e '.commit == "a2eb1be6e955ee5d5e525b61e5920355a1249cf7" and (.files | length) == 187' "$work/source-files.json"
           jq -r '.files[] | [.path, .bytes, .sha256, .blobSha1] | @tsv' "$work/source-files.json" > "$work/source-files.tsv"
           mkdir "$work/project"
           source_deadline=$((SECONDS + 150))
@@ -1191,7 +1209,7 @@ jobs:
           const { createHash } = require('node:crypto');
           const { spawnSync } = require('node:child_process');
           const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-          const report = { sourceCommit: 'd2831987376909e665e776c4cc659c1cf98122c8', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
+          const report = { sourceCommit: 'a2eb1be6e955ee5d5e525b61e5920355a1249cf7', stages: [], dependencyClearance: false, browserOrReleaseClaim: false };
           let compressed;
           function emit(label, bytes) {
             console.log(label + '_BEGIN');
@@ -1223,8 +1241,8 @@ jobs:
             for (const forbidden of ['/var/run/docker.sock', '/run/docker.sock', '/github', '/__w']) assert.ok(!fs.existsSync(forbidden));
             const source = JSON.parse(fs.readFileSync('/work/source-files.json', 'utf8'));
             assert.equal(source.commit, report.sourceCommit);
-            assert.equal(source.tree, '002e7fbe191796522bc86c00d36acbc69948e5bd');
-            assert.equal(source.files.length, 184);
+            assert.equal(source.tree, 'ff7c1da024d2ef656002d7cd92caf03bdc1feccb');
+            assert.equal(source.files.length, 187);
             process.chdir('/work/project');
             function verifySource() {
               assert.deepEqual(filesIn('.', ['node_modules', 'dist']), source.files.map(f => f.path).sort(), 'Unexpected source/config file');
@@ -1361,7 +1379,7 @@ jobs:
             report.dependencyGates = 'PASS_AUDIT_AND_INSTALLED_SIGNATURE_COVERAGE_NOT_MALWARE_CLEARANCE';
             npm('unit-tests', ['run', 'test'], 120000);
             verifySource();
-            const contracts = spawnSync(process.execPath, ["--test","tests/first-buoy-source.test.mjs","tests/progression-source.test.mjs","tests/three-buoy-source.test.mjs","tests/title-render-scheduling.test.mjs","tests/radio-flow-source.test.mjs","tests/radio-voice-source.test.mjs","tests/dummy-recovery-source.test.mjs","tests/weather-cache-source.test.mjs","tests/audio-sampling-source.test.mjs","tests/lesson-chooser-source.test.mjs","tests/wind-cues-source.test.mjs","tests/crossing-encounter-source.test.mjs","tests/crossing-physics-source.test.mjs","tests/crossing-render-source.test.mjs","tests/wave-height-source.test.mjs","tests/title-lighting-source.test.mjs","tests/title-stats-source.test.mjs","tests/training-buoy-source.test.mjs","tests/weather-shelter-source.test.mjs","tests/anchorage-source.test.mjs","tests/anchorage-full-physics-source.test.mjs","tests/coastline-source.test.mjs","tests/shore-rocks-source.test.mjs","tests/mountain-fog-source.test.mjs","tests/lesson-transition-source.test.mjs","tests/title-profile-source.test.mjs","tests/release-gameplay-source.test.mjs","tests/service-worker-registration-source.test.mjs"], { env, encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024 });
+            const contracts = spawnSync(process.execPath, ["--test","tests/first-buoy-source.test.mjs","tests/progression-source.test.mjs","tests/three-buoy-source.test.mjs","tests/title-render-scheduling.test.mjs","tests/radio-flow-source.test.mjs","tests/radio-voice-source.test.mjs","tests/dummy-recovery-source.test.mjs","tests/weather-cache-source.test.mjs","tests/audio-sampling-source.test.mjs","tests/lesson-chooser-source.test.mjs","tests/wind-cues-source.test.mjs","tests/crossing-encounter-source.test.mjs","tests/crossing-physics-source.test.mjs","tests/crossing-render-source.test.mjs","tests/wave-height-source.test.mjs","tests/title-lighting-source.test.mjs","tests/title-stats-source.test.mjs","tests/training-buoy-source.test.mjs","tests/weather-shelter-source.test.mjs","tests/anchorage-source.test.mjs","tests/anchorage-full-physics-source.test.mjs","tests/coastline-source.test.mjs","tests/shore-rocks-source.test.mjs","tests/mountain-fog-source.test.mjs","tests/lesson-transition-source.test.mjs","tests/title-profile-source.test.mjs","tests/release-gameplay-source.test.mjs","tests/service-worker-registration-source.test.mjs","tests/render-handedness-source.test.mjs"], { env, encoding: 'utf8', timeout: 60000, killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024 });
             report.stages.push({ stage: 'source-contract-tests', status: contracts.status, error: contracts.error?.message, stdout: contracts.stdout, stderr: contracts.stderr });
             assert.equal(contracts.error, undefined); assert.equal(contracts.status, 0);
             verifySource();

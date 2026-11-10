@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { LAKE_BASIN, LAKE_SHOALS } from "../game/bathymetry";
 import type { WeatherSnapshot } from "../weather/types";
 import { significantWaveHeight, waveShaderArrays } from "../weather/waves";
+import { SAILING_TO_RENDER } from "./sailing-frame";
 
 interface WaterSurfaceOptions {
   reflectionTexture: THREE.Texture;
@@ -109,6 +110,8 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
         varying vec2 vWaveSlopeVector;
         void main() {
           vec4 world = modelMatrix * vec4(position, 1.0);
+          // Wave phase and shore depth share the simulation's sailing plane.
+          world.z = -world.z;
           float height = 0.0;
           vec2 slope = vec2(0.0);
           for (int i = 0; i < 6; i++) {
@@ -138,8 +141,9 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
           vWaveHeight = height;
           vWaveSlope = length(slope);
           vWaveSlopeVector = slope;
-          vReflectionCoord = uReflectionMatrix * vec4(world.x, modelMatrix[3].y, world.z, 1.0);
-          gl_Position = projectionMatrix * viewMatrix * world;
+          vec4 renderWorld = vec4(world.x, world.y, -world.z, 1.0);
+          vReflectionCoord = uReflectionMatrix * vec4(renderWorld.x, modelMatrix[3].y, renderWorld.z, 1.0);
+          gl_Position = projectionMatrix * viewMatrix * renderWorld;
         }
       `,
       fragmentShader: `
@@ -265,6 +269,7 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
           return max(0.0, depth);
         }
         void main() {
+          vec3 sailingCamera = vec3(cameraPosition.x, cameraPosition.y, -cameraPosition.z);
           // The physical outer basin boundary is permanent land at every tide.
           float meanDepth = estimatedDepth(vWorldPosition.xz);
           if (meanDepth < 0.0) discard;
@@ -322,7 +327,7 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
           vec2 across = vec2(-wind.y, wind.x);
           float alongWind = dot(vWorldPosition.xz, wind);
           float acrossWind = dot(vWorldPosition.xz, across);
-          float distanceToSurface = length(cameraPosition - vWorldPosition);
+          float distanceToSurface = length(sailingCamera - vWorldPosition);
           float detailFade = 1.0 - smoothstep(60.0, 340.0, distanceToSurface);
           // Capillary normals respond to wind; displacement remains the CPU wave model.
           float microScale = (0.07 + smoothstep(0.2, 10.0, windSpeed) * 0.17) * detailFade;
@@ -335,7 +340,7 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
           vec2 composedSlope = vWaveSlopeVector + microSlope;
           vec3 smoothNormal = normalize(vec3(-composedSlope.x, 1.0, -composedSlope.y));
           vec3 normal = normalize(mix(smoothNormal, faceNormal, 0.08 + uTitle * 0.08));
-          vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
+          vec3 viewDirection = normalize(sailingCamera - vWorldPosition);
           float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
           float fresnel = pow(1.0 - facing, 3.0);
           float diffuse = clamp(dot(normal, uSunDirection), 0.0, 1.0);
@@ -350,7 +355,7 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
 
           // Project onto the mean tide plane. Wave normals break real reflected silhouettes.
           vec2 reflectionUv = vReflectionCoord.xy / max(vReflectionCoord.w, 0.0001);
-          reflectionUv += normal.xz * (0.012 + fresnel * 0.02);
+          reflectionUv += vec2(normal.x, -normal.z) * (0.012 + fresnel * 0.02);
           float reflectionValid = step(0.0, vReflectionCoord.w) *
             smoothstep(0.0, 0.025, reflectionUv.x) * (1.0 - smoothstep(0.975, 1.0, reflectionUv.x)) *
             smoothstep(0.0, 0.025, reflectionUv.y) * (1.0 - smoothstep(0.975, 1.0, reflectionUv.y));
@@ -417,7 +422,7 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
             (1.0 - fresnel) *
             (1.0 - depthMix);
           color += vec3(0.08, 0.24, 0.2) * subsurface * (1.0 - uCloud * 0.5);
-          float distanceToCamera = length(cameraPosition - vWorldPosition);
+          float distanceToCamera = length(sailingCamera - vWorldPosition);
           float fog = smoothstep(uFogNear, uFogFar, distanceToCamera);
           float shallowClarity = 1.0 - smoothstep(1.5, 14.0, waterDepth);
           float waterAlpha = mix(0.96, 0.88, shallowClarity);
@@ -437,13 +442,13 @@ export function createWaterSurface(options: WaterSurfaceOptions): THREE.Mesh<
   }
 
 
-/** The hull matrix must include interpolated heel, pitch, scale and tide. */
+/** The render-world hull matrix includes the scene basis, heel, pitch, scale and tide. */
 export function updateWaterSurface(
   water: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>,
   weather: WeatherSnapshot,
   x: number,
   z: number,
-  hullWorldMatrix: THREE.Matrix4,
+  hullRenderMatrix: THREE.Matrix4,
 ): void {
   water.position.set(Math.round(x / 20) * 20, weather.tideLevel, Math.round(z / 20) * 20);
   const uniforms = water.material.uniforms;
@@ -451,7 +456,7 @@ export function updateWaterSurface(
   uniforms.uCloud!.value = weather.cloud;
   uniforms.uTide!.value = weather.tideLevel;
   uniforms.uWindVector!.value.set(weather.trueWind.x, weather.trueWind.y);
-  uniforms.uHullWorldToLocal!.value.copy(hullWorldMatrix).invert();
+  uniforms.uHullWorldToLocal!.value.copy(hullRenderMatrix).invert().multiply(SAILING_TO_RENDER);
   uniforms.uHullMask!.value = 1;
   if (water.userData.waveReference !== weather.waves) {
     water.userData.waveReference = weather.waves;

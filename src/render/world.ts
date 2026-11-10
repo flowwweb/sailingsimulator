@@ -38,6 +38,7 @@ import { createTrainingBuoy } from "./training-buoy";
 import { wakeSurfacePoints } from "./wake-surface";
 import type { TrafficPose } from "./traffic-navigation";
 import { populateFishingTown } from "./fishing-town";
+import { SAILING_TO_RENDER, getSailingQuaternion } from "./sailing-frame";
 
 export interface Landmark {
   name: string;
@@ -80,7 +81,10 @@ export class SailingWorld {
     new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3)),
     new THREE.LineBasicMaterial({ color: 0xe4d9b2 }),
   );
+  // Authored sailing-space camera; only renderCamera crosses the scene basis.
   private readonly camera = new THREE.PerspectiveCamera(52, 1, 0.1, 3_500);
+  private readonly renderCamera = new THREE.PerspectiveCamera(52, 1, 0.1, 3_500);
+  private readonly renderLookAt = new THREE.Vector3();
   private readonly scenery = new LakeScenery();
   private readonly ambientLife = new AmbientLife();
   private readonly hemisphere = new THREE.HemisphereLight(
@@ -174,6 +178,7 @@ export class SailingWorld {
   private readonly sailMaterial: SailMaterial;
   private readonly sailWind = new THREE.Vector3();
   private readonly sailWindRotation = new THREE.Quaternion();
+  private readonly sailWindMatrix = new THREE.Matrix4();
   private hullMaterial!: THREE.MeshStandardMaterial;
   private mainsail!: THREE.Mesh;
   private headsail!: THREE.Mesh;
@@ -264,6 +269,7 @@ export class SailingWorld {
 
     this.camera.position.set(0, 8.5, -14);
     this.camera.lookAt(0, 1.5, 5);
+    this.scene.applyMatrix4(SAILING_TO_RENDER);
   }
 
   resize(width = window.innerWidth, height = window.innerHeight): void {
@@ -468,7 +474,7 @@ export class SailingWorld {
         this.boomPivot, this.rudderPivot, sailHeightScale, sailChordScale, this.sailWind);
       this.sailMaterial.uniforms.uCamberDirection.value.copy(this.meshyBoat.camberDirection);
     } else {
-      this.mainsail.getWorldQuaternion(this.sailWindRotation).invert();
+      getSailingQuaternion(this.mainsail, this.sailWindRotation, this.sailWindMatrix).invert();
       this.sailWind.applyQuaternion(this.sailWindRotation);
       this.sailMaterial.uniforms.uCamberDirection.value.set(
         THREE.MathUtils.clamp(this.sailWind.x / Math.max(.5, this.sailWind.length() * .15), -1, 1), 0, 0);
@@ -478,7 +484,7 @@ export class SailingWorld {
     this.headsailPivot.visible = Boolean(headsail) && sailDeployment > 0.025;
     if (headsail) {
       this.sailWind.set(headsail.apparentWind.x, 0, headsail.apparentWind.y);
-      this.headsail.getWorldQuaternion(this.sailWindRotation).invert();
+      getSailingQuaternion(this.headsail, this.sailWindRotation, this.sailWindMatrix).invert();
       this.sailWind.applyQuaternion(this.sailWindRotation);
       this.headsailMaterial.uniforms.uCamberDirection.value.set(
         THREE.MathUtils.clamp(this.sailWind.x / Math.max(.5, this.sailWind.length() * .15), -1, 1), 0, 0);
@@ -541,7 +547,7 @@ export class SailingWorld {
         this.titleReflectionDeferred = false;
       }
     }
-    this.renderer.render(this.scene, this.camera);
+    this.renderer.render(this.scene, this.renderCamera);
   }
 
   private createWater(): THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> {
@@ -1946,11 +1952,11 @@ export class SailingWorld {
   }
 
   private updateReflection(): void {
-    this.camera.getWorldDirection(this.reflectionViewDirection);
-    this.reflectedCameraPosition.copy(this.camera.position);
+    this.renderCamera.getWorldDirection(this.reflectionViewDirection);
+    this.reflectedCameraPosition.copy(this.renderCamera.position);
     this.reflectedCameraPosition.y = 2 * this.water.position.y - this.reflectedCameraPosition.y;
     this.reflectedCameraTarget
-      .copy(this.camera.position)
+      .copy(this.renderCamera.position)
       .add(this.reflectionViewDirection);
     this.reflectedCameraTarget.y = 2 * this.water.position.y - this.reflectedCameraTarget.y;
     this.reflectionClipPlane.constant = -this.water.position.y - 0.02;
@@ -1958,14 +1964,14 @@ export class SailingWorld {
     this.reflectionCamera.position.copy(this.reflectedCameraPosition);
     this.reflectionCamera.up.set(0, -1, 0);
     this.reflectionCamera.lookAt(this.reflectedCameraTarget);
-    this.reflectionCamera.near = this.camera.near;
-    this.reflectionCamera.far = this.camera.far;
-    this.reflectionCamera.aspect = this.camera.aspect;
+    this.reflectionCamera.near = this.renderCamera.near;
+    this.reflectionCamera.far = this.renderCamera.far;
+    this.reflectionCamera.aspect = this.renderCamera.aspect;
     this.reflectionCamera.projectionMatrix.copy(
-      this.camera.projectionMatrix,
+      this.renderCamera.projectionMatrix,
     );
     this.reflectionCamera.projectionMatrixInverse.copy(
-      this.camera.projectionMatrixInverse,
+      this.renderCamera.projectionMatrixInverse,
     );
     this.reflectionCamera.updateMatrixWorld(true);
 
@@ -2061,7 +2067,7 @@ export class SailingWorld {
       ) *
       portraitFraming * landscapeFraming;
     const compositionSide = titleScreen
-      ? -4.5 * boatScale + titleDrift * 0.12
+      ? 2.5 * boatScale + titleDrift * 0.12
       : THREE.MathUtils.lerp(
           this.activeBoat.camera.distance * boatScale * 0.36,
           6 * boatScale,
@@ -2126,7 +2132,7 @@ export class SailingWorld {
       );
     }
     const titleLookSide = titleScreen
-      ? -5 * boatScale * titleWidth * titleWidth
+      ? 4.2 * boatScale * titleWidth * titleWidth
       : 0;
     const normalLookX =
       x +
@@ -2155,6 +2161,16 @@ export class SailingWorld {
       ),
     );
     this.camera.lookAt(this.cameraLookAt);
+    this.renderCamera.position.copy(this.camera.position).applyMatrix4(SAILING_TO_RENDER);
+    this.renderLookAt.copy(this.cameraLookAt).applyMatrix4(SAILING_TO_RENDER);
+    this.renderCamera.lookAt(this.renderLookAt);
+    this.renderCamera.fov = this.camera.fov;
+    this.renderCamera.near = this.camera.near;
+    this.renderCamera.far = this.camera.far;
+    this.renderCamera.aspect = this.camera.aspect;
+    this.renderCamera.projectionMatrix.copy(this.camera.projectionMatrix);
+    this.renderCamera.projectionMatrixInverse.copy(this.camera.projectionMatrixInverse);
+    this.renderCamera.updateMatrixWorld(true);
   }
 }
 

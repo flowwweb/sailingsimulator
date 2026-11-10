@@ -4,7 +4,7 @@ import { strict as assert } from "node:assert";
 
 const source = readFileSync(new URL("../src/render/world.ts", import.meta.url), "utf8");
 const start = source.indexOf("    const atmosphereDue =");
-const end = source.indexOf("    this.renderer.render(this.scene, this.camera);", start);
+const end = source.indexOf("    this.renderer.render(this.scene, this.renderCamera);", start);
 assert.ok(start >= 0 && end > start, "render scheduling block exists");
 const schedule = new Function("weather", "titleScene", "titleScreen", "frameDt", source.slice(start, end));
 
