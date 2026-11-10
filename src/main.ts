@@ -13,7 +13,7 @@ import {
   evaluateIncident,
   type IncidentResult,
 } from "./game/hazards";
-import { GameInput } from "./game/input";
+import { GameInput, isTextEntryTarget } from "./game/input";
 import {
   castOffRequested,
   dockingPoint,
@@ -424,7 +424,7 @@ function bindInterface(): void {
   });
   required("#radio-call").addEventListener("click", () => {
     const distance = harborDistance();
-    const message = harborRadio.call(distance);
+    const message = harborRadio.call(distance, required<HTMLTextAreaElement>("#radio-message").value);
     required("#radio-caption").textContent = message;
     showRadioSubtitle(message);
     required<HTMLSelectElement>("#radio-channel").disabled = harborRadio.awaiting;
@@ -501,6 +501,7 @@ function bindInterface(): void {
       setPauseOpen(true);
       return;
     }
+    if (isTextEntryTarget(event.target)) return;
     if (!event.repeat && event.code === "KeyN" && started) {
       event.preventDefault();
       setChartOpen(!isChartOpen());
@@ -792,7 +793,7 @@ function harborDistance(): number {
 
 function updateRadioGuidance(): void {
   const distance = harborDistance();
-  const next = harborRadio.nextStep(distance);
+  const next = harborRadio.nextStep(distance, required<HTMLTextAreaElement>("#radio-message").value);
   const guidance = required("#radio-next-step");
   if (guidance.textContent !== next) guidance.textContent = next;
   const toggle = required("#radio-toggle");
@@ -843,6 +844,7 @@ function resetRadio(): void {
   radioSubtitleSeconds = 0;
   required("#radio-subtitle").hidden = true;
   required("#radio-caption").textContent = "Select the marina channel and listen before calling.";
+  required<HTMLTextAreaElement>("#radio-message").value = "";
   required<HTMLSelectElement>("#radio-channel").value = "16";
   required<HTMLSelectElement>("#radio-channel").disabled = false;
 }
@@ -1701,7 +1703,7 @@ function updateHud(): void {
         ? "Stalled"
         : "Attached"
   );
-  const coach = flow === "Lowered"
+  const coach = dummyRecovery?.view({ x: state.position.x, z: state.position.y }).coaching ?? (flow === "Lowered"
     ? "Hoist sail to make way"
     : flow === "Lowering"
       ? "Sail drive reducing"
@@ -1717,7 +1719,7 @@ function updateHud(): void {
                 ? "Ease a little"
                 : state.reefLevel === 1
                   ? "Reefed flow attached"
-                  : "Flow attached";
+                  : "Flow attached");
   const rudderDegrees = Math.round(radiansToDegrees(state.rudderAngle));
   const boomDegrees = Math.round(Math.abs(radiansToDegrees(state.boomAngle)));
   const boomSide = state.boomAngle < 0 ? "port" : "starboard";
@@ -1803,16 +1805,15 @@ function updateHud(): void {
   if (academyActive || dummyActive) {
     const detail = elements.status.textContent;
     const headline = academyActive ? academyView.title : elements.lessonInstruction.textContent;
-    elements.statusMessage.textContent = completedManeuver ? detail : academyActive ? academyView.feedback || coach : coach;
+    const pickupCoach = dummyRecovery?.view({ x: state.position.x, z: state.position.y }).coaching;
+    elements.statusMessage.textContent = pickupCoach ?? (completedManeuver ? detail : academyActive ? academyView.feedback || coach : coach);
     elements.status.textContent = headline;
   }
   if (anchorage) {
     elements.status.textContent = anchorage.message;
     elements.statusMessage.textContent = anchorage.message;
   }
-  if (dummyRecovery?.stage === "failed") elements.status.textContent = "Exercise failed. Open status to retry.";
-  if (dummyRecovery?.stage === "ready") elements.status.textContent = "Ready to recover the training dummy. Open status.";
-  if (dummyRecovery?.stage === "complete") elements.status.textContent = "Training dummy recovered.";
+  if (dummyRecovery && !dummyActive) elements.status.textContent = elements.lessonInstruction.textContent;
   if (crossing) elements.status.textContent = crossing.stage === "failed" ? "Crossing failed. Open status to retry."
     : crossing.stage === "complete" ? "Crossing complete."
     : crossing.stage === "crossing" ? "Keep clear of the starboard-tack boat." : "Sail northeast to begin the crossing.";
@@ -1830,7 +1831,8 @@ function updateHud(): void {
   if (storageUnavailable && !elements.statusMessage.textContent?.includes(STORAGE_WARNING)) {
     elements.statusMessage.textContent += ` ${STORAGE_WARNING}`;
   }
-  const feedback = !collisionNotice && ((firstBuoy && !firstBuoy.failed && !firstBuoy.completed) || academyActive || dummyActive)
+  const duplicatePickupCue = dummyActive && elements.statusMessage.textContent === elements.status.textContent;
+  const feedback = !collisionNotice && !duplicatePickupCue && ((firstBuoy && !firstBuoy.failed && !firstBuoy.completed) || academyActive || dummyActive)
     ? elements.statusMessage.textContent : "";
   if (elements.statusFeedback.textContent !== feedback) elements.statusFeedback.textContent = feedback;
 }
@@ -2007,26 +2009,26 @@ function updateLesson(): void {
   }
   if (dummyRecovery) {
     const stage = dummyRecovery.stage;
-    const distance = Math.hypot(state.position.x - DUMMY_COURSE.x, state.position.y - DUMMY_COURSE.z);
-    const instruction = stage === "depart" ? dummyRecovery.needsDepartureStart({ x: state.position.x, z: state.position.y }) ? "Return within 8 m of the dummy to restart the departure after an interruption." : "Sail 40 m away from the dummy, then turn back." : stage === "return" ? "Trim and steer back. Settle beside the dummy at low speed." : stage === "ready" ? "The boat is settled. Open status and recover the training dummy." : stage === "failed" ? "Contact interrupted this attempt. Open status to retry." : "Training dummy recovered.";
+    const view = dummyRecovery.view({ x: state.position.x, z: state.position.y });
+    const course = courseMetrics(state.position, state.velocity, state.heading, DUMMY_COURSE);
     elements.gameShell.classList.add("is-learning");
     elements.gameShell.dataset.academyStage = `dummy-${stage}`;
     delete elements.gameShell.dataset.activeActivity;
     delete elements.gameShell.dataset.activityProgress;
     delete elements.gameShell.dataset.activityScore;
     required("#status-lesson-progress").hidden = false;
-    required("#status-lesson-progress").textContent = stage === "complete" ? "Dummy recovered" : stage === "failed" ? "Attempt failed · Open status to retry" : `Training dummy · ${formatChartDistance(distance)}`;
+    required("#status-lesson-progress").textContent = stage === "complete" ? "Dummy recovered" : stage === "failed" ? "Attempt failed · Open status to retry" : `Training dummy · ${formatChartDistance(course.distance)} · ${Math.round(course.bearingDegrees).toString().padStart(3, "0")}°`;
     required("#status-pips").hidden = true;
     elements.lessonCard.hidden = false;
     elements.lessonCard.classList.remove("is-minimized");
     elements.lessonCard.classList.toggle("is-complete", stage === "complete");
     elements.lessonEyebrow.textContent = stage === "failed" ? "Attempt failed" : stage === "complete" ? "Recovery complete" : "Training exercise";
     elements.lessonTitle.textContent = "Recover the training dummy";
-    elements.lessonInstruction.textContent = instruction;
+    elements.lessonInstruction.textContent = view.instruction;
     required("#status-objective-detail").hidden = false;
-    required("#status-objective-detail").textContent = instruction;
+    required("#status-objective-detail").textContent = view.instruction;
     required<HTMLButtonElement>("#recover-training-dummy").hidden = stage !== "ready";
-    elements.lessonProgress.style.width = stage === "complete" ? "100%" : "0%";
+    elements.lessonProgress.style.width = `${view.progress * 100}%`;
     elements.lessonSkip.textContent = stage === "complete" ? "Choose lesson" : "Retry exercise";
     elements.lessonSkip.disabled = false;
     return;

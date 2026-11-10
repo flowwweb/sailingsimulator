@@ -21,11 +21,26 @@ export class DummyRecovery {
   private initialHeading?: number;
   private trimmed = false;
   private steered = false;
+  private approachCue?: string;
 
   constructor(readonly target: { x: number; z: number }, readonly hull: { halfLength: number; halfBeam: number }) {}
 
   needsDepartureStart(position: { x: number; z: number }): boolean {
     return this.stage === "depart" && !this.startedNearDummy && Math.hypot(position.x - this.target.x, position.z - this.target.z) > RECOVERY_RADIUS_M;
+  }
+
+  view(position: { x: number; z: number }): { instruction: string; progress: number; coaching?: string } {
+    const instruction = this.stage === "depart"
+      ? this.needsDepartureStart(position) ? `Return within ${RECOVERY_RADIUS_M} m, then sail away.` : `Sail ${DEPARTURE_M} m away, then turn back.`
+      : this.stage === "ready" ? "Open status to recover the dummy."
+      : this.stage === "failed" ? "Attempt failed. Open status to retry."
+      : this.stage === "complete" ? "Training dummy recovered."
+      : this.approachCue ?? "Trim and steer back alongside.";
+    return {
+      instruction,
+      progress: this.stage === "complete" ? 1 : Math.min(this.hold / HOLD_SECONDS, 1),
+      coaching: this.stage === "return" || this.stage === "ready" ? instruction : undefined,
+    };
   }
 
   interrupt(): void {
@@ -37,6 +52,7 @@ export class DummyRecovery {
     this.initialHeading = undefined;
     this.trimmed = false;
     this.steered = false;
+    this.approachCue = undefined;
     if (this.stage === "depart") this.startedNearDummy = false;
     if (this.stage === "ready") this.stage = "return";
   }
@@ -61,7 +77,8 @@ export class DummyRecovery {
     const acrossHull = dx * Math.cos(heading) - dz * Math.sin(heading);
     const contact = Math.abs(alongHull) <= this.hull.halfLength + DUMMY_CLEARANCE_M && Math.abs(acrossHull) <= this.hull.halfBeam + DUMMY_CLEARANCE_M;
     if (contact) { this.stage = "failed"; this.interrupt(); return; }
-    if (this.stage === "depart" && distance <= RECOVERY_RADIUS_M) this.startedNearDummy = true;
+    const withinRadius = distance <= RECOVERY_RADIUS_M;
+    if (this.stage === "depart" && withinRadius) this.startedNearDummy = true;
     if (this.stage === "depart" && this.startedNearDummy && this.previous && distance >= DEPARTURE_M) this.stage = "return";
     const hadPrevious = Boolean(this.previous);
     this.previous = { ...position };
@@ -74,9 +91,21 @@ export class DummyRecovery {
     this.previousSheet = sheet;
     this.previousHeading = heading;
     if (this.stage === "return" || this.stage === "ready") {
-      const settled = hadPrevious && this.trimmed && this.steered && distance <= RECOVERY_RADIUS_M && Math.abs(alongHull) <= this.hull.halfLength && Math.abs(acrossHull) <= this.hull.halfBeam + RECOVERY_REACH_M && speed <= RECOVERY_SPEED_MPS && Math.abs(yawRate) < 0.12;
+      const alongside = Math.abs(alongHull) <= this.hull.halfLength;
+      const withinReach = Math.abs(acrossHull) <= this.hull.halfBeam + RECOVERY_REACH_M;
+      const slow = speed <= RECOVERY_SPEED_MPS;
+      const steady = Math.abs(yawRate) < 0.12;
+      const settled = hadPrevious && this.trimmed && this.steered && withinRadius && alongside && withinReach && slow && steady;
       this.hold = settled ? this.hold + dt : 0;
       this.stage = this.hold >= HOLD_SECONDS ? "ready" : "return";
+      this.approachCue = !withinRadius ? "Return alongside the dummy."
+        : !slow ? `Ease or lower sail. Slow below ${Math.round(RECOVERY_SPEED_MPS * 1.94384)} kn.`
+        : !alongside ? "Bring the dummy abeam."
+        : !withinReach ? "Bring the dummy within reach."
+        : !this.trimmed ? "Adjust the sheet, then settle."
+        : !this.steered ? "Steer to settle alongside."
+        : !steady ? "Center the helm. Let the boat settle."
+        : `Hold steady · ${this.hold.toFixed(1)} / ${HOLD_SECONDS} s`;
     }
   }
 

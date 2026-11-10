@@ -142,7 +142,10 @@
         <label for="radio-channel">Channel</label>
         <select id="radio-channel"><option value="16">16</option><option value="80">80</option></select>
         <button id="radio-listen" type="button">Listen</button>
-        <button id="radio-call" type="button">Call marina</button>
+        <label for="radio-message">Your call</label>
+        <p id="radio-message-help">Include who you're calling, your boat, position and request. End with “over”.</p>
+        <textarea id="radio-message" rows="3" maxlength="240" aria-describedby="radio-message-help" placeholder="Juniper Marina, this is Fair Winds. [Your position]. Request a visitor berth. Over."></textarea>
+        <button id="radio-call" type="button">Transmit call</button>
         <button id="radio-close" type="button">Close</button>
         <p id="radio-next-step" aria-live="polite">Tune to Juniper Marina's channel 80.</p>
         <p id="radio-caption">Select the marina channel and listen before calling.</p>
@@ -468,7 +471,7 @@
             <button class="lesson-choice" data-lesson="2" type="button"><span class="lesson-image lesson-image-3" aria-hidden="true"></span><span class="lesson-name"><b>03</b> Sail with confidence</span><span class="lesson-targets">Tack · Gybe · Reef</span></button>
             <button id="start-crossing" class="lesson-choice" type="button"><span class="lesson-image lesson-image-2" aria-hidden="true"></span><span class="lesson-name"><b>04</b> Crossing traffic</span><span class="lesson-targets">Lookout · Tacks · Keep clear</span></button>
             <button id="start-dummy-recovery" class="lesson-choice" type="button"><span class="lesson-image lesson-image-dummy" aria-hidden="true"></span><span class="lesson-name"><b>05</b> Recover the training dummy</span><span class="lesson-targets">Lookout · Return · Recover</span></button>
-            <button id="start-anchorage" class="lesson-choice" type="button"><span class="lesson-image lesson-image-1" aria-hidden="true"></span><span class="lesson-name"><b>06</b> Anchorage practice</span><span class="lesson-targets">Choose · Set · Recover</span></button>
+            <button id="start-anchorage" class="lesson-choice" type="button"><span class="lesson-image lesson-image-2" aria-hidden="true"></span><span class="lesson-name"><b>06</b> Anchorage practice</span><span class="lesson-targets">Choose · Set · Recover</span></button>
           </div>
           </div>
         </section>

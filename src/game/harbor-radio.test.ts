@@ -9,7 +9,7 @@ describe("simulated harbor radio", () => {
     expect(radio.call(100)).toContain("Listen");
     expect(radio.listen()).toContain("clear");
     expect(radio.call(401)).toContain("400 m");
-    expect(radio.call(200)).toContain("200 metres");
+    expect(radio.call(200, "Juniper Marina, this is Fair Winds. Request a berth. Over.")).toContain("Request a berth");
     expect(radio.call(200)).toContain("Waiting");
     for (let i = 0; i < 19; i++) expect(radio.update(0.1)).toBe(false);
     expect(radio.update(0.1)).toBe(true);
@@ -33,7 +33,7 @@ describe("simulated harbor radio", () => {
     const radio = new HarborRadio();
     radio.selectChannel(80);
     radio.listen();
-    radio.call(200);
+    radio.call(200, "Juniper Marina, this is Fair Winds. Request a berth. Over.");
     expect(radio.update(0)).toBe(false);
     expect(radio.awaiting).toBe(true);
     radio.reset();
@@ -41,5 +41,22 @@ describe("simulated harbor radio", () => {
     expect(radio.completed).toBe(false);
     expect(radio.channel).toBe(16);
     expect(radio.listened).toBe(false);
+  });
+
+  it("rejects empty calls and uses normalized player text without changing reply timing", () => {
+    const radio = new HarborRadio(); radio.selectChannel(80); radio.listen();
+    expect(radio.nextStep(100, "  \n\t ")).toBe("Write your call, then transmit.");
+    expect(radio.call(100, " \n\t ")).toBe("Write your call before transmitting.");
+    expect(radio.awaiting).toBe(false);
+    expect(radio.nextStep(100, "Juniper, this is Fair Winds. Over.")).toBe("Transmit your call.");
+    expect(radio.call(100, "  Juniper Marina, this is Fair Winds.\nRequest berth. Over.  ")).toBe("Juniper Marina, this is Fair Winds. Request berth. Over.");
+    expect(radio.awaiting).toBe(true);
+    for (let i = 0; i < 19; i++) expect(radio.update(0.1)).toBe(false);
+    expect(radio.update(0.1)).toBe(true);
+  });
+
+  it("caps the local caption at the editor limit", () => {
+    const radio = new HarborRadio(); radio.selectChannel(80); radio.listen();
+    expect(radio.call(100, "A".repeat(300))).toBe("A".repeat(240));
   });
 });
