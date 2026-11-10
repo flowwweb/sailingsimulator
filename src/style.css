@@ -4521,6 +4521,13 @@ input:disabled {
   .lesson-chooser h2 { margin-bottom: 16px; }
 }
 
+@media (max-height: 360px) and (orientation: landscape) {
+  .title-menu { top: min(34.3svh, calc(100svh - 232px)); gap: 10px; }
+  .title-menu-item, .title-menu-item:hover, .title-menu-item:focus-visible, .title-menu-item.is-selected { min-height: 44px; font-size: clamp(18px, 2.7vw, 26px); }
+  .title-menu-item.title-primary { min-height: 48px; }
+  .player-avatar { width: 48px; height: 48px; }
+}
+
 .game-shell[data-academy-stage="free-sail"] .lesson-card { width: auto; max-width: 220px; padding: 8px 12px; }
 .game-shell[data-academy-stage="free-sail"] #lesson-eyebrow,
 .game-shell[data-academy-stage="free-sail"] #lesson-instruction,
@@ -4681,6 +4688,7 @@ input:disabled {
   .game-shell[data-academy-stage^="dummy-"] #status-scroll { max-height: calc(100svh - 150px); }
 }
 @media (orientation: landscape) and (max-height: 600px) and (max-width: 740px) {
+  .sailing-status { left: calc(50% + 30px); width: calc(100vw - 360px); }
   .lesson-card, .game-shell[data-academy-stage="free-sail"] .lesson-card { bottom: 78px; max-width: min(206px, calc(100vw - 336px)); }
   .lesson-copy { min-width: 0; overflow-wrap: anywhere; }
 }
@@ -4835,5 +4843,12 @@ input:disabled {
 
 /* Quiet cue for the optional simulated marina call. */
 #radio-toggle { position: relative; }
-.radio-marina-hint { position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); color: #fff; font-size: 12px; line-height: 1.2; white-space: nowrap; text-shadow: 0 1px 4px #001b2a, 0 0 6px #001b2a; pointer-events: none; }
+.radio-marina-hint { position: absolute; top: 1px; right: 1px; width: 8px; height: 8px; border-radius: 50%; background: #ffd16c; box-shadow: 0 0 0 2px #073650; pointer-events: none; }
 .radio-marina-hint[hidden] { display: none; }
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 740px) {
+  .game-shell[data-academy-stage^="anchorage-"] .lesson-card { left: 18px; right: auto; bottom: 18px; width: 154px; max-width: 154px; }
+  .game-shell[data-academy-stage^="anchorage-"] .anchor-controls { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .game-shell[data-academy-stage^="anchorage-"] .anchor-controls button { min-width: 0; width: 100%; }
+  .game-shell[data-academy-stage^="anchorage-"] .lesson-card:has(.anchor-controls button:not([hidden])) :is(.lesson-copy, .objective-diamond) { display: none; }
+}

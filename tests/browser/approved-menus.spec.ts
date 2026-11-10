@@ -8,8 +8,8 @@ test.afterEach(async ({ page }, info) => {
   if (info.status !== info.expectedStatus) await page.screenshot({ path: resolve(evidence, `failed-${info.title.replace(/[^a-z0-9]+/gi, "-")}.png`) });
 });
 
-for (const [width, height] of [[1672, 941], [844, 390], [640, 360]] as const) {
-  test(`F title keeps the scene clear and all actions reachable at ${width}×${height}`, async ({ page }) => {
+for (const [width, height] of [[1672, 941], [844, 390], [640, 360], [640, 320], [568, 320]] as const) {
+  test(`F title keeps the scene clear and all actions reachable at ${width}Ã—${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto('/');
     await expect(page.locator('#boot-loader')).toHaveCount(0);
@@ -29,6 +29,7 @@ for (const [width, height] of [[1672, 941], [844, 390], [640, 360]] as const) {
     await expect(profile).toHaveCSS('border-style', 'none');
     await expect(page.locator('#profile-rank')).toHaveText('Landlubber');
     await expect(page.locator('#profile-total-xp')).toHaveText('0 XP total');
+    await expect.poll(() => page.locator('#profile-rank-badge').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(256);
     await expect(page.locator('#player-profile-close')).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(page.locator('#player-profile-close')).toBeFocused();
@@ -39,6 +40,21 @@ for (const [width, height] of [[1672, 941], [844, 390], [640, 360]] as const) {
     await page.screenshot({ path: resolve(evidence, `title-f-${width}x${height}.png`) });
   });
 }
+
+test("compact sailing objective and boat controls have separate hit targets", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 360 });
+  await page.goto('/');
+  await expect(page.locator('#boot-loader')).toHaveCount(0);
+  await page.locator('#new-journey').click();
+  await page.locator('#start-dummy-recovery').click();
+  await expect(page.locator('#status-toggle')).toContainText('Sail 40 m away');
+  const status = (await page.locator('#status-toggle').boundingBox())!;
+  const controls = (await page.locator('.sail-actions summary').boundingBox())!;
+  expect(status.x).toBeGreaterThanOrEqual(controls.x + controls.width + 6);
+  expect(controls.width).toBeGreaterThanOrEqual(44);
+  expect(controls.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: resolve(evidence, 'compact-objective-controls.png') });
+});
 
 for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape", 844, 390]] as const) {
   test(`approved arrival, lesson selection and free sail at ${label}`, async ({ page }) => {

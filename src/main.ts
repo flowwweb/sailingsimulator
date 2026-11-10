@@ -1574,6 +1574,11 @@ function recoverBoat(): void {
   if (dummyRecovery) { startDummyRecovery(); return; }
   if (firstBuoy) { prepareLessonAttempt("first-buoy"); return; }
   interruptLessonAttempt();
+  const interruptedActivity = activitySession?.activity;
+  // Recovery transports the boat, so the interrupted navigation attempt has ended.
+  activitySession = undefined;
+  activityView = undefined;
+  stopWeatherShelter();
   state = createGameState(FAIR_WINDS_WORLD.recoverySpawn);
   previousState = state;
   diagnostics = computeSailAerodynamics(state, {
@@ -1592,8 +1597,9 @@ function recoverBoat(): void {
   clearDocking();
   clearIncident();
   world.resetWake();
-  elements.status.textContent =
-    "Recovered in deep water near the sailing school.";
+  elements.status.textContent = interruptedActivity
+    ? `Recovered in deep water. Select ${interruptedActivity.title} on the chart to retry.`
+    : "Recovered in deep water near the sailing school.";
 }
 
 function beginIncident(result: IncidentResult): void {
@@ -1792,6 +1798,17 @@ function updateHud(): void {
       : "Three buoys reached under control. Journey complete.";
     elements.statusMessage.textContent = elements.status.textContent;
   }
+  // Active lessons lead with the action; trim and safety feedback stays in the details.
+  const academyView = academy.view();
+  const academyActive = !firstBuoy && !activitySession && !dummyRecovery && !anchorage && !crossing
+    && !["free-sail", "complete"].includes(academyView.stage);
+  const dummyActive = dummyRecovery && ["depart", "return"].includes(dummyRecovery.stage);
+  if (academyActive || dummyActive) {
+    const detail = elements.status.textContent;
+    const headline = academyActive ? academyView.title : elements.lessonInstruction.textContent;
+    elements.statusMessage.textContent = completedManeuver ? detail : academyActive ? academyView.feedback || coach : coach;
+    elements.status.textContent = headline;
+  }
   if (anchorage) {
     elements.status.textContent = anchorage.message;
     elements.statusMessage.textContent = anchorage.message;
@@ -1812,7 +1829,7 @@ function updateHud(): void {
   if (storageUnavailable && !elements.statusMessage.textContent?.includes(STORAGE_WARNING)) {
     elements.statusMessage.textContent += ` ${STORAGE_WARNING}`;
   }
-  const feedback = firstBuoy && !firstBuoy.failed && !firstBuoy.completed
+  const feedback = (firstBuoy && !firstBuoy.failed && !firstBuoy.completed) || academyActive || dummyActive
     ? elements.statusMessage.textContent : "";
   if (elements.statusFeedback.textContent !== feedback) elements.statusFeedback.textContent = feedback;
 }
