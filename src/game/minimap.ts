@@ -323,6 +323,7 @@ export class LakeChart {
     if (!context) return;
     const { width, height } = this.background;
     const image = context.createImageData(width, height);
+    const depths = new Float64Array(width);
 
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
@@ -338,18 +339,9 @@ export class LakeChart {
         image.data[offset + 2] = color[2];
         image.data[offset + 3] = 255;
 
-        const leftDepth = x > 0
-          ? sampleLakeDepth(
-              ((x - 0.5) / width - 0.5) * LAKE_RADIUS * 2,
-              worldZ,
-            )
-          : depth;
-        const upperDepth = y > 0
-          ? sampleLakeDepth(
-              worldX,
-              (0.5 - (y - 0.5) / height) * LAKE_RADIUS * 2,
-            )
-          : depth;
+        const leftDepth = x > 0 ? depths[x - 1]! : depth;
+        const upperDepth = y > 0 ? depths[x]! : depth;
+        depths[x] = depth;
         const wet = depth > 0;
         const shoreline =
           wet !== (leftDepth > 0) || wet !== (upperDepth > 0);

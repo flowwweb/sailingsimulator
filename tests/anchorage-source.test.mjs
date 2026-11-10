@@ -211,3 +211,28 @@ test("the existing visible rode readout shows fractional progress after a haul",
   assert.match(required("#status-lesson-progress").textContent, /Rode 35\.0 m/);
   assert.equal(required("#anchor-haul").hidden, false);
 });
+
+test("expanded anchorage keeps depth, rode and scope while removing its repeated cue and preserving safety feedback", () => {
+  const ctx = recoveryContext(); ctx.state.position = { x: 30, y: 0 }; ctx.haul();
+  const nodes = new Map();
+  const required = selector => {
+    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, dataset: {}, style: {}, classList: { add() {}, remove() {}, toggle() {} } });
+    return nodes.get(selector);
+  };
+  Object.assign(ctx, { required, dummyRecovery: undefined, elements: Object.fromEntries(["gameShell", "lessonCard", "lessonEyebrow", "lessonTitle", "lessonInstruction", "lessonProgress", "lessonSkip", "statusMessage"].map(name => [name, required(name)])) });
+  runInNewContext(`${mainFunction("updateLesson")}\nupdateLesson();`, ctx);
+  const start = mainSource.indexOf("  elements.statusMessage.hidden =");
+  const end = mainSource.indexOf("\n  if (dummyRecovery && coach", start);
+  assert.ok(start >= 0 && end > start);
+  const shared = mainSource.slice(start, end);
+  ctx.elements.statusMessage.textContent = ctx.anchorage.message;
+  runInNewContext(shared, ctx);
+  assert.equal(ctx.elements.statusMessage.hidden, true);
+  const detail = required("#status-objective-detail").textContent;
+  assert.match(detail, /Depth 7\.0 m · Rode 35\.0 m · Scope/);
+  assert.equal(detail.split(ctx.anchorage.message).length, 2);
+  ctx.elements.statusMessage.textContent = "Touched a buoy. Steer clear and continue.";
+  runInNewContext(shared, ctx);
+  assert.equal(ctx.elements.statusMessage.hidden, false);
+  assert.equal(required("#status-objective-detail").textContent, detail);
+});

@@ -2010,7 +2010,7 @@ export class SailingWorld {
     this.wakeLines[1].visible = false;
     this.scenery.setReflectionPass(true);
     this.renderer.setRenderTarget(this.reflectionTarget);
-    this.renderer.clear();
+    if (!this.renderer.autoClear) this.renderer.clear();
     this.renderer.render(this.scene, this.reflectionCamera);
     this.renderer.setRenderTarget(previousTarget);
     this.water.visible = true;
