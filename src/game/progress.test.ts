@@ -18,7 +18,7 @@ describe("sailing progress", () => {
     expect(sailingRank(parseProgress(JSON.stringify(progress)))).toMatchObject({ xp: 100, level: 2, levelXp: 0, rank: "Deckhand" });
     progress = recordFirstBuoyCompletion(progress);
     for (const target of [0, 1, 2]) progress = recordAcademyObjective(progress, target);
-    expect(sailingRank(progress)).toMatchObject({ xp: 200, level: 3, rank: "Crew" });
+    expect(sailingRank(progress)).toMatchObject({ xp: 200, level: 3, rank: "Sailor" });
     expect(sailingRank(recordAcademyObjective(parseProgress(JSON.stringify(progress)), 2)).xp).toBe(200);
   });
   it("persists only explicit dummy-recovery completion", () => {
@@ -31,7 +31,7 @@ describe("sailing progress", () => {
   it("gives the sixth level a distinct in-game rank", () => {
     const complete = { ...createProgress(), completedDummyRecovery: true,
       completedIntroductions: { [FIRST_BUOY.id]: FIRST_BUOY.revision }, completedLessons: [0, 1, 2] };
-    expect(sailingRank(complete)).toMatchObject({ xp: 500, level: 6, rank: "Navigator" });
+    expect(sailingRank(complete)).toMatchObject({ xp: 500, level: 6, rank: "Skipper" });
   });
   it("migrates v1 drills as practice without awarding a new introduction", () => {
     const saved = parseProgress(JSON.stringify({ ...createProgress(), version: 1, academyCompleted: true,

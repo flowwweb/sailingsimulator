@@ -47,6 +47,7 @@ import {
   recordAcademyObjective,
   recordFirstBuoyCompletion,
   sailingRank,
+  rankForXp,
   completionProgressFrame,
   nextLessonObjective,
   type SailingProgress,
@@ -150,6 +151,8 @@ const elements = {
   continueLesson: required<HTMLButtonElement>("#continue-lesson"),
   titleLogbook: required<HTMLButtonElement>("#title-logbook"),
   titleLogbookPanel: required("#title-logbook-panel"),
+  titleProfile: required<HTMLButtonElement>("#title-profile"),
+  titleProfilePanel: required("#player-profile-panel"),
   lessonChooser: required("#lesson-chooser"),
   mute: required<HTMLButtonElement>("#mute"),
   reset: required<HTMLButtonElement>("#reset"),
@@ -467,7 +470,7 @@ function bindInterface(): void {
       setStatusOpen(false);
       return;
     }
-    const titleDialog = !elements.lessonChooser.hidden ? elements.lessonChooser : !elements.titleLogbookPanel.hidden ? elements.titleLogbookPanel : undefined;
+    const titleDialog = !elements.lessonChooser.hidden ? elements.lessonChooser : !elements.titleLogbookPanel.hidden ? elements.titleLogbookPanel : !elements.titleProfilePanel.hidden ? elements.titleProfilePanel : undefined;
     if (!started && titleDialog) {
       if (event.code === "Escape") { event.preventDefault(); closeTitleDialog(); }
       else if (event.code === "Tab") trapFocusWithin(titleDialog, event);
@@ -596,6 +599,14 @@ function bindInterface(): void {
   }));
   required("#lesson-chooser-close").addEventListener("click", () => closeTitleDialog());
   required("#title-logbook-close").addEventListener("click", () => closeTitleDialog());
+  required("#player-profile-close").addEventListener("click", () => closeTitleDialog());
+  elements.titleProfile.addEventListener("click", () => {
+    syncTitleRank();
+    elements.titleProfilePanel.hidden = false;
+    elements.titleProfile.setAttribute("aria-expanded", "true");
+    required(".welcome-lockup").hidden = true;
+    required("#player-profile-close").focus();
+  });
   elements.titleLogbook.addEventListener("click", () => {
     fillLogbook(required("#title-logbook-stats"), required("#title-logbook-lessons"));
     elements.titleLogbookPanel.hidden = false;
@@ -726,16 +737,27 @@ function titleMenuItems(): HTMLButtonElement[] {
     elements.titleFreeSail,
     elements.titleLogbook,
     elements.titleSettings,
+    elements.titleProfile,
   ].filter((item) => !item.hidden);
 }
 
 function syncTitleRank(): void {
   const rank = sailingRank(progress);
-  required("#title-rank-name").textContent = `Level ${rank.level} · ${rank.rank}`;
-  required("#title-rank-xp").textContent = `${rank.xp} XP`;
+  const badge = `/brand/ranks/${rank.rank.toLowerCase().replace(/ /g, "-")}.png`;
+  elements.titleProfile.setAttribute("aria-label", `Player profile, Level ${rank.level}, ${rank.rank}, ${rank.xp} XP`);
+  required("#title-level").textContent = String(rank.level);
+  required<HTMLImageElement>("#title-rank-badge").src = badge;
+  required("#title-xp-ring").setAttribute("stroke-dashoffset", String(100 - rank.levelXp));
+  required<HTMLImageElement>("#profile-rank-badge").src = badge;
+  required("#profile-level").textContent = `Level ${rank.level}`;
+  required("#profile-rank").textContent = rank.rank;
+  required("#profile-total-xp").textContent = `${rank.xp} XP total`;
+  required("#profile-level-xp").textContent = `${rank.levelXp} / 100 XP`;
+  const next = rankForXp(rank.xp + 100 - rank.levelXp);
+  required("#profile-next-rank").textContent = `${100 - rank.levelXp} XP to ${next.rank === rank.rank ? `level ${next.level}` : next.rank}`;
   required("#settings-rank").textContent = `Level ${rank.level} · ${rank.rank} · ${rank.xp} XP`;
-  required("#title-rank-fill").style.width = `${rank.levelXp}%`;
-  const track = required("#title-rank-track");
+  required("#profile-xp-fill").style.width = `${rank.levelXp}%`;
+  const track = required("#profile-xp-track");
   track.setAttribute("aria-valuenow", String(rank.levelXp));
   track.setAttribute("aria-valuetext", `${rank.levelXp} of 100 XP toward level ${rank.level + 1}`);
 }
@@ -746,37 +768,20 @@ function syncTitleState(): void {
   titleFrameDirty = true;
   const returning = progress.voyages > 0;
   const titleConfig = createTitleWeatherConfig();
-  titleConfig.timeOfDay = returning ? 17.4 : 14.7;
-  titleConfig.wind.directionFromDegrees = returning ? 65 : 147;
+  titleConfig.timeOfDay = 14.7;
+  titleConfig.wind.directionFromDegrees = 65;
   titleWeatherSystem.setConfig(titleConfig);
   titleWeather = titleWeatherSystem.sample(0);
-  titleState.position.x = returning ? 991 : 964;
-  titleState.position.y = returning ? -236 : -404;
-  titleState.heading = degrees(returning ? 130 : 105);
-  titleState.boomAngle = degrees(returning ? 25 : -5);
+  titleState.position.x = 991;
+  titleState.position.y = -236;
+  titleState.heading = degrees(130);
+  titleState.boomAngle = degrees(25);
   titleState.sheet = sheetForBoomAngle(titleState.boomAngle);
   refreshTitleDiagnostics();
   elements.welcome.dataset.returning = String(returning);
-  required("#returning-copy").hidden = !returning;
   elements.setSail.hidden = returning;
   elements.continueLesson.hidden = !returning;
-  const view = academy.view();
-  const lesson = view.lesson;
-  const targetLabels = lesson === 0 ? ["Trim", "Stall", "Recover"] : required(`[data-lesson="${lesson}"]`).querySelector(".lesson-targets")!.textContent!.split("·").map((label) => label.trim());
-  const complete = view.objective === 3 || view.stage === "complete";
-  elements.newJourney.hidden = !returning || complete;
-  required("#returning-lesson").textContent = LESSON_TITLES[lesson]!;
-  required("#returning-target").textContent = complete
-    ? progress.academyCompleted ? "Sailing skills complete · All nine skill targets earned" : "Lesson complete · All three targets earned"
-    : `Target ${view.objective + 1} of 3 · ${targetLabels[view.objective]}`;
-  elements.continueLesson.firstChild!.textContent = complete ? "Choose lesson" : "Continue lesson";
-  if (progress.activeIntroduction === FIRST_BUOY.id) {
-    const earned = progress.completedIntroductions?.[FIRST_COURSE_ID] === 1;
-    required("#returning-lesson").textContent = FIRST_BUOY.title;
-    required("#returning-target").textContent = earned ? "Journey recorded · Sail the three buoys" : "Fresh departure · Sail the three buoys";
-    elements.continueLesson.firstChild!.textContent = earned ? "Repeat journey" : "Continue journey";
-    elements.newJourney.hidden = !returning;
-  }
+  elements.newJourney.hidden = false;
   selectTitleItem(returning ? elements.continueLesson : elements.setSail);
 }
 
@@ -843,10 +848,13 @@ function openLessonChooser(opener: HTMLButtonElement = elements.continueLesson):
 
 function closeTitleDialog(restoreFocus = true): void {
   const logbook = !elements.titleLogbookPanel.hidden;
+  const profile = !elements.titleProfilePanel.hidden;
   elements.lessonChooser.hidden = true;
   elements.titleLogbookPanel.hidden = true;
+  elements.titleProfilePanel.hidden = true;
+  elements.titleProfile.setAttribute("aria-expanded", "false");
   required(".welcome-lockup").hidden = false;
-  if (restoreFocus) (logbook ? elements.titleLogbook : lessonChooserOpener).focus();
+  if (restoreFocus) (profile ? elements.titleProfile : logbook ? elements.titleLogbook : lessonChooserOpener).focus();
 }
 
 function selectTitleItem(selected: HTMLButtonElement): void {

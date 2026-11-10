@@ -2061,7 +2061,7 @@ export class SailingWorld {
       ) *
       portraitFraming * landscapeFraming;
     const compositionSide = titleScreen
-      ? (titleScene === "return" ? -4.5 : 4.5) * boatScale + titleDrift * 0.12
+      ? -4.5 * boatScale + titleDrift * 0.12
       : THREE.MathUtils.lerp(
           this.activeBoat.camera.distance * boatScale * 0.36,
           6 * boatScale,
@@ -2080,7 +2080,7 @@ export class SailingWorld {
       boatHeight +
         THREE.MathUtils.lerp(
           titleScreen
-            ? (titleScene === "return" ? 4.6 : 3) * boatScale
+            ? 4.6 * boatScale
             : this.activeBoat.camera.height * boatScale,
           16 * boatScale,
           incidentProgress,
@@ -2126,7 +2126,7 @@ export class SailingWorld {
       );
     }
     const titleLookSide = titleScreen
-      ? (titleScene === "return" ? 2.1 : 5) * boatScale * titleWidth * titleWidth
+      ? -5 * boatScale * titleWidth * titleWidth
       : 0;
     const normalLookX =
       x +
@@ -2144,7 +2144,7 @@ export class SailingWorld {
       ),
       boatHeight +
         THREE.MathUtils.lerp(
-          titleScreen ? (titleScene === "return" ? 4.3 : 3.6) : 1.2,
+          titleScreen ? 4.3 : 1.2,
           0.8,
           incidentProgress,
         ) - (incident ? (landscapeFraming - 1) * 15 * boatScale : 0),

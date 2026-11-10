@@ -17,7 +17,7 @@ test("crossing completion survives reload and grants XP once", () => {
       final: sailingRank({ ...saved, completedDummyRecovery: true, completedLessons: [0, 1, 2], completedIntroductions: { [FIRST_BUOY.id]: FIRST_BUOY.revision } }) };
   })()`);
   assert.equal(result.xp, 100); assert.equal(result.replay, 100); assert.equal(result.invalid, 0);
-  assert.equal(result.final.level, 7); assert.equal(result.final.rank, "Skipper");
+  assert.equal(result.final.level, 7); assert.equal(result.final.rank, "Captain");
 });
 
 test("dummy recovery earns XP once and sixth level has a distinct rank", () => {
@@ -32,7 +32,7 @@ test("dummy recovery earns XP once and sixth level has a distinct rank", () => {
   assert.equal(result.reload, 100);
   assert.equal(result.invalid, 0);
   assert.equal(result.level, 6);
-  assert.equal(result.rank, "Navigator");
+  assert.equal(result.rank, "Skipper");
 });
 
 test("earned lessons survive reload and replays never duplicate XP", () => {
@@ -70,7 +70,7 @@ test("first journey levels up and crossing animation fills before revealing Deck
   assert.equal(result.end.rank, "Deckhand");
   assert.equal(result.end.done, true);
   assert.equal(result.replay.done, true);
-  assert.equal(result.later.rank, "Voyager");
+  assert.equal(result.later.rank, "Navigator");
 });
 
 test("multi-level progression reveals each threshold before continuing", () => {
@@ -131,14 +131,14 @@ test("completion reveals the earned reward and closes back to sailing", () => {
     storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 1,
     sailingRank: () => ({ xp: 100, level: 2, rank: "Deckhand", levelXp: 0 }),
     completionProgressFrame: evaluate("completionProgressFrame") };
-  runInNewContext(`${functions}\nshowCompletion("Find your course", { xp: 0, level: 1, rank: 'Newcomer', levelXp: 0 });`, context);
+  runInNewContext(`${functions}\nshowCompletion("Find your course", { xp: 0, level: 1, rank: 'Landlubber', levelXp: 0 });`, context);
   assert.equal(required("#completion-screen").hidden, false);
   assert.equal(context.elements.gameShell.inert, true);
   assert.equal(context.radioOpen, false);
   assert.equal(context.accumulator, 0);
   assert.equal(required("#completion-reward").textContent, "+100 XP earned");
   assert.equal(required("#completion-level-number").textContent, "Level 1");
-  assert.equal(required("#completion-rank").textContent, " · Newcomer");
+  assert.equal(required("#completion-rank").textContent, " · Landlubber");
   assert.equal(required("#completion-continue").textContent, "See your rank");
   callback(900);
   assert.equal(required(".completion-track")["aria-valuenow"], "100");
@@ -146,10 +146,10 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(required(".completion-marker").style.left, "100%");
   callback(1150);
   assert.equal(required("#completion-level-number").textContent, "Level 1");
-  assert.equal(required("#completion-rank").textContent, " · Newcomer");
+  assert.equal(required("#completion-rank").textContent, " · Landlubber");
   assert.equal(required(".completion-track")["aria-valuenow"], "100");
   assert.equal(required(".completion-track").writes["aria-valuenow"], 1);
-  assert.match(required(".completion-track")["aria-valuetext"], /Level 1, Newcomer: 100 of 100 XP.*100 XP total/);
+  assert.match(required(".completion-track")["aria-valuetext"], /Level 1, Landlubber: 100 of 100 XP.*100 XP total/);
   assert.equal(required("#completion-continue").focused, true);
   runInNewContext("advanceCompletion();", context);
   assert.equal(required("#completion-screen").dataset.stage, "level-up");
@@ -163,7 +163,7 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(required("#completion-screen").hidden, true);
   assert.equal(context.elements.gameShell.inert, false);
   assert.equal(statusToggle.focused, true);
-  runInNewContext(`showCompletion("First buoy", { xp: 0, level: 1, rank: "Newcomer", levelXp: 0 }); advanceCompletion();`, context);
+  runInNewContext(`showCompletion("First buoy", { xp: 0, level: 1, rank: "Landlubber", levelXp: 0 }); advanceCompletion();`, context);
   assert.equal(callback, undefined);
   assert.equal(required("#completion-level-number").textContent, "Level 2");
   context.academy = { restoreObjective(index) { context.next = index; } };
@@ -211,9 +211,9 @@ test("reduced motion and replay show the final rank without scheduling animation
     completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false, requestAnimationFrame: () => { scheduled++; return 1; },
     cancelAnimationFrame() {}, setRadioOpen() {}, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 0,
     sailingRank: () => ({ xp: 100, level: 2, rank: "Deckhand", levelXp: 0 }) };
-  runInNewContext(`${functions}\nshowCompletion("First buoy", { xp: 0, level: 1, rank: "Newcomer", levelXp: 0 });`, context);
+  runInNewContext(`${functions}\nshowCompletion("First buoy", { xp: 0, level: 1, rank: "Landlubber", levelXp: 0 });`, context);
   assert.equal(required("#completion-level-number").textContent, "Level 1");
-  assert.equal(required("#completion-rank").textContent, " · Newcomer");
+  assert.equal(required("#completion-rank").textContent, " · Landlubber");
   assert.equal(required(".completion-marker").style.left, "100%");
   assert.equal(scheduled, 0);
   runInNewContext("advanceCompletion();", context);
@@ -244,7 +244,7 @@ test("anchorage completion grants one saved level and a distinct final rank", ()
   assert.equal(result.first.xp, 100); assert.equal(result.first.rank, "Deckhand");
   assert.equal(result.saved.xp, 100); assert.equal(result.replay.xp, 100);
   assert.equal(result.invalid.xp, 0); assert.equal(result.legacy.xp, 0);
-  assert.equal(result.final.level, 8); assert.equal(result.final.rank, "Captain");
+  assert.equal(result.final.level, 8); assert.equal(result.final.rank, "Sea Legend");
 });
 
 test("completion advances through the visible six lessons even on replay", () => {
