@@ -11,6 +11,13 @@ const start = hud.indexOf("  const completedManeuver =", hud.indexOf("function u
 const end = hud.indexOf("\n}", start);
 assert.ok(start >= 0 && end > start);
 const status = `function updateStatus() {\n${hud.slice(start, end)}\n} updateStatus();`;
+function statusContext(context) {
+  context.touchCooldown ??= 0;
+  context.academy ??= { view: () => ({ stage: "free-sail" }) };
+  context.activitySession ??= undefined;
+  return context;
+}
+
 
 test("first buoy starts about 41m outside the arrival boundary, facing the mark", () => {
   const definition = lesson.match(/export const FIRST_BUOY = (\{[\s\S]*?\}) as const;/);
@@ -36,7 +43,7 @@ test("objective and failure take priority only in the first-buoy lesson", () => 
     const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, firstBuoy, state: { maneuverCount: 0, lastManeuver: "none" },
       lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
       dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
-    runInNewContext(status, context);
+    runInNewContext(status, statusContext(context));
     assert.equal(elements.status.textContent, expected);
     assert.equal(elements.statusMessage.textContent,
       firstBuoy && !firstBuoy.failed && !firstBuoy.completed
@@ -51,9 +58,31 @@ test("crossing status makes the active instruction and failure visible", () => {
     const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: { stage }, elements, firstBuoy: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
       lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
       dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
-    runInNewContext(status, context);
+    runInNewContext(status, statusContext(context));
     assert.equal(elements.status.textContent, expected);
   }
+});
+
+test("collision warning survives an Attached flow update above the academy objective, then gives way after cooldown", () => {
+  const startTouch = hud.indexOf("          if (touchCooldown <= 0) {");
+  const endTouch = hud.indexOf("\n          }", startTouch) + 12;
+  assert.ok(startTouch >= 0 && endTouch > startTouch);
+  const touch = hud.slice(startTouch, endTouch);
+  const elements = { status: { textContent: "Luffing. Sheet in." }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
+  const context = statusContext({ touchCooldown: 0, nextIncident: { object: { name: "Juniper buoy" } },
+    academy: { view: () => ({ stage: "close-hauled", title: "Sail close-hauled", feedback: "Trim gently." }) },
+    anchorage: undefined, dummyRecovery: undefined, crossing: undefined, weatherShelter: undefined, firstBuoy: undefined, activitySession: undefined,
+    elements, state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true, dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" });
+  runInNewContext(`${touch}\n${status}`, context);
+  assert.equal(elements.status.textContent, "Touched Juniper buoy. Steer clear and continue.");
+  assert.equal(elements.statusMessage.textContent, elements.status.textContent);
+  assert.equal(elements.statusFeedback.textContent, "");
+  runInNewContext(status, context);
+  assert.equal(elements.status.textContent, "Touched Juniper buoy. Steer clear and continue.");
+  context.touchCooldown = 0;
+  runInNewContext(status, context);
+  assert.equal(elements.status.textContent, "Sail close-hauled");
+  assert.equal(elements.statusMessage.textContent, "Trim gently.");
 });
 
 test("weather failure remains visible through sail feedback and clears its destination", () => {
@@ -64,7 +93,7 @@ test("weather failure remains visible through sail feedback and clears its desti
     state: { maneuverCount: 1, lastManeuver: "tack" }, lastManeuverCount: 0,
     lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
-  runInNewContext(`${status} updateStatus();`, context);
+  runInNewContext(`${status} updateStatus();`, statusContext(context));
   assert.equal(elements.status.textContent, "Contact interrupted this attempt. Recover the boat, then retry.");
   assert.equal(elements.statusMessage.textContent, elements.status.textContent);
   const startCourse = hud.indexOf("function activeCourse(): WorldActivity | undefined {");
@@ -74,7 +103,7 @@ test("weather failure remains visible through sail feedback and clears its desti
   assert.equal(runInNewContext(`${course}; activeCourse();`, context), undefined);
   context.weatherShelter = { stage: "forecast" };
   context.activityView.instruction = "Forecast: wind increasing. Plan your return to Juniper.";
-  runInNewContext(`${status} updateStatus();`, context);
+  runInNewContext(`${status} updateStatus();`, statusContext(context));
   assert.equal(elements.status.textContent, context.activityView.instruction);
   assert.equal(runInNewContext(`${course}; activeCourse();`, context).id, "weather-shelter");
 });
@@ -102,7 +131,7 @@ test("first-buoy objective retains action feedback and storage warning across up
       state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0,
       lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
       dockedAt: undefined, storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
-    runInNewContext(`${status} updateStatus();`, context);
+    runInNewContext(`${status} updateStatus();`, statusContext(context));
     assert.equal(elements.status.textContent, "Sail to Juniper buoy. Storage unavailable");
     assert.equal(elements.statusMessage.textContent, `${message} Storage unavailable`);
     assert.equal(elements.statusFeedback.textContent, elements.statusMessage.textContent);
@@ -119,7 +148,7 @@ test("first-buoy objective retains actual maneuver and flow transitions", () => 
     const context = { lastFirstBuoyHeadline: "", anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, elements, firstBuoy: { failed: false, completed: false, objective: () => "Sail to Juniper buoy." }, state,
       lastManeuverCount: 0, lastFlow, flow, coach, started: true, dockedAt: undefined,
       storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
-    runInNewContext(`${status} updateStatus();`, context);
+    runInNewContext(`${status} updateStatus();`, statusContext(context));
     assert.equal(elements.status.textContent, "Sail to Juniper buoy.");
     assert.equal(elements.statusMessage.textContent, expected);
     assert.equal(elements.statusFeedback.textContent, expected);
@@ -143,19 +172,19 @@ test("opening details and restarting a lesson do not lose or reuse feedback", ()
     lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable",
     kind: "first-buoy", FirstBuoyJourney: class { failed = false; completed = false; objective() { return "Sail to Juniper buoy."; } } };
-  runInNewContext(`${status} ${open}; setStatusOpen(true);`, context);
+  runInNewContext(`${status} ${open}; setStatusOpen(true);`, statusContext(context));
   assert.equal(elements.statusMessage.textContent, "Sound muted.");
   assert.equal(elements.statusFeedback.textContent, "Sound muted.");
-  runInNewContext(reset, context);
+  runInNewContext(reset, statusContext(context));
   assert.equal(elements.statusFeedback.textContent, "");
-  runInNewContext(status, context);
+  runInNewContext(status, statusContext(context));
   assert.equal(elements.statusFeedback.textContent, "Sail looks steady. Watch your course and speed.");
   context.firstBuoy.failed = true;
-  runInNewContext(status, context);
+  runInNewContext(status, statusContext(context));
   assert.equal(elements.status.textContent, "Journey failed. Open status to retry.");
   assert.equal(elements.statusFeedback.textContent, "");
   context.firstBuoy = undefined;
-  runInNewContext(status, context);
+  runInNewContext(status, statusContext(context));
   assert.equal(elements.statusFeedback.textContent, "");
 });
 
@@ -179,18 +208,18 @@ test("status pauses sailing without erasing the attempt and resumes on close", (
     isConditionsOpen: () => false, isChartOpen: () => false, required: () => ({ hidden: true }),
     input: { releaseAll() { released++; } }, audio: { stopRadioNotice() {} }, radioSubtitleSeconds: 0,
     academy: { interrupt() { interrupted++; } }, dummyRecovery: undefined, crossing: undefined };
-  runInNewContext(extract("setStatusOpen") + "\n" + extract("isSimulationPaused") + "\n" + extract("isNonStatusSimulationPaused"), ctx);
-  runInNewContext("setStatusOpen(true); simulationPaused = isSimulationPaused();", ctx);
+  runInNewContext(extract("setStatusOpen") + "\n" + extract("isSimulationPaused") + "\n" + extract("isNonStatusSimulationPaused"), statusContext(ctx));
+  runInNewContext("setStatusOpen(true); simulationPaused = isSimulationPaused();", statusContext(ctx));
   assert.equal(ctx.simulationPaused, true);
   assert.equal(ctx.accumulator, 0);
   assert.equal(ctx.previousState, state);
-  runInNewContext(pausedBranch, ctx);
+  runInNewContext(pausedBranch, statusContext(ctx));
   assert.equal(interrupted, 0);
   assert.ok(released > 0);
-  runInNewContext("setStatusOpen(false); simulationPaused = isSimulationPaused();", ctx);
+  runInNewContext("setStatusOpen(false); simulationPaused = isSimulationPaused();", statusContext(ctx));
   assert.equal(ctx.simulationPaused, false);
   ctx.document.hidden = true; ctx.simulationPaused = true;
-  runInNewContext(pausedBranch, ctx);
+  runInNewContext(pausedBranch, statusContext(ctx));
   assert.equal(interrupted, 2, "hidden page interrupts both academy and buoy");
 });
 
@@ -210,11 +239,11 @@ test("a slow frame while status is open does not clear lesson witnesses", () => 
     isConditionsOpen: () => false, isChartOpen: () => false, accumulator: 0,
     academy: { interrupt() { interruptions++; } }, dummyRecovery: { interrupt() { interruptions++; } },
     weatherShelter: { interrupt() { interruptions++; } } };
-  runInNewContext(extract("isSimulationPaused") + "\n" + extract("isNonStatusSimulationPaused"), ctx);
-  runInNewContext(hud.slice(begin, end), ctx);
+  runInNewContext(extract("isSimulationPaused") + "\n" + extract("isNonStatusSimulationPaused"), statusContext(ctx));
+  runInNewContext(hud.slice(begin, end), statusContext(ctx));
   assert.equal(interruptions, 0);
   ctx.elements.statusDetails.hidden = true;
-  runInNewContext(hud.slice(begin, end), ctx);
+  runInNewContext(hud.slice(begin, end), statusContext(ctx));
   assert.equal(interruptions, 0);
 });
 
@@ -225,10 +254,10 @@ test("missed buoy cue clears on exit without becoming sail feedback", () => {
     firstBuoy: { failed: false, completed: false, objective: () => objective }, state: { maneuverCount: 0, lastManeuver: "none" },
     lastManeuverCount: 0, lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
-  runInNewContext(`${status} updateStatus();`, context);
+  runInNewContext(`${status} updateStatus();`, statusContext(context));
   assert.equal(elements.status.textContent, objective);
   objective = "Sail to Juniper buoy.";
-  runInNewContext(`${status} updateStatus();`, context);
+  runInNewContext(`${status} updateStatus();`, statusContext(context));
   assert.equal(elements.status.textContent, objective);
   assert.equal(elements.statusFeedback.textContent, "Tack complete. Build speed on the new side and retrim.");
 });

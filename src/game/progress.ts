@@ -121,7 +121,7 @@ export function sailingRank(progress: SailingProgress): { xp: number; level: num
 
 export function rankForXp(xp: number): { xp: number; level: number; rank: string; levelXp: number } {
   const level = Math.floor(xp / 100) + 1;
-  const rank = ["Newcomer", "Deckhand", "Crew", "Sailor", "Voyager", "Navigator", "Skipper", "Captain"][Math.min(level - 1, 7)] ?? "Captain";
+  const rank = ["Landlubber", "Deckhand", "Sailor", "Helmsman", "Navigator", "Skipper", "Captain", "Sea Legend"][Math.min(level - 1, 7)] ?? "Sea Legend";
   return { xp, level, rank, levelXp: xp % 100 };
 }
 

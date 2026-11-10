@@ -242,7 +242,8 @@ test("actual missed-buoy state clears from the HUD feedback after sailing out", 
   const status = `function updateStatus() {\n${main.slice(start, end)}\n}`;
   const journey = new FirstBuoyJourney(), boat = driver(journey), first = FIRST_BUOY_MARKS[0];
   const elements = { status: { textContent: "Sail to Juniper buoy." }, statusMessage: { textContent: "Tack complete." }, statusFeedback: { textContent: "" } };
-  const ctx = { firstBuoy: journey, anchorage: undefined, dummyRecovery: undefined, crossing: undefined, weatherShelter: undefined,
+  const ctx = { touchCooldown: 0, academy: { view: () => ({ stage: "free-sail" }) }, activitySession: undefined,
+    firstBuoy: journey, anchorage: undefined, dummyRecovery: undefined, crossing: undefined, weatherShelter: undefined,
     elements, state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0, lastFirstBuoyHeadline: "Sail to Juniper buoy.",
     lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true, dockedAt: undefined,
     storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };

@@ -116,7 +116,7 @@
           </button>
           <button id="map-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="chart-panel" title="Nautical chart (N)"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-map" /></svg><span class="action-label">Chart</span>
           </button>
-          <button id="radio-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="radio-panel" aria-label="Radio"><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-radio" /></svg><span class="action-label">Radio</span></button>
+          <button id="radio-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="radio-panel" aria-label="Radio"><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-radio" /></svg><span class="action-label">Radio</span><span id="radio-marina-hint" class="radio-marina-hint" aria-hidden="true" hidden></span></button>
           <button id="conditions-toggle" class="quiet-button" type="button" aria-label="Settings" aria-expanded="false" aria-controls="conditions-panel">
             <svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-settings" /></svg><span class="action-label">Settings</span>
           </button>
@@ -144,6 +144,7 @@
         <button id="radio-listen" type="button">Listen</button>
         <button id="radio-call" type="button">Call marina</button>
         <button id="radio-close" type="button">Close</button>
+        <p id="radio-next-step" aria-live="polite">Tune to Juniper Marina's channel 80.</p>
         <p id="radio-caption">Select the marina channel and listen before calling.</p>
       </aside>
 
@@ -421,22 +422,40 @@
             alt=""
             aria-hidden="true"
           />
+          <button id="title-profile" class="title-player" type="button" aria-label="Player profile" aria-haspopup="dialog" aria-expanded="false" aria-controls="player-profile-panel">
+            <svg class="player-avatar" viewBox="0 0 72 72" aria-hidden="true" focusable="false">
+              <circle class="avatar-disc" cx="36" cy="36" r="29" />
+              <circle class="avatar-ring" cx="36" cy="36" r="33" />
+              <circle id="title-xp-ring" class="avatar-xp" cx="36" cy="36" r="33" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" />
+              <circle class="avatar-person" cx="36" cy="29" r="9" />
+              <path class="avatar-person" d="M20 53c0-9 6-14 16-14s16 5 16 14Z" />
+            </svg>
+            <img id="title-rank-badge" class="title-rank-badge" width="64" height="64" alt="" />
+            <span id="title-level" class="title-level">1</span>
+          </button>
           <nav class="title-menu" aria-label="Main menu">
-            <div id="returning-copy" class="returning-copy" hidden><p>Welcome back</p><h2 id="returning-lesson">Catch the wind</h2><p id="returning-target" class="returning-target"></p></div>
-            <button id="continue-lesson" class="title-menu-item title-primary" type="button" hidden>Continue lesson<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
-            <button id="set-sail" class="title-menu-item title-primary is-selected" type="button">Learn to sail<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
-            <button id="new-journey" class="title-menu-item" type="button" hidden>Choose lesson<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
-            <button id="title-free-sail" class="title-menu-item" type="button">Free sail<svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-right" /></svg></button>
-            <div class="title-secondary">
-              <button id="title-logbook" class="title-secondary-item" type="button"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-logbook" /></svg>Logbook</button>
-              <button id="title-settings" class="title-secondary-item" type="button"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-settings" /></svg>Settings</button>
-            </div>
+            <button id="continue-lesson" class="title-menu-item title-primary" type="button" hidden>Continue</button>
+            <button id="set-sail" class="title-menu-item title-primary is-selected" type="button">Learn to sail</button>
+            <button id="new-journey" class="title-menu-item" type="button">Lessons</button>
+            <button id="title-free-sail" class="title-menu-item" type="button">Free sail</button>
           </nav>
+          <div class="title-secondary">
+            <button id="title-logbook" class="title-secondary-item" type="button" aria-label="Logbook" title="Logbook"><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-logbook" /></svg></button>
+            <button id="title-settings" class="title-secondary-item" type="button" aria-label="Settings" title="Settings"><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-settings" /></svg></button>
+          </div>
         </div>
-        <aside class="title-rank" aria-label="Sailing progress">
-          <div class="title-rank-heading"><strong id="title-rank-name"></strong><span id="title-rank-xp"></span></div>
-          <div id="title-rank-track" class="title-rank-track" role="progressbar" aria-label="XP toward the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="title-rank-fill"></span></div>
-        </aside>
+        <section id="player-profile-panel" class="title-profile-panel" role="dialog" aria-modal="true" aria-labelledby="player-profile-title" hidden>
+          <button id="player-profile-close" class="menu-back" type="button" aria-label="Back to main menu"><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-left" /></svg></button>
+          <h2 id="player-profile-title">Sailing profile</h2>
+          <img id="profile-rank-badge" class="profile-rank-badge" width="160" height="160" alt="" />
+          <p id="profile-level" class="profile-level"></p>
+          <h3 id="profile-rank"></h3>
+          <div class="profile-progress">
+            <div class="profile-xp-labels"><span id="profile-total-xp"></span><span id="profile-level-xp"></span></div>
+            <div id="profile-xp-track" class="profile-xp-track" role="progressbar" aria-label="XP toward the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="profile-xp-fill"></span></div>
+            <p id="profile-next-rank"></p>
+          </div>
+        </section>
         <section id="lesson-chooser" class="lesson-chooser" role="dialog" aria-modal="true" aria-labelledby="lesson-chooser-title" hidden>
           <div class="lesson-chooser-header">
           <button id="lesson-chooser-close" class="menu-back" type="button" aria-label="Back to main menu"><svg class="fw-icon " viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-chevron-left" /></svg></button>
@@ -444,12 +463,12 @@
           </div>
           <div class="lesson-chooser-body">
           <div class="lesson-choices" aria-label="Lessons">
-            <button id="start-first-buoy" class="lesson-choice" type="button"><span class="lesson-image lesson-image-buoy" aria-hidden="true"></span><span class="lesson-name"><b>01</b> Round the buoys</span><span class="lesson-targets">Steer · Trim · Round</span><span class="lesson-preview-note">Concept preview</span></button>
+            <button id="start-first-buoy" class="lesson-choice" type="button"><span class="lesson-image lesson-image-buoy" aria-hidden="true"></span><span class="lesson-name"><b>01</b> Round the buoys</span><span class="lesson-targets">Steer · Trim · Round</span></button>
             <button class="lesson-choice" data-lesson="1" type="button"><span class="lesson-image lesson-image-2" aria-hidden="true"></span><span class="lesson-name"><b>02</b> Find your course</span><span class="lesson-targets">Close-hauled · Beam reach · Broad reach</span></button>
             <button class="lesson-choice" data-lesson="2" type="button"><span class="lesson-image lesson-image-3" aria-hidden="true"></span><span class="lesson-name"><b>03</b> Sail with confidence</span><span class="lesson-targets">Tack · Gybe · Reef</span></button>
             <button id="start-crossing" class="lesson-choice" type="button"><span class="lesson-image lesson-image-2" aria-hidden="true"></span><span class="lesson-name"><b>04</b> Crossing traffic</span><span class="lesson-targets">Lookout · Tacks · Keep clear</span></button>
-            <button id="start-dummy-recovery" class="lesson-choice" type="button"><span class="lesson-image lesson-image-dummy" aria-hidden="true"></span><span class="lesson-name"><b>05</b> Recover the training dummy</span><span class="lesson-targets">Lookout · Return · Recover</span><span class="lesson-preview-note">Concept preview</span></button>
-            <button id="start-anchorage" class="lesson-choice" type="button"><span class="lesson-image lesson-image-1" aria-hidden="true"></span><span class="lesson-name"><b>06</b> Anchorage practice</span><span class="lesson-targets">Choose · Set · Recover</span><span class="lesson-preview-note">Concept preview</span></button>
+            <button id="start-dummy-recovery" class="lesson-choice" type="button"><span class="lesson-image lesson-image-dummy" aria-hidden="true"></span><span class="lesson-name"><b>05</b> Recover the training dummy</span><span class="lesson-targets">Lookout · Return · Recover</span></button>
+            <button id="start-anchorage" class="lesson-choice" type="button"><span class="lesson-image lesson-image-1" aria-hidden="true"></span><span class="lesson-name"><b>06</b> Anchorage practice</span><span class="lesson-targets">Choose · Set · Recover</span></button>
           </div>
           </div>
         </section>

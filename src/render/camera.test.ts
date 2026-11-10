@@ -127,3 +127,17 @@ test("camera reset uses the supplied height immediately after a title view", () 
     expect(world.cameraLookAt.y).toBeCloseTo(-2.85 + 1.2, 10);
   }
 });
+
+test("both title states leave the right side clear for the approved F menu", () => {
+  for (const aspect of [1672 / 941, 844 / 390, 640 / 360]) {
+    for (const title of ["arrival", "return"] as const) {
+      const world = cameraWorld();
+      world.camera.aspect = aspect;
+      world.updateCamera(991, -236, 130 * Math.PI / 180, 0.15, 1 / 60, undefined, title, 0);
+      world.camera.updateMatrixWorld();
+      const boat = new THREE.Vector3(991, 0.65, -236).project(world.camera);
+      expect(boat.x).toBeLessThan(-0.2);
+      expect(boat.x).toBeGreaterThan(-0.8);
+    }
+  }
+});

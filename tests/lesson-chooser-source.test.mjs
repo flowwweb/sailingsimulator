@@ -25,7 +25,8 @@ test("anchorage tile starts the actual exercise and trim remains on the chart", 
   const chooser = html.split('id="lesson-chooser"')[1].split('</section>')[0];
   const labels = [...chooser.matchAll(/<span class="lesson-name"><b>\d+<\/b> ([^<]+)<\/span>/g)].map(match => match[1]);
   assert.deepEqual(labels, ["Round the buoys", "Find your course", "Sail with confidence", "Crossing traffic", "Recover the training dummy", "Anchorage practice"]);
-  assert.match(chooser, /id="start-anchorage"[^>]*>[\s\S]*?lesson-preview-note">Concept preview<\/span><\/button>/);
+  assert.match(chooser, /id="start-anchorage"[^>]*>[\s\S]*?lesson-image/);
+  assert.doesNotMatch(chooser, /Concept preview/);
   let click;
   const actions = [];
   const choice = { id: "start-anchorage", dataset: {}, addEventListener: (_event, handler) => { click = handler; } };

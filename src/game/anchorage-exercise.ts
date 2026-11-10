@@ -91,7 +91,8 @@ export class AnchorageExercise {
     }
     const straightLine = Math.hypot(distance, Math.max(0, depth + 0.6));
     const shorter = Math.max(straightLine + 0.3, this.anchor.rode - 5);
-    if (shorter >= this.anchor.rode) {
+    // Tiny inward drift should not consume a haul just taking in millimetres of slack.
+    if (shorter >= this.anchor.rode - 0.1) {
       this.haulImpulse = Math.min(0.8, this.haulImpulse + 0.6);
       this.message = "Taking the weight on the rode. Keep working toward the anchor.";
       return true;

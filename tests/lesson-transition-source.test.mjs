@@ -153,7 +153,7 @@ test("completed sailing skills open the chooser from the title", () => {
   assert.equal(chooser, 1); assert.equal(sailed, 0);
   academy.view = () => ({ stage: "lesson-complete", objective: 3 }); callback();
   assert.equal(chooser, 2); assert.equal(sailed, 0);
-  assert.ok(main.includes('"Sailing skills complete · All nine skill targets earned"'));
+  assert.ok(readFileSync(new URL("../index.html", import.meta.url), "utf8").includes('hidden>Continue</button>'));
   assert.ok(academyCode.includes('eyebrow: "Sailing skills complete"'));
 });
 
