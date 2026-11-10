@@ -216,7 +216,7 @@ test("the final rank fills completion truthfully after the Captain threshold and
   assertFinalRank();
 });
 
-test("completion blocks held Enter and Space repeats while preserving fresh activation and dialog keys", () => {
+test("completion blocks held Enter, NumpadEnter and Space repeats while preserving fresh activation and dialog keys", () => {
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   const start = main.indexOf('  window.addEventListener("keydown", (event) => {');
   const end = main.indexOf("\n  });", start);
@@ -231,7 +231,7 @@ test("completion blocks held Enter and Space repeats while preserving fresh acti
     context.event = event; runInNewContext(`${handler}(event);`, context);
     return event;
   };
-  for (const code of ["Enter", "Space"]) {
+  for (const code of ["Enter", "NumpadEnter", "Space"]) {
     assert.equal(run(code, true).defaultPrevented, true, `${code} auto-repeat cannot activate Continue`);
     assert.equal(run(code, false).defaultPrevented, false, `${code} fresh press retains native button activation`);
   }
