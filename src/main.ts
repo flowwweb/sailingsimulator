@@ -1720,6 +1720,7 @@ function updateHud(): void {
                 : state.reefLevel === 1
                   ? "Reefed flow attached"
                   : "Flow attached");
+  const statusSummary = `${flow}. ${coach}${/[.!?]$/.test(coach) ? "" : "."}`;
   const rudderDegrees = Math.round(radiansToDegrees(state.rudderAngle));
   const boomDegrees = Math.round(Math.abs(radiansToDegrees(state.boomAngle)));
   const boomSide = state.boomAngle < 0 ? "port" : "starboard";
@@ -1738,7 +1739,7 @@ function updateHud(): void {
   elements.flow.textContent = flow;
   elements.flow.dataset.state = flow.toLowerCase();
   elements.coach.textContent = coach;
-  elements.statusCue.textContent = `${flow}. ${coach}. ${elements.motion.textContent}`;
+  elements.statusCue.textContent = `${statusSummary} ${elements.motion.textContent}`;
   elements.marker.style.top = `${state.sheet * 100}%`;
   const trimTrack = required(".trim-track");
   trimTrack.style.setProperty("--sheet-position", `${state.sheet * 100}%`);
@@ -1768,7 +1769,7 @@ function updateHud(): void {
   const collisionNotice = touchCooldown > 0 && elements.status.textContent?.startsWith("Touched ")
     ? elements.status.textContent : "";
   if (!collisionNotice && elements.status.textContent?.startsWith("Touched ")) {
-    elements.status.textContent = `${flow}. ${coach}.`;
+    elements.status.textContent = statusSummary;
   }
   if (completedManeuver) {
     elements.status.textContent = state.lastManeuver === "gybe"
@@ -1777,7 +1778,7 @@ function updateHud(): void {
     lastManeuverCount = state.maneuverCount;
     lastFlow = flow;
   } else if (flow !== lastFlow && started && !dockedAt && !collisionNotice) {
-    elements.status.textContent = `${flow}. ${coach}.`;
+    elements.status.textContent = statusSummary;
     lastFlow = flow;
   }
   if (firstBuoy && !firstBuoy.failed && !firstBuoy.completed) {

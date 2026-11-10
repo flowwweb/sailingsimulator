@@ -179,4 +179,8 @@ test("the existing dummy HUD shows assessor guidance, bearing and real hold prog
   context.dummyRecovery = departing; context.state.position.x = 5; render();
   assert.equal(elements.coach.textContent, "Hoist sail to make way");
   assert.ok(elements.statusMessage.textContent.includes("Hoist"));
+  const returning = make(); travel(returning, 5, 41);
+  context.dummyRecovery = returning; context.state.position.x = 41; context.flow = "Attached";
+  elements.motion.textContent = "Heel 8°"; render();
+  assert.equal(elements.statusCue.textContent, "Attached. Return alongside the dummy. Heel 8°");
 });
