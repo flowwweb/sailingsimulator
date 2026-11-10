@@ -171,6 +171,9 @@ test("the existing dummy HUD shows assessor guidance, bearing and real hold prog
   assert.equal(required("#recover-training-dummy").hidden, true);
   assert.equal(elements.lessonInstruction.textContent, "Trim and steer back alongside.");
   assert.equal(elements.status.textContent, elements.lessonInstruction.textContent);
+  assert.equal(elements.coach.textContent, elements.lessonInstruction.textContent);
+  assert.equal(elements.statusMessage.textContent, elements.lessonInstruction.textContent);
+  assert.ok(!elements.statusCue.textContent.includes("Hoist"));
   assert.equal(session.recover(), false);
   const departing = make(); tick(departing, 5);
   context.dummyRecovery = departing; context.state.position.x = 5; render();

@@ -142,7 +142,7 @@ describe("dummy recovery", () => {
     const session = new DummyRecovery({ x: 0, z: 0 }, { halfLength: 2.2, halfBeam: 0.78 });
     tick(session, 5); travel(session, 5, 41);
     expect(session.view({ x: 41, z: 0 }).instruction).toBe("Return alongside the dummy.");
-    expect(session.view({ x: 41, z: 0 }).coaching).toBe(undefined);
+    expect(session.view({ x: 41, z: 0 }).coaching).toBe(session.view({ x: 41, z: 0 }).instruction);
     travel(session, 41, 7);
     expect(session.view({ x: 7, z: 0 }).instruction).toContain("within reach");
     tick(session, 7, 1);
@@ -193,7 +193,7 @@ describe("dummy recovery", () => {
       else if (reason === "invalid") session.update(NaN, { x: 1.8, z: 0 }, 0.4, false, 0.6, 0, 0, 0, 0);
       else travel(session, 1.8, 1.4);
       expect(session.view({ x: 1.8, z: 0 }).progress).toBe(0);
-      expect(session.view({ x: 1.8, z: 0 }).coaching).toBe(undefined);
+      expect(session.view({ x: 1.8, z: 0 }).coaching).toBe(reason === "contact" ? undefined : session.view({ x: 1.8, z: 0 }).instruction);
       expect(session.recover()).toBe(false);
       expect(session.view({ x: 1.8, z: 0 }).instruction).toBe(reason === "contact"
         ? "Attempt failed. Open status to retry." : "Trim and steer back alongside.");
