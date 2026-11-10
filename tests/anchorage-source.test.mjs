@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
 
 const url = (source) => `data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(source, { mode: "transform" })).toString("base64")}`;
 const boatsUrl = url(await readFile(new URL("../src/sim/boats.ts", import.meta.url), "utf8"));
@@ -123,7 +124,6 @@ test("anchored boat remains finite while the existing wave pose and tide evolve"
 });
 
 test("incident recovery restarts anchorage without retaining the old deployed anchor", async () => {
-  const { runInNewContext } = await import("node:vm");
   const main = await readFile(new URL("../src/main.ts", import.meta.url), "utf8");
   function extract(name) {
     const start = main.indexOf("function " + name + "(");
@@ -149,4 +149,65 @@ test("incident recovery restarts anchorage without retaining the old deployed an
   assert.equal(ctx.anchorage.anchor, undefined); assert.equal(ctx.incident, undefined);
   assert.equal(ctx.state.position.x, 1380); assert.equal(ctx.state.position.z, -180);
   assert.equal(progress.completedAnchorage, false);
+});
+
+const mainSource = await readFile(new URL("../src/main.ts", import.meta.url), "utf8");
+function mainFunction(name) {
+  const start = mainSource.indexOf(`function ${name}(`);
+  const end = mainSource.indexOf("\n}", start) + 2;
+  assert.ok(start >= 0 && end > start);
+  return stripTypeScriptTypes(mainSource.slice(start, end), { mode: "transform" });
+}
+function recoveryContext() {
+  const e = exercise(); e.stage = "recover";
+  e.anchor = { position: { x: 0, y: 2 }, rode: 40, setSeconds: 8, set: true, dragging: false, draggedDistance: 0 };
+  const calls = [];
+  const ctx = { anchorage: e, state: boat(), enabled: true, progress: {},
+    canControlBoat: () => ctx.enabled, anchorDepth: () => 7,
+    sailingRank: progress => ({ xp: progress.completedAnchorage ? 100 : 0 }),
+    persistProgress: () => calls.push("persist"), syncChartActivityList() {}, updateHud() {},
+    showCompletion: (_title, before) => calls.push(["complete", before.xp]), calls };
+  ctx.haul = runInNewContext(`${mainFunction("haulAnchor")}\nhaulAnchor`, ctx);
+  return ctx;
+}
+
+test("the shared tap and hold action keeps recovery speed, distance and unsafe guards", () => {
+  const ctx = recoveryContext();
+  ctx.enabled = false; ctx.haul();
+  assert.equal(ctx.anchorage.anchor.rode, 40);
+  ctx.enabled = true; ctx.state = { ...ctx.state, position: { x: 30, y: 0 } };
+  ctx.haul(); assert.equal(ctx.anchorage.stage, "recover");
+  assert.equal(ctx.progress.completedAnchorage, undefined);
+  ctx.state = { ...ctx.state, position: { x: 0, y: 0 }, velocity: { x: 1, y: 0 } };
+  ctx.haul(); assert.equal(ctx.anchorage.stage, "recover");
+  assert.equal(ctx.progress.completedAnchorage, undefined);
+  ctx.anchorage.observe(1 / 60, true, 7);
+  ctx.state.velocity = { x: 0, y: 0 }; ctx.haul();
+  assert.equal(ctx.anchorage.stage, "failed"); assert.ok(ctx.anchorage.anchor);
+  assert.deepEqual(ctx.calls, []);
+});
+
+test("repeated recovery callbacks award completion once and use the existing hold interruption paths", () => {
+  const ctx = recoveryContext(); ctx.haul(); ctx.haul(); ctx.haul();
+  assert.equal(ctx.anchorage.stage, "complete"); assert.equal(ctx.anchorage.anchor, undefined);
+  assert.equal(ctx.progress.completedAnchorage, true);
+  assert.deepEqual(ctx.calls, ["persist", ["complete", 0]]);
+  assert.match(mainSource, /new GameInput\(document, canControlBoat, haulAnchor\)/);
+  assert.match(mainSource, /input\.repeatAnchorHaul\(\)/);
+  for (const name of ["interruptLessonAttempt", "showCompletion"]) assert.match(mainFunction(name), /input\.releaseAll\(\)/);
+  for (const name of ["setPauseOpen", "setChartOpen", "setConditionsOpen", "returnToTitle", "beginIncident"]) assert.match(mainFunction(name), /interruptLessonAttempt\(\)/);
+});
+
+test("the existing visible rode readout shows fractional progress after a haul", () => {
+  const ctx = recoveryContext(); ctx.state.position = { x: 30, y: 0 }; ctx.haul();
+  const nodes = new Map();
+  const required = selector => {
+    if (!nodes.has(selector)) nodes.set(selector, { hidden: true, dataset: {}, style: {}, classList: { add() {}, remove() {}, toggle() {} } });
+    return nodes.get(selector);
+  };
+  Object.assign(ctx, { required, elements: Object.fromEntries(["gameShell", "lessonCard", "lessonEyebrow", "lessonTitle", "lessonInstruction", "lessonProgress", "lessonSkip"].map(name => [name, required(name)])) });
+  runInNewContext(`${mainFunction("updateLesson")}\nupdateLesson();`, ctx);
+  assert.equal(required("#status-lesson-progress").hidden, false);
+  assert.match(required("#status-lesson-progress").textContent, /Rode 35\.0 m/);
+  assert.equal(required("#anchor-haul").hidden, false);
 });

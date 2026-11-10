@@ -1,6 +1,6 @@
 import type { Controls } from "../sim/model";
 
-type ControlName = "port" | "starboard" | "ease" | "sheet";
+type ControlName = "port" | "starboard" | "ease" | "sheet" | "anchor-haul";
 
 export class GameInput {
   private readonly active = new Set<ControlName>();
@@ -15,9 +15,14 @@ export class GameInput {
   private sheetTarget: number | undefined;
   private steering: { pointerId: number; startX: number; travel: number } | undefined;
   private dragRudder = 0;
+  private nextAnchorHaul: number | undefined;
   private readonly canvas: HTMLCanvasElement | null;
 
-  constructor(root: ParentNode = document, private readonly canControl: () => boolean = () => true) {
+  constructor(
+    root: ParentNode = document,
+    private readonly canControl: () => boolean = () => true,
+    private readonly haulAnchor?: () => void,
+  ) {
     window.addEventListener("keydown", this.onKeyDown, { passive: false });
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("blur", this.clear);
@@ -39,6 +44,7 @@ export class GameInput {
         event.preventDefault();
         this.active.delete(control);
         this.clickControls.delete(control);
+        if (control === "anchor-haul") this.nextAnchorHaul = undefined;
       };
       element.addEventListener("pointerdown", (event) => {
         if (!this.canControl() || document.hidden) return;
@@ -46,19 +52,23 @@ export class GameInput {
         element.setPointerCapture(event.pointerId);
         this.clickControls.delete(control);
         this.active.add(control);
+        if (control === "anchor-haul") this.startAnchorHaul();
       });
       element.addEventListener("pointerup", release);
       element.addEventListener("pointercancel", release);
       element.addEventListener("lostpointercapture", release);
       element.addEventListener("blur", () => {
+        this.active.delete(control);
         for (const [key, held] of this.buttonKeys) if (held === control) this.buttonKeys.delete(key);
         this.clickControls.delete(control);
+        if (control === "anchor-haul") this.nextAnchorHaul = undefined;
       });
       element.addEventListener("click", (event) => {
         if (!this.canControl() || document.hidden) return;
         // Native/AT activation has no hold/release pair; use a bounded press.
         if (event.detail === 0 && !this.active.has(control) && ![...this.buttonKeys.values()].includes(control)) {
-          this.clickControls.set(control, { until: performance.now() + 250, pending: true });
+          if (control === "anchor-haul") this.haulAnchor?.();
+          else this.clickControls.set(control, { until: performance.now() + 250, pending: true });
         }
       });
       element.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -126,6 +136,19 @@ export class GameInput {
     return this.consume("sailsRequested");
   }
 
+  repeatAnchorHaul(): void {
+    if (!this.canControl() || document.hidden) { this.clear(); return; }
+    const held = this.active.has("anchor-haul") || [...this.buttonKeys.values()].includes("anchor-haul");
+    if (!held || this.nextAnchorHaul === undefined || performance.now() < this.nextAnchorHaul) return;
+    // Match the existing exercise cadence without catching up missed frames in a burst.
+    this.startAnchorHaul();
+  }
+
+  private startAnchorHaul(): void {
+    this.nextAnchorHaul = performance.now() + 2_000;
+    this.haulAnchor?.();
+  }
+
   destroy(): void {
     this.clear();
     window.removeEventListener("keydown", this.onKeyDown);
@@ -189,8 +212,12 @@ export class GameInput {
     if (!this.canControl() && !["KeyM", "KeyC"].includes(event.code)) return;
     const control = event.target instanceof HTMLButtonElement ? event.target.dataset.control as ControlName | undefined : undefined;
     if (control && ["Space", "Enter"].includes(event.code)) {
+      if (document.hidden) return;
       event.preventDefault();
-      if (!event.repeat) this.buttonKeys.set(event.code, control);
+      if (!event.repeat) {
+        this.buttonKeys.set(event.code, control);
+        if (control === "anchor-haul") this.startAnchorHaul();
+      }
       return;
     }
     if (event.target instanceof HTMLButtonElement && ["Space", "Enter"].includes(event.code)) return;
@@ -209,6 +236,7 @@ export class GameInput {
   private readonly onKeyUp = (event: KeyboardEvent): void => {
     const control = event.target instanceof HTMLButtonElement && event.target.dataset.control;
     if (this.buttonKeys.has(event.code) || (control && ["Space", "Enter"].includes(event.code))) event.preventDefault();
+    if (this.buttonKeys.get(event.code) === "anchor-haul") this.nextAnchorHaul = undefined;
     this.buttonKeys.delete(event.code);
     this.keys.delete(event.code);
   };
@@ -220,5 +248,6 @@ export class GameInput {
     this.keys.clear();
     this.buttonKeys.clear();
     this.clickControls.clear();
+    this.nextAnchorHaul = undefined;
   };
 }

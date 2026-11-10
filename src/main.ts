@@ -228,7 +228,7 @@ const performanceStats = new URLSearchParams(location.search).get("stats") === "
       return stats;
     })()
   : undefined;
-const input = new GameInput(document, canControlBoat);
+const input = new GameInput(document, canControlBoat, haulAnchor);
 for (const button of [elements.reefSail, elements.toggleSails]) button.addEventListener("click", () => {
   elements.sailActions.open = false;
   elements.sailActions.querySelector("summary")?.focus();
@@ -560,20 +560,6 @@ function bindInterface(): void {
   required<HTMLButtonElement>("#anchor-payout").addEventListener("click", () => {
     if (!anchorage?.anchor || !canControlBoat()) return;
     anchorage.payOut(anchorDepth(anchorage.anchor.position.x, anchorage.anchor.position.y));
-    updateHud();
-  });
-  required<HTMLButtonElement>("#anchor-haul").addEventListener("click", () => {
-    if (!anchorage?.anchor || !canControlBoat()) return;
-    const d = anchorDepth(anchorage.anchor.position.x, anchorage.anchor.position.y);
-    const before = sailingRank(progress);
-    if (anchorage.haul(state, d) && anchorage.stage === "complete") {
-      progress.completedAnchorage = true;
-      persistProgress();
-      syncChartActivityList();
-      updateHud();
-      showCompletion("Anchorage practice", before);
-      return;
-    }
     updateHud();
   });
   const lessonChoices = [...document.querySelectorAll<HTMLButtonElement>(".lesson-choice")];
@@ -1196,6 +1182,7 @@ function loop(now: number): void {
   if (!simulationPaused && input.consumeReset()) resetBoat();
   if (input.consumeReef() && canHandleSails(simulationPaused)) toggleReef();
   if (input.consumeSails() && canHandleSails(simulationPaused)) toggleSails();
+  input.repeatAnchorHaul();
   accumulator = simulationPaused || !started
     ? 0
     : Math.min(
@@ -1963,7 +1950,7 @@ function updateLesson(): void {
     const anchor = anchorage.anchor;
     const d = anchor ? anchorDepth(anchor.position.x, anchor.position.y) : anchorDepth(state.position.x, state.position.y);
     const scope = anchor ? anchor.rode / Math.max(0.1, d + 0.6) : 0;
-    const details = anchor ? `Depth ${d.toFixed(1)} m · Rode ${anchor.rode.toFixed(0)} m · Scope ${scope.toFixed(1)}:1` : `Depth ${d.toFixed(1)} m`;
+    const details = anchor ? `Depth ${d.toFixed(1)} m · Rode ${anchor.rode.toFixed(1)} m · Scope ${scope.toFixed(1)}:1` : `Depth ${d.toFixed(1)} m`;
     const instruction = `${anchorage.message} ${details}`;
     elements.gameShell.classList.add("is-learning");
     elements.gameShell.dataset.academyStage = `anchorage-${anchorage.stage}`;
@@ -2140,6 +2127,21 @@ function updateLesson(): void {
   elements.lessonCard.classList.toggle("is-complete", complete);
   const shouldMinimize = complete && simulationTime - lessonCompletedAt > 7;
   elements.lessonCard.classList.toggle("is-minimized", shouldMinimize);
+}
+
+function haulAnchor(): void {
+  if (!anchorage?.anchor || !canControlBoat() || ["failed", "complete"].includes(anchorage.stage)) return;
+  const d = anchorDepth(anchorage.anchor.position.x, anchorage.anchor.position.y);
+  const before = sailingRank(progress);
+  if (anchorage.haul(state, d) && anchorage.stage === "complete") {
+    progress.completedAnchorage = true;
+    persistProgress();
+    syncChartActivityList();
+    updateHud();
+    showCompletion("Anchorage practice", before);
+    return;
+  }
+  updateHud();
 }
 
 function interruptLessonAttempt(): void {

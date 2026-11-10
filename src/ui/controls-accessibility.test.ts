@@ -143,6 +143,69 @@ const key = (type: string, button: Element, code: string, repeat = false) => {
 };
 const neutral = { rudder: 0, sheetRate: 0 };
 
+describe("anchor recovery hold", () => {
+  let button: Button, hauls: number[], enabled: boolean;
+  const setup = () => {
+    const root = new Root(); button = new Button(); button.dataset.control = "anchor-haul";
+    root.elements = [button]; hauls = []; enabled = true;
+    input = new GameInput(root as unknown as ParentNode, () => enabled, () => hauls.push(clock));
+  };
+
+  it("hauls once on a quick pointer tap without a second haul on click or capture loss", () => {
+    setup(); button.dispatchEvent(event("pointerdown", { pointerId: 1 }));
+    button.dispatchEvent(event("pointerup")); button.dispatchEvent(event("lostpointercapture"));
+    button.dispatchEvent(event("click", { detail: 1 }));
+    clock = 10_000; input!.repeatAnchorHaul();
+    expect(hauls).toEqual([0]); expect(input!.read()).toEqual(neutral);
+  });
+  it("repeats the same haul every two seconds without catching up a stalled frame", () => {
+    setup(); button.dispatchEvent(event("pointerdown", { pointerId: 1 }));
+    clock = 1_999; input!.repeatAnchorHaul(); expect(hauls).toEqual([0]);
+    clock = 2_000; input!.repeatAnchorHaul(); expect(hauls).toEqual([0, 2_000]);
+    clock = 12_000; input!.repeatAnchorHaul(); input!.repeatAnchorHaul();
+    expect(hauls).toEqual([0, 2_000, 12_000]);
+    expect(input!.read()).toEqual(neutral);
+  });
+  for (const code of ["Enter", "Space"]) it(`holds with ${code} without native key-repeat or fast-forward`, () => {
+    setup(); expect(key("keydown", button, code).defaultPrevented).toBe(true);
+    clock = 500; key("keydown", button, code, true); expect(hauls).toEqual([0]);
+    clock = 2_000; input!.repeatAnchorHaul(); expect(hauls).toEqual([0, 2_000]);
+    expect(input!.isFastForwarding()).toBe(false);
+    expect(key("keyup", button, code).defaultPrevented).toBe(true);
+    clock = 4_000; input!.repeatAnchorHaul(); key("keydown", button, code, true); input!.repeatAnchorHaul();
+    expect(hauls).toEqual([0, 2_000]);
+  });
+  for (const reason of ["pointerup", "pointercancel", "lostpointercapture", "button-blur", "window-blur", "hidden", "releaseAll", "modal", "destroy"]) it(`stops a held haul on ${reason} without stale rearming`, () => {
+    setup(); button.dispatchEvent(event("pointerdown", { pointerId: 1 }));
+    if (reason === "window-blur") win.dispatchEvent(event("blur"));
+    else if (reason === "hidden") { doc.hidden = true; doc.dispatchEvent(event("visibilitychange")); doc.hidden = false; }
+    else if (reason === "releaseAll") input!.releaseAll();
+    else if (reason === "modal") { enabled = false; input!.repeatAnchorHaul(); enabled = true; }
+    else if (reason === "destroy") input!.destroy();
+    else button.dispatchEvent(event(reason === "button-blur" ? "blur" : reason));
+    clock = 10_000; input!.repeatAnchorHaul(); input!.repeatAnchorHaul();
+    expect(hauls).toEqual([0]);
+  });
+  it("clears keyboard holds on button blur and permits a fresh press", () => {
+    setup(); key("keydown", button, "Enter"); button.dispatchEvent(event("blur"));
+    clock = 2_000; input!.repeatAnchorHaul(); key("keydown", button, "Enter", true);
+    expect(hauls).toEqual([0]);
+    key("keyup", button, "Enter"); key("keydown", button, "Enter");
+    expect(hauls).toEqual([0, 2_000]);
+  });
+  it("keeps native or assistive activation to one haul and rejects hidden or paused starts", () => {
+    setup(); button.dispatchEvent(event("click", { detail: 0 }));
+    clock = 10_000; input!.repeatAnchorHaul(); expect(hauls).toEqual([0]);
+    for (const hidden of [false, true]) {
+      enabled = hidden; doc.hidden = hidden;
+      button.dispatchEvent(event("pointerdown", { pointerId: 1 }));
+      key("keydown", button, "Space"); button.dispatchEvent(event("click", { detail: 0 }));
+      input!.repeatAnchorHaul();
+    }
+    expect(hauls).toEqual([0]);
+  });
+});
+
 describe("shared Settings focus wrap", () => {
   it("leaves Start-to-summary navigation native and wraps after the trailing disclosure", () => {
     const root = new Root(), back = new Button(), start = new Button();
