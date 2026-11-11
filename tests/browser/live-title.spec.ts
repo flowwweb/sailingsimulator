@@ -58,11 +58,11 @@ test("portrait pauses the active lesson and landscape resumes it", async ({ page
   await expect(page.locator(".orientation-hint")).toHaveText("Rotate to landscape to continue");
   await expect.poll(() => page.locator(".game-shell").evaluate(element => element.inert)).toBe(true);
   const time = await page.locator(".game-shell").getAttribute("data-simulation-time");
-  const saved = await page.evaluate(() => localStorage.getItem("fair-winds-progress-v1"));
+  const saved = await page.evaluate(() => localStorage.getItem("fair-winds-progress-v2"));
   await page.keyboard.down("ArrowRight");
   await page.waitForTimeout(800);
   await expect(page.locator(".game-shell")).toHaveAttribute("data-simulation-time", time!);
-  expect(await page.evaluate(() => localStorage.getItem("fair-winds-progress-v1"))).toBe(saved);
+  expect(await page.evaluate(() => localStorage.getItem("fair-winds-progress-v2"))).toBe(saved);
   await page.screenshot({ path: resolve(evidence, "portrait-paused.png") });
   await page.keyboard.up("ArrowRight");
   await page.setViewportSize({ width:844, height:390 });

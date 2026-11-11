@@ -43,7 +43,7 @@ async function snapshot(page: any) {
       sheet: document.querySelector<HTMLInputElement>("#hud-sheet")!.value,
       sailTime: sail.material.uniforms.uTime.value, luff: sail.material.uniforms.uLuff.value, stall: sail.material.uniforms.uStall.value,
       waveTime: water.material.uniforms.uTime.value, tide: water.position.y,
-      progress: localStorage.getItem("fair-winds-progress-v1") };
+      progress: localStorage.getItem("fair-winds-progress-v2") };
   });
 }
 

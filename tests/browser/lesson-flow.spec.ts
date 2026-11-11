@@ -62,7 +62,7 @@ for (const lesson of [0,1,2]) test(`lesson ${lesson + 1}: three real-control tar
       if (earned.stage!=="lesson-complete" && process.env.LESSON_CONTINUOUS !== "1") await page.getByRole("button",{name:"Continue lesson",exact:true}).click();
     }
     expect((await read(page)).stage).toBe("lesson-complete");
-    const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem("fair-winds-progress-v1")!));
+    const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem("fair-winds-progress-v2")!));
     expect(saved.completedLessons).toEqual([lesson]); expect(saved.academyCompleted).toBe(false);
     await page.getByRole("button",{name:"Free sail",exact:true}).click();
     await page.keyboard.down("KeyD"); await page.waitForTimeout(1000); await release(page);

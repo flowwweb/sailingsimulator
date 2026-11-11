@@ -14,6 +14,44 @@ const exercise = () => new AnchorageExercise({ x: 0, y: 0 }, { halfLength: 2, dr
 const boat = () => ({ ...model.createInitialState(), position: { x: 0, y: 0 }, velocity: { x: 0, y: 0 }, heading: 0 });
 const depth = () => 4.4;
 
+test("Anchorage starts use identical fixed lesson weather and preserve the stored free-sail preferences", async () => {
+  const main = await readFile(new URL("../src/main.ts", import.meta.url), "utf8");
+  const weatherTypes = stripTypeScriptTypes(await readFile(new URL("../src/weather/types.ts", import.meta.url), "utf8"), { mode: "strip" }).replace(/^export /gm, "");
+  const lessonSession = await readFile(new URL("../src/game/lesson-session.ts", import.meta.url), "utf8");
+  const lessonStart = lessonSession.indexOf("export function createLessonWeather(");
+  const lessonEnd = lessonSession.indexOf("\n}", lessonStart) + 2;
+  const lessonWeather = stripTypeScriptTypes(lessonSession.slice(lessonStart, lessonEnd), { mode: "strip" }).replace(/^export /gm, "");
+  const start = main.indexOf("function startAnchorage(");
+  const end = main.indexOf("\n}", start) + 2;
+  const startAnchorage = stripTypeScriptTypes(main.slice(start, end), { mode: "strip" });
+  const stored = { wind: { speed: 10.5, directionFromDegrees: 260, gustStrength: .35 }, tide: { range: 3 } };
+  const before = JSON.stringify(stored);
+  const trace = [];
+  const ctx = { FIRST_BUOY: { seed: 24001 }, FAIR_WINDS_WORLD: { activities: [{ id: "anchorage-practice", x: 1400, z: -200 }] },
+    activeBoat: { collision: { halfLength: 2 }, hull: { draft: .82 } }, AnchorageExercise,
+    weatherConfig: stored, weather: {}, simulationTime: 400, accumulator: 1, state: {}, previousState: {}, activitySession: {}, activityView: {},
+    weatherSystem: { setConfig(config) { ctx.applied = config; trace.push("config"); }, sample(time) { trace.push(`sample:${time}`); return { trueWind: { x: -ctx.applied.wind.speed, y: 0 } }; } },
+    createLessonState: (_objective, wind, spawn) => { trace.push("spawn"); assert.equal(wind.x, -6); return { position: spawn }; },
+    computeSailAerodynamics: () => ({}), computeHeadsailAerodynamics: () => ({}), clearDocking() {}, clearIncident() {}, syncWeatherControls() {},
+    world: { resetWake() {}, resetCamera() {} }, elements: { status: {} },
+    saveStoredValue() { throw new Error("Lesson conditions must not replace free-sail preferences"); } };
+  runInNewContext(`${weatherTypes}\n${lessonWeather}\n${startAnchorage}`, ctx);
+  for (const incomingSpeed of [10.5, 6, 3]) {
+    ctx.weatherConfig = { ...stored, wind: { ...stored.wind, speed: incomingSpeed } };
+    ctx.simulationTime = 400;
+    trace.length = 0;
+    runInNewContext("startAnchorage(true);", ctx);
+    assert.deepEqual([ctx.weatherConfig.wind.speed, ctx.weatherConfig.wind.directionFromDegrees, ctx.weatherConfig.wind.gustStrength, ctx.weatherConfig.seed], [6, 90, 0, 24001]);
+    assert.equal(ctx.simulationTime, 0);
+    assert.equal(ctx.accumulator, 0);
+    assert.deepEqual(trace, ["config", "sample:0", "spawn"]);
+  }
+  assert.equal(JSON.stringify(stored), before);
+  assert.match(main, /next === "anchorage"\) selectChartActivity\("anchorage-practice"\)/);
+  assert.match(main, /button.id === "start-anchorage"[^\n]+selectChartActivity\("anchorage-practice"\)/);
+  assert.match(main, /activity\?\.id === "anchorage-practice"\) \{\s*academy.skip\(\);\s*startAnchorage\(true\)/);
+});
+
 test("only drops from the bow in the practice area with safe speed, depth and swing samples", () => {
   const e = exercise(), b = boat();
   assert.equal(e.drop({ ...b, position: { x: 100, y: 0 } }, depth, () => true), false);
@@ -140,6 +178,9 @@ test("incident recovery restarts anchorage without retaining the old deployed an
     FAIR_WINDS_WORLD: { activities: [{ id: "anchorage-practice", x: 1400, z: -200 }] },
     activeBoat: { collision: { halfLength: 2 }, hull: { draft: 0.82 } }, AnchorageExercise,
     state: anchored, previousState: anchored, weather: { trueWind: {} }, incident: { kind: "grounding" },
+    FIRST_BUOY: { seed: 24001 }, createLessonWeather: () => ({ wind: { speed: 6, directionFromDegrees: 90, gustStrength: 0 } }),
+    weatherConfig: {}, simulationTime: 0, accumulator: 0,
+    weatherSystem: { setConfig() {}, sample: () => ({ trueWind: {} }) }, syncWeatherControls() {},
     createLessonState: (_lesson, _wind, start) => ({ position: start }),
     computeSailAerodynamics: () => ({}), computeHeadsailAerodynamics: () => ({}),
     interruptLessonAttempt() {}, clearDocking() {}, clearIncident() { ctx.incident = undefined; },

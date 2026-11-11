@@ -35,7 +35,7 @@ export default defineConfig({
     {
       name: "mobile-chrome",
       use: {
-        viewport: { width: 390, height: 844 },
+        viewport: { width: 844, height: 390 },
         isMobile: true,
         hasTouch: true,
         deviceScaleFactor: 1,

@@ -41,8 +41,10 @@ import { courseMetrics } from "./game/course-navigation";
 import { LakeChart } from "./game/minimap";
 import {
   PROGRESS_STORAGE_KEY,
+  LEGACY_PROGRESS_STORAGE_KEY,
   createProgress,
   parseProgress,
+  mergeProgress,
   recordActivityCompletion,
   recordAcademyObjective,
   recordFirstBuoyCompletion,
@@ -298,9 +300,8 @@ let touchCooldown = 0;
 let dockedAt: WorldObject | undefined;
 let departingDock: WorldObject | undefined;
 let dockedControls: Controls = { rudder: 0, sheetRate: 0 };
-let progress: SailingProgress = parseProgress(
-  loadStoredValue(PROGRESS_STORAGE_KEY),
-);
+let progress: SailingProgress = loadSavedProgress();
+let pendingProgressReset = false;
 let activitySession: ActivitySession | undefined;
 let activityView: ActivityView | undefined;
 let progressDistanceSinceSave = 0;
@@ -437,6 +438,13 @@ function bindInterface(): void {
   });
   required("#status-close").addEventListener("click", () => setStatusOpen(false));
   window.addEventListener("pagehide", persistProgress);
+  window.addEventListener("storage", (event) => {
+    if (event.key !== PROGRESS_STORAGE_KEY && event.key !== null) return;
+    if (!refreshSavedProgress()) return;
+    if (started) syncTitleRank();
+    else syncTitleState();
+    syncChartActivityList();
+  });
   window.addEventListener("blur", interruptLessonAttempt);
   document.addEventListener("visibilitychange", interruptLessonAttempt);
   document.addEventListener("visibilitychange", handleRadioVisibilityChange);
@@ -531,7 +539,7 @@ function bindInterface(): void {
     openLessonChooser(elements.newJourney);
   });
   elements.continueLesson.addEventListener("click", () => {
-    if (progress.activeIntroduction === FIRST_BUOY.id) { startFirstBuoy(); return; }
+    if (progress.activeIntroduction === FIRST_BUOY.id || progress.completedIntroductions?.[FIRST_COURSE_ID] !== 1) { startFirstBuoy(); return; }
     if (academy.view().objective === 3 || academy.view().stage === "complete") { openLessonChooser(elements.continueLesson); return; }
     beginSailing(false);
     activitySession = undefined;
@@ -690,21 +698,15 @@ function bindInterface(): void {
     )) elements.status.textContent = "This setting applies for this session. Browser storage is unavailable.";
   });
   elements.settingsResetLogbook.addEventListener("click", () => {
-    if (!window.confirm("Reset your local logbook? Saved activity records will be cleared.")) return;
-    progress = createProgress();
-    stopDummyRecovery();
-    firstBuoy = undefined;
-    activitySession = undefined;
-    activityView = undefined;
-    academy.reset({
-      tackCount: state.tackCount,
-      gybeCount: state.gybeCount,
-    });
-    persistProgress();
-    syncTitleRank();
-    syncChartActivityList();
-    updateLesson();
-    elements.status.textContent = "Local logbook reset. Academy coaching is ready.";
+    if (!window.confirm("Reset all local progress? Your rank, XP, completed lessons and activity records will be cleared.")) return;
+    pendingProgressReset = true;
+    applyProgressReset({ ...createProgress(), resetId: crypto.randomUUID() });
+    if (pendingProgressReset) {
+      setConditionsOpen(true);
+      settingsTabs.select("controls");
+      elements.settingsLogbookSummary.textContent = "Reset applies for this session. Browser storage is unavailable; the reset has not been saved yet.";
+      elements.settingsResetLogbook.focus();
+    }
   });
   settingsTabs = bindTabList(elements.conditionsPanel);
   buildChartActivityList();
@@ -763,12 +765,12 @@ function syncTitleState(): void {
   const returning = progress.voyages > 0;
   const titleConfig = createTitleWeatherConfig();
   titleConfig.timeOfDay = 14.7;
-  titleConfig.wind.directionFromDegrees = 65;
+  titleConfig.wind.directionFromDegrees = 45;
   titleWeatherSystem.setConfig(titleConfig);
   titleWeather = titleWeatherSystem.sample(0);
   titleState.position.x = 991;
   titleState.position.y = -236;
-  titleState.heading = degrees(130);
+  titleState.heading = degrees(110);
   titleState.boomAngle = degrees(25);
   titleState.sheet = sheetForBoomAngle(titleState.boomAngle);
   refreshTitleDiagnostics();
@@ -824,8 +826,9 @@ function setRadioOpen(open: boolean, restoreFocus = true): void {
   else if (restoreFocus && started) required("#radio-toggle").focus();
 }
 
-function showRadioSubtitle(message: string, audioDuration = 0): void {
+function showRadioSubtitle(message: string, audioDuration = 0, channel = harborRadio.channel): void {
   const subtitle = required("#radio-subtitle");
+  required("#radio-subtitle-channel").textContent = `VHF ${channel}`;
   required("#radio-subtitle-text").textContent = message;
   subtitle.hidden = false;
   radioSubtitleSeconds = Math.max(4, message.length / 15, audioDuration);
@@ -910,7 +913,7 @@ function beginSailing(newJourney: boolean): void {
   void startTitleAudio();
   if (newJourney || !voyageCounted) {
     progress = { ...progress, voyages: progress.voyages + 1 };
-    persistProgress();
+    if (!persistProgress()) return;
     voyageCounted = true;
   }
   if (newJourney) {
@@ -1147,7 +1150,7 @@ function enableDevelopmentPreview(): void {
 
 function loop(now: number): void {
   const callbackStart = performanceStats ? performance.now() : 0;
-  let renderSample: { cpuMs: number; calls: number; triangles: number; mode: "title" | "sailing" } | undefined;
+  let renderSample: { cpuMs: number; calls: number; triangles: number; mode: "title" | "sailing" | "paused" } | undefined;
   let titleCopyMs = 0;
   const elapsed = Math.max((now - previousFrame) / 1_000, 0);
   const droppedFrame = elapsed > fixedStep * 5;
@@ -1204,7 +1207,7 @@ function loop(now: number): void {
       if (!incident && firstBuoy && !firstBuoy.completed && !firstBuoy.failed && radioNotices.update(fixedStep, true, harborRadio.awaiting || !required("#radio-panel").hidden || radioSubtitleSeconds > 0)) {
         audio.playRadioSquelch();
         const duration = audio.playRadioNotice();
-        showRadioSubtitle("Sécurité, sécurité, sécurité. All stations, all stations, all stations. This is Juniper Coast Radio. Small sailing craft are exercising around the Juniper training buoys. Keep a lookout. Out.", duration);
+        showRadioSubtitle("Sécurité, sécurité, sécurité. All stations, all stations, all stations. This is Juniper Coast Radio. Small sailing craft are exercising around the Juniper training buoys. Keep a lookout. Out.", duration, 16);
       }
       if (radioSubtitleSeconds > 0) {
         radioSubtitleSeconds = Math.max(0, radioSubtitleSeconds - fixedStep);
@@ -1453,7 +1456,8 @@ function loop(now: number): void {
       world.setWorldObjectVisible(mark.id, !firstBuoy || mark.id === firstBuoy.activeCourse()?.id);
     }
     if (performanceStats) world.renderer.info.reset();
-    if (performanceStats && !document.hidden) performanceStats.beginGpuRender(started ? "sailing" : "title");
+    const renderMode = !started ? "title" : simulationPaused ? "paused" : "sailing";
+    if (performanceStats && !document.hidden) performanceStats.beginGpuRender(renderMode);
     const renderStart = performanceStats ? performance.now() : 0;
     try {
       world.render(
@@ -1473,7 +1477,7 @@ function loop(now: number): void {
     }
     if (performanceStats && !document.hidden) {
       const { calls, triangles } = world.renderer.info.render;
-      renderSample = { cpuMs: performance.now() - renderStart, calls, triangles, mode: started ? "sailing" : "title" };
+      renderSample = { cpuMs: performance.now() - renderStart, calls, triangles, mode: renderMode };
     }
     if (!started && titleFrameContext) {
       const copyStart = performanceStats ? performance.now() : 0;
@@ -2291,6 +2295,13 @@ function anchorSwingClear(x: number, y: number, radius: number): boolean {
 function startAnchorage(retry = false): void {
   const activity = FAIR_WINDS_WORLD.activities.find((item) => item.id === "anchorage-practice");
   if (!activity) return;
+  weatherConfig = createLessonWeather();
+  weatherConfig.seed = FIRST_BUOY.seed;
+  weatherSystem.setConfig(weatherConfig);
+  simulationTime = 0;
+  accumulator = 0;
+  weather = weatherSystem.sample(0);
+  syncWeatherControls();
   anchorage = new AnchorageExercise({ x: activity.x, y: activity.z }, { halfLength: activeBoat.collision.halfLength, draft: activeBoat.hull.draft });
   activitySession = undefined;
   activityView = undefined;
@@ -2364,7 +2375,7 @@ function updateActivitySession(dt: number, unsafe = false): void {
       activitySession.activity.id,
       activityView.score,
     );
-    persistProgress();
+    if (!persistProgress()) return;
     syncChartActivityList();
     lessonCompletedAt = simulationTime;
     elements.status.textContent =
@@ -2372,9 +2383,56 @@ function updateActivitySession(dt: number, unsafe = false): void {
   }
 }
 
-function persistProgress(): void {
+function loadSavedProgress(): SailingProgress {
+  const current = loadStoredValue(PROGRESS_STORAGE_KEY);
+  if (current === undefined) return createProgress();
+  if (current !== null) return parseProgress(current);
+  const legacy = loadStoredValue(LEGACY_PROGRESS_STORAGE_KEY);
+  if (legacy === undefined) return createProgress();
+  const migrated = parseProgress(legacy);
+  saveStoredValue(PROGRESS_STORAGE_KEY, JSON.stringify(migrated));
+  return migrated;
+}
+
+function refreshSavedProgress(): boolean | undefined {
+  if (pendingProgressReset) return true;
+  const raw = loadStoredValue(PROGRESS_STORAGE_KEY);
+  if (raw === undefined) return undefined;
+  const saved = parseProgress(raw);
+  if (saved.resetId !== progress.resetId) {
+    applyProgressReset(saved);
+    return false;
+  }
+  progress = mergeProgress(progress, saved);
+  return true;
+}
+
+function applyProgressReset(saved: SailingProgress): void {
+  progress = saved;
+  closeCompletion();
+  stopDummyRecovery();
+  firstBuoy = undefined;
+  activitySession = undefined;
+  activityView = undefined;
+  academy.reset({ tackCount: state.tackCount, gybeCount: state.gybeCount });
+  restoreLesson(academy, progress);
+  voyageCounted = false;
+  progressDistanceSinceSave = 0;
+  returnToTitle();
+  syncChartActivityList();
+  updateLesson();
+  titleMenuItems()[0]?.focus({ preventScroll: true });
+  elements.status.textContent = "Local progress reset. Start a new sailing journey.";
+}
+
+function persistProgress(): boolean {
+  const refreshed = refreshSavedProgress();
+  if (refreshed === false) return false;
   progress = checkpointLesson(progress, academy);
-  saveStoredValue(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+  if (refreshed === undefined) return true;
+  const saved = saveStoredValue(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+  if (saved) pendingProgressReset = false;
+  return true;
 }
 
 function updateDestination(): void {
@@ -2603,6 +2661,7 @@ function isNonStatusSimulationPaused(): boolean {
 }
 
 function renderCompletionProgress(frame: ReturnType<typeof sailingRank>): void {
+  if (completionRevealing) required<HTMLImageElement>("#completion-rank-badge").src = `/brand/ranks/${frame.rank.toLowerCase().replace(/ /g, "-")}.png`;
   const number = required("#completion-level-number");
   const rank = required("#completion-rank");
   const levelText = `Level ${frame.level}`;
@@ -2625,6 +2684,7 @@ function setCompletionSemanticProgress(frame: ReturnType<typeof sailingRank>): v
 }
 
 function showCompletion(title: string, before: ReturnType<typeof sailingRank>): void {
+  if (!started) return;
   setRadioOpen(false, false);
   const after = sailingRank(progress);
   const earned = after.xp - before.xp;
@@ -2641,6 +2701,7 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
   setCompletionSemanticProgress(completionPendingRank ? threshold : after);
   completionRevealing = false;
   required("#completion-screen").dataset.stage = "complete";
+  required("#completion-screen").dataset.animating = "false";
   required("#completion-title").hidden = false;
   required("#completion-reward").hidden = false;
   required(".completion-content").setAttribute("aria-describedby", "completion-reward");
@@ -2665,13 +2726,16 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
       ? { ...after, done: true }
       : completionProgressFrame(before.xp, after.xp, now - startedAt);
     const reachedRank = Boolean(completionPendingRank && frame.level > before.level);
+    required("#completion-screen").dataset.animating = String(!frame.done && !reachedRank && frame.levelXp < 100);
     renderCompletionProgress(reachedRank ? threshold : frame);
     completionAnimationFrame = frame.done || reachedRank ? undefined : requestAnimationFrame(animate);
   };
+  required("#completion-screen").dataset.animating = "true";
   completionAnimationFrame = requestAnimationFrame(animate);
 }
 
 function advanceCompletion(): void {
+  required("#completion-screen").dataset.animating = "false";
   if (!completionPendingRank) {
     const next = completionNextLesson;
     closeCompletion();
@@ -2701,6 +2765,7 @@ function advanceCompletion(): void {
 }
 
 function closeCompletion(): void {
+  required("#completion-screen").dataset.animating = "false";
   if (completionAnimationFrame !== undefined) cancelAnimationFrame(completionAnimationFrame);
   completionAnimationFrame = undefined;
   completionPendingRank = undefined;
@@ -3005,7 +3070,7 @@ function applyWeatherConfig(sync: boolean, source: "control" | "preset" = "contr
     activityView = undefined;
     elements.status.textContent = "Conditions changed. Select Forecast change to try again.";
   }
-  if (crossing) { stopDummyRecovery(); elements.status.textContent = "Conditions changed. Choose the exercise to try again."; }
+  if (crossing || anchorage) { stopDummyRecovery(); elements.status.textContent = "Conditions changed. Choose the exercise to try again."; }
   if (dummyRecovery) {
     stopDummyRecovery();
     elements.status.textContent = "Conditions changed. Choose the exercise to try again.";
@@ -3093,20 +3158,22 @@ function updateRangeFill(input: HTMLInputElement): void {
   input.style.setProperty("--range-fill", `${max > min ? 100 * (Number(input.value) - min) / (max - min) : 0}%`);
 }
 
-function loadStoredValue(key: string): string | null {
+function loadStoredValue(key: string): string | null | undefined {
   try {
     return localStorage.getItem(key);
   } catch {
     storageUnavailable = true;
-    return null;
+    return undefined;
   }
 }
 
-function saveStoredValue(key: string, value: string): void {
+function saveStoredValue(key: string, value: string): boolean {
   try {
     localStorage.setItem(key, value);
+    return true;
   } catch {
     storageUnavailable = true;
+    return false;
   }
 }
 

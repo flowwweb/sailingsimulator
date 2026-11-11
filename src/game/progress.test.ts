@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createProgress,
   parseProgress,
+  mergeProgress,
   recordActivityCompletion,
   recordAcademyObjective,
   nextLessonObjective,
@@ -11,6 +12,30 @@ import {
 import { FIRST_BUOY, FIRST_COURSE_ID } from "./first-buoy";
 
 describe("sailing progress", () => {
+  it("keeps newer saved credits when an older tab writes its checkpoint", () => {
+    const stale = recordFirstBuoyCompletion({ ...createProgress(), voyages: 1, distanceSailed: 50 });
+    const saved = parseProgress(JSON.stringify({ ...stale, completedObjectives: [3, 4, 5, 6, 7, 8],
+      completedCrossing: true, completedDummyRecovery: true, completedAnchorage: true, voyages: 8, distanceSailed: 1200 }));
+    const merged = mergeProgress({ ...stale, academyObjective: 0 }, saved);
+    expect(sailingRank(merged).xp).toBe(600);
+    expect(merged).toMatchObject({ academyObjective: 0, voyages: 8, distanceSailed: 1200 });
+    expect(mergeProgress(merged, saved)).toEqual(merged);
+  });
+  it("adopts an explicit reset instead of resurrecting credits from a stale generation", () => {
+    const stale = recordFirstBuoyCompletion({ ...createProgress(), completedObjectives: [3, 4, 5, 6, 7, 8],
+      completedCrossing: true, completedDummyRecovery: true, completedAnchorage: true });
+    const reset = parseProgress(JSON.stringify({ ...createProgress(), resetId: "00000000-0000-4000-8000-000000000001" }));
+    expect(mergeProgress(stale, reset)).toBe(reset);
+    expect(sailingRank(mergeProgress(stale, reset)).xp).toBe(0);
+    const earnedAgain = recordFirstBuoyCompletion(reset);
+    expect(sailingRank(mergeProgress(earnedAgain, reset)).xp).toBe(100);
+    expect(mergeProgress(earnedAgain, reset).resetId).toBe(reset.resetId);
+  });
+  it("keeps the strongest activity records without claiming additive multi-tab totals", () => {
+    const local = { ...createProgress(), activities: { race: { completions: 2, bestScore: 80, lastCompletedAt: "2026-11-10T12:00:00.000Z" } } };
+    const saved = { ...createProgress(), activities: { race: { completions: 5, bestScore: 70, lastCompletedAt: "2026-11-11T12:00:00.000Z" } } };
+    expect(mergeProgress(local, saved).activities.race).toEqual({ completions: 5, bestScore: 80, lastCompletedAt: "2026-11-11T12:00:00.000Z" });
+  });
   it("derives XP from distinct saved completions and never re-awards a replay", () => {
     let progress = createProgress();
     expect(sailingRank(progress)).toMatchObject({ xp: 0, level: 1 });

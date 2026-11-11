@@ -9,7 +9,7 @@ for (const [label, width, height] of [["desktop", 1440, 900], ["landscape phone"
     await expect(page.locator("#welcome")).toBeHidden();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "crossing-build-speed");
     await expect(page.locator("#lesson-instruction")).toContainText("045°");
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v1")!));
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v2")!));
     expect(saved.completedCrossing).not.toBe(true);
     await page.locator("#reset").click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "crossing-build-speed");

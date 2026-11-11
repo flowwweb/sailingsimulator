@@ -7,7 +7,7 @@ const wrap=(v:number)=>((v+540)%360)-180;
 async function read(page:Page){return page.evaluate(()=>{
  const text=(s:string)=>document.querySelector(s)!.textContent!;
  const style=(s:string)=> (document.querySelector(s) as HTMLElement).style;
- const saved=JSON.parse(localStorage.getItem('fair-winds-progress-v1')??'{}');
+ const saved=JSON.parse(localStorage.getItem('fair-winds-progress-v2')??'{}');
  return {stage:(document.querySelector('.game-shell') as HTMLElement).dataset.academyStage,
  angle:parseFloat(style('#wind-arrow').transform.replace('rotate(','')),
  heading:-parseFloat(style('#heading-tape').transform.replace('translate3d(',''))/2,

@@ -9,6 +9,163 @@ const js = stripTypeScriptTypes(source, { mode: "strip" })
   .replace(/^import .*;\s*$/gm, "").replace(/^export /gm, "");
 const evaluate = (code) => runInNewContext(`${js}\n${code}`, { FIRST_BUOY: { id: "intro.buoy-1", revision: 1 }, FIRST_COURSE_ID: "intro.three-buoy-course" });
 
+const appSource = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+function appFunction(name) {
+  const start = appSource.indexOf(`function ${name}(`);
+  const end = appSource.indexOf("\n}", start) + 2;
+  assert.ok(start >= 0 && end > start, name);
+  return stripTypeScriptTypes(appSource.slice(start, end), { mode: "strip" });
+}
+function appListener(marker) {
+  const start = appSource.indexOf(marker);
+  const end = appSource.indexOf("\n  });", start);
+  assert.ok(start >= 0 && end > start, marker);
+  return stripTypeScriptTypes(`(event => {${appSource.slice(appSource.indexOf("{", start) + 1, end)}\n})`, { mode: "strip" });
+}
+const resetId = "00000000-0000-4000-8000-000000000001";
+const freshProgress = () => evaluate("createProgress()");
+const captainProgress = () => evaluate("parseProgress(JSON.stringify(recordFirstBuoyCompletion({ ...createProgress(), completedObjectives: [3,4,5,6,7,8], completedDummyRecovery: true, completedCrossing: true, completedAnchorage: true, voyages: 6, distanceSailed: 900 })))");
+function progressStoreContext(current, stored, legacy = null) {
+  const store = new Map();
+  if (stored !== null) store.set("fair-winds-progress-v2", JSON.stringify(stored));
+  if (legacy !== null) store.set("fair-winds-progress-v1", JSON.stringify(legacy));
+  const nodes = new Map();
+  const required = id => {
+    if (!nodes.has(id)) nodes.set(id, { hidden: true, dataset: {}, textContent: "", focus() {} });
+    return nodes.get(id);
+  };
+  const classList = { add() {}, remove() {} };
+  const ctx = { FIRST_BUOY: { id: "intro.buoy-1", revision: 1 }, FIRST_COURSE_ID: "intro.three-buoy-course",
+    progress: current, pendingProgressReset: false, storageUnavailable: false, writeBlocked: false, writes: 0,
+    localStorage: { getItem: key => store.get(key) ?? null, setItem: (key, value) => {
+      if (ctx.writeBlocked) throw new Error("Quota exceeded");
+      ctx.writes++; store.set(key, value);
+    } },
+    required, state: { tackCount: 0, gybeCount: 0 }, started: true, voyageCounted: true, progressDistanceSinceSave: 49,
+    firstBuoy: {}, dummyRecovery: {}, crossing: {}, anchorage: {}, activitySession: {}, activityView: {},
+    academy: { objective: 8, reset() { this.objective = 0; } },
+    checkpointLesson: (p, academy) => ({ ...p, academyObjective: academy.objective }),
+    restoreLesson: (academy, p) => { academy.objective = p.academyObjective ?? 0; },
+    stopWeatherShelter() {}, world: { setCrossingBoat() {}, setCrossingExercise() {}, setTrainingDummy() {} },
+    input: { releaseAll() {} }, completionAnimationFrame: 123, completionPendingRank: { level: 7 }, completionNextLesson: "anchorage",
+    completionRevealing: true, cancelled: 0, cancelAnimationFrame() { ctx.cancelled++; },
+    requestAnimationFrame() { throw new Error("A reset must not schedule a stale rank reveal"); },
+    titleExitTimeout: 0, accumulator: 0, resetRadio() {}, setPauseOpen() {}, interruptLessonAttempt() {},
+    setConditionsOpen() {}, setChartOpen() {}, syncTitleState() { ctx.titleSynced = true; }, syncTitleRank() {},
+    syncChartActivityList() {}, updateLesson() {}, titleMenuItems: () => [required("learn")],
+    audio: { resetMotionState() {} }, window: { clearTimeout() {}, matchMedia: () => ({ matches: false }), confirm: () => true },
+    settingsTabs: { select() {} }, crypto: { randomUUID: () => resetId },
+    elements: { gameShell: { inert: true, classList }, welcome: { hidden: true, classList }, continueLesson: { focus() {} },
+      statusToggle: { focus() {} }, status: {}, settingsResetLogbook: { focus() {} }, settingsLogbookSummary: {} },
+  };
+  const names = ["loadStoredValue", "saveStoredValue", "loadSavedProgress", "refreshSavedProgress", "persistProgress",
+    "applyProgressReset", "stopDummyRecovery", "closeCompletion", "returnToTitle", "showCompletion"];
+  runInNewContext(`${js}\n${names.map(appFunction).join("\n")}`, ctx);
+  return { ctx, store, required, run: code => runInNewContext(code, ctx) };
+}
+
+test("one-time save migration preserves legacy credit and a canonical zero reset always wins", () => {
+  const legacy = captainProgress();
+  const h = progressStoreContext(freshProgress(), null, legacy);
+  h.run("progress = loadSavedProgress();");
+  assert.equal(h.run("sailingRank(progress).xp"), 600);
+  assert.equal(JSON.parse(h.store.get("fair-winds-progress-v2")).voyages, 6);
+  assert.equal(JSON.parse(h.store.get("fair-winds-progress-v1")).voyages, 6);
+  h.store.set("fair-winds-progress-v2", JSON.stringify({ ...freshProgress(), resetId }));
+  h.run("progress = loadSavedProgress();");
+  assert.equal(h.run("sailingRank(progress).xp"), 0);
+  h.store.set("fair-winds-progress-v1", JSON.stringify(legacy));
+  h.run("progress = loadSavedProgress();");
+  assert.equal(h.run("sailingRank(progress).xp"), 0, "old release writes cannot replace the canonical reset");
+  h.store.set("fair-winds-progress-v2", "{broken");
+  h.run("progress = loadSavedProgress();");
+  assert.equal(h.run("sailingRank(progress).xp"), 0, "present canonical data never reimports the old backup");
+});
+
+test("a stale new tab preserves newer credit without advancing its academy cursor", () => {
+  const stale = evaluate("recordFirstBuoyCompletion(createProgress())");
+  const h = progressStoreContext(stale, captainProgress());
+  h.ctx.academy.objective = 0;
+  assert.equal(h.run("persistProgress()"), true);
+  assert.equal(h.run("sailingRank(progress).xp"), 600);
+  assert.equal(JSON.parse(h.store.get("fair-winds-progress-v2")).academyObjective, 0);
+});
+
+test("remote reset at the save boundary cancels old scenarios, rewards and late completion", () => {
+  for (const old of [freshProgress(), captainProgress()]) {
+    const reset = { ...freshProgress(), resetId };
+    const h = progressStoreContext(old, reset);
+    assert.equal(h.run("persistProgress()"), false);
+    assert.equal(h.run("sailingRank(progress).xp"), 0);
+    assert.equal(h.ctx.progress.resetId, resetId);
+    assert.equal(h.ctx.started, false);
+    assert.equal(h.ctx.academy.objective, 0);
+    for (const key of ["firstBuoy", "dummyRecovery", "crossing", "anchorage", "activitySession", "activityView", "completionPendingRank", "completionNextLesson"]) assert.equal(h.ctx[key], undefined, key);
+    assert.equal(h.ctx.cancelled, 1);
+    h.run('showCompletion("Old completion", { xp: 600, level: 7, rank: "Captain", levelXp: 0 });');
+    assert.equal(h.required("#completion-screen").hidden, true);
+    assert.equal(h.ctx.titleSynced, true);
+  }
+});
+
+test("queued storage events reread the current generation instead of trusting stale event data", () => {
+  const h = progressStoreContext(captainProgress(), { ...freshProgress(), resetId });
+  h.ctx.event = { key: "fair-winds-progress-v2", newValue: JSON.stringify(captainProgress()) };
+  h.run(`${appListener('window.addEventListener("storage", (event) => {')}(event);`);
+  assert.equal(h.run("sailingRank(progress).xp"), 0);
+  assert.equal(h.ctx.progress.resetId, resetId);
+  assert.equal(h.ctx.started, false);
+});
+
+test("explicit reset names the lost credit, survives failed writes and retries without restoring old credit", () => {
+  const h = progressStoreContext(captainProgress(), captainProgress(), captainProgress());
+  let prompt = "";
+  h.ctx.window.confirm = message => { prompt = message; return true; };
+  h.ctx.writeBlocked = true;
+  h.run(`${appListener('elements.settingsResetLogbook.addEventListener("click", () => {')}(null);`);
+  assert.match(prompt, /rank, XP, completed lessons/);
+  assert.equal(h.ctx.pendingProgressReset, true);
+  assert.equal(h.run("sailingRank(progress).xp"), 0);
+  assert.match(h.ctx.elements.settingsLogbookSummary.textContent, /has not been saved yet/);
+  h.run("persistProgress();");
+  assert.equal(h.run("sailingRank(progress).xp"), 0);
+  h.ctx.writeBlocked = false;
+  h.run("persistProgress();");
+  assert.equal(h.ctx.pendingProgressReset, false);
+  assert.equal(JSON.parse(h.store.get("fair-winds-progress-v2")).resetId, resetId);
+  assert.equal(h.run("sailingRank(parseProgress(localStorage.getItem(PROGRESS_STORAGE_KEY))).xp"), 0);
+  assert.equal(h.run("sailingRank(parseProgress(localStorage.getItem(LEGACY_PROGRESS_STORAGE_KEY))).xp"), 600);
+});
+
+test("storage failures preserve in-memory play and credit without treating failed reads as resets", () => {
+  const local = { ...captainProgress(), resetId };
+  const h = progressStoreContext(local, local);
+  h.ctx.localStorage.getItem = () => { throw new Error("Storage denied"); };
+  assert.equal(h.run("persistProgress()"), true, "a read failure must not stop Begin sailing");
+  assert.equal(h.run("sailingRank(progress).xp"), 600);
+  assert.equal(h.ctx.progress.resetId, resetId);
+  assert.equal(h.ctx.started, true);
+  assert.equal(h.ctx.storageUnavailable, true);
+  assert.equal(h.ctx.writes, 0, "do not replace a save that could not be read");
+  h.ctx.localStorage.getItem = key => h.store.get(key) ?? null;
+  h.ctx.writeBlocked = true;
+  assert.equal(h.run("persistProgress()"), true, "ordinary failed writes retain in-memory sailing");
+  assert.equal(h.run("sailingRank(progress).xp"), 600);
+  assert.equal(h.ctx.started, true);
+});
+
+test("Continue starts the approved three-buoy course for fresh and legacy-only profiles", () => {
+  const listener = appListener('elements.continueLesson.addEventListener("click", () => {');
+  for (const p of [freshProgress(), evaluate("recordFirstBuoyCompletion(createProgress())"),
+    evaluate('({ ...createProgress(), completedIntroductions: { [FIRST_BUOY.id]: 1 } })')]) {
+    const ctx = { progress: p, FIRST_BUOY: { id: "intro.buoy-1" }, FIRST_COURSE_ID: "intro.three-buoy-course",
+      startFirstBuoy() { ctx.result = "first-course"; }, academy: { view: () => ({ objective: 0, stage: "free-sail" }), resume() {} },
+      state: {}, beginSailing() {}, prepareLessonAttempt() { ctx.result = "resume-academy"; }, activitySession: {}, activityView: {} };
+    runInNewContext(`${listener}(null);`, ctx);
+    assert.equal(ctx.result, p.completedIntroductions?.["intro.three-buoy-course"] === 1 ? "resume-academy" : "first-course");
+  }
+});
+
 test("crossing completion survives reload and grants XP once", () => {
   const result = evaluate(`(() => {
     const saved = parseProgress(JSON.stringify({ ...createProgress(), completedCrossing: true }));
@@ -124,7 +281,7 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   };
   const statusToggle = { focus() { this.focused = true; } };
   let callback;
-  const context = { anchorage: undefined, dummyRecovery: undefined, crossing: undefined, required, elements: { statusToggle, gameShell: { inert: false } }, input: { releaseAll() {} },
+  const context = { started: true, anchorage: undefined, dummyRecovery: undefined, crossing: undefined, required, elements: { statusToggle, gameShell: { inert: false } }, input: { releaseAll() {} },
     window: { matchMedia: () => ({ matches: false }) }, firstBuoy: {}, completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false,
     performance: { now: () => 0 }, requestAnimationFrame: (fn) => { callback = fn; return 1; }, cancelAnimationFrame() { callback = undefined; },
     setRadioOpen(open) { context.radioOpen = open; },
@@ -140,7 +297,10 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(required("#completion-level-number").textContent, "Level 1");
   assert.equal(required("#completion-rank").textContent, " · Landlubber");
   assert.equal(required("#completion-continue").textContent, "See your rank");
+  callback(450);
+  assert.equal(required("#completion-screen").dataset.animating, "true");
   callback(900);
+  assert.equal(required("#completion-screen").dataset.animating, "false", "the boat stops bobbing while XP holds at the threshold");
   assert.equal(required(".completion-track")["aria-valuenow"], "100");
   assert.equal(required(".completion-fill").style.width, "100%");
   assert.equal(required(".completion-marker").style.left, "100%");
@@ -156,6 +316,8 @@ test("completion reveals the earned reward and closes back to sailing", () => {
   assert.equal(required("#completion-heading").textContent, "Level up!");
   assert.equal(required("#completion-level-number").textContent, "Level 2");
   assert.equal(required("#completion-rank").textContent, " Deckhand");
+  assert.equal(required("#completion-rank-badge").src, "/brand/ranks/deckhand.png");
+  assert.equal(required("#completion-screen").dataset.animating, "false");
   assert.equal(required(".completion-track")["aria-valuenow"], "0");
   assert.equal(required(".completion-track").writes["aria-valuenow"], 2);
   assert.equal(required("#completion-continue").textContent, "Next lesson");
@@ -188,7 +350,7 @@ test("the final rank fills completion truthfully after the Captain threshold and
     return nodes.get(selector);
   };
   const finalRank = { xp: 700, level: 8, rank: "Sea Legend", levelXp: 0 };
-  const context = { required, anchorage: {}, dummyRecovery: undefined, crossing: undefined, firstBuoy: undefined,
+  const context = { started: true, required, anchorage: {}, dummyRecovery: undefined, crossing: undefined, firstBuoy: undefined,
     elements: { gameShell: { inert: false } }, input: { releaseAll() {} },
     window: { matchMedia: () => ({ matches: true }) }, completionAnimationFrame: undefined,
     completionPendingRank: undefined, completionRevealing: false, completionNextLesson: undefined,
@@ -270,7 +432,7 @@ test("reduced motion and replay show the final rank without scheduling animation
     return nodes.get(selector);
   };
   let scheduled = 0;
-  const context = { anchorage: undefined, dummyRecovery: undefined, crossing: undefined, required, elements: { gameShell: { inert: false }, statusToggle: { focus() {} } },
+  const context = { started: true, anchorage: undefined, dummyRecovery: undefined, crossing: undefined, required, elements: { gameShell: { inert: false }, statusToggle: { focus() {} } },
     input: { releaseAll() {} }, window: { matchMedia: () => ({ matches: true }) }, firstBuoy: {},
     completionAnimationFrame: undefined, completionPendingRank: undefined, completionRevealing: false, requestAnimationFrame: () => { scheduled++; return 1; },
     cancelAnimationFrame() {}, setRadioOpen() {}, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable", progress: {}, accumulator: 0,
@@ -320,7 +482,7 @@ test("completion advances through the visible six lessons even on replay", () =>
     const nodes = new Map();
     const required = selector => { if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: "", style: {}, dataset: {}, setAttribute() {}, focus() {} }); return nodes.get(selector); };
     let actual = "sailing";
-    const context = { required, anchorage: from === "anchorage" ? {} : undefined, dummyRecovery: from === "dummy" ? {} : undefined,
+    const context = { started: true, required, anchorage: from === "anchorage" ? {} : undefined, dummyRecovery: from === "dummy" ? {} : undefined,
       crossing: from === "crossing" ? {} : undefined, firstBuoy: from === "buoy" ? {} : undefined,
       academy: { view: () => ({ lesson: from === "points" ? 1 : 2 }), restoreObjective: index => { actual = `academy:${index / 3}`; } },
       nextLessonObjective: (_progress, lesson) => lesson * 3, prepareLessonAttempt() {}, startCrossing() { actual = "crossing"; },

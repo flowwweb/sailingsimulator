@@ -64,6 +64,22 @@ test("the actual callback tail attributes title capture and active HUD/audio bey
   assert.match(f.output.textContent, /World renders 2 · CPU avg 10\.0 ms/);
 });
 
+test("the actual callback labels paused world draws separately from live sailing and warms up resume", () => {
+  const f = fixture(); f.tick(0); f.tick(1000);
+  f.ctx.started = true;
+  f.ctx.simulationPaused = true;
+  for (let now = 2000; now <= 34_000; now += 1000) f.tick(now);
+  assert.ok(f.renders > 1, "this correction classifies existing work; it does not cache or disable rendering");
+  assert.match(f.output.textContent, /Entry paused frame/);
+  assert.match(f.output.textContent, /Live last 30 s · waiting/);
+  f.ctx.simulationPaused = false;
+  f.tick(35_000);
+  assert.match(f.output.textContent, /Entry sailing frame/);
+  assert.match(f.output.textContent, /Live last 30 s · waiting/);
+  f.tick(36_000);
+  assert.match(f.output.textContent, /Live last 30 s · sampled 1.0 s/);
+});
+
 test("GPU context probing exists only inside the explicit stats opt-in", () => {
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   const start = main.indexOf("const performanceStats = new URLSearchParams");

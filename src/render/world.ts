@@ -1870,29 +1870,20 @@ export class SailingWorld {
 
   private updateAtmosphere(weather: WeatherSnapshot, titleScene?: "arrival" | "return"): void {
     const titleScreen = titleScene !== undefined;
-    const returning = titleScene === "return";
     const lighting = this.scenery.update(weather, this.camera, titleScreen);
-    if (returning) {
-      this.camera.getWorldDirection(lighting.sunDirection);
-      lighting.sunDirection.y = 0.14;
-      lighting.sunDirection.applyAxisAngle(THREE.Object3D.DEFAULT_UP, 0.085).normalize();
-      lighting.sunColor.set(0xffc47c);
-    }
     if (titleScreen) {
-      lighting.sky.set(returning ? 0x9bb5c3 : 0x6db6d7);
-      lighting.fog.set(returning ? 0xa9c4d2 : 0xbad9dd);
-      lighting.hemisphereSky.copy(lighting.sky);
-      if (returning) {
-        lighting.hemisphereSky.set(0xc6e4ef);
-        lighting.hemisphereGround.set(0xa4977c);
-        lighting.hemisphereIntensity = 2.1;
-      }
-      lighting.waterDeep.set(returning ? 0x124e68 : 0x075875);
-      lighting.waterShallow.set(returning ? 0x467f8c : 0x389ba5);
-      this.titleSky.material.uniforms.uZenith!.value.set(returning ? 0x3d95c0 : 0x3c9ccf);
-      this.titleSky.material.uniforms.uHorizon!.value.set(returning ? 0xb3c9cd : 0xbad9dd);
+      lighting.sky.set(0x4aa9d0);
+      lighting.fog.set(0xb3d5e0);
+      lighting.sunColor.set(0xfff1d5);
+      lighting.hemisphereSky.set(0xc4e6f3);
+      lighting.hemisphereGround.set(0x8c9f88);
+      lighting.hemisphereIntensity = 2.1;
+      lighting.waterDeep.set(0x086083);
+      lighting.waterShallow.set(0x42a3b2);
+      this.titleSky.material.uniforms.uZenith!.value.set(0x1785bb);
+      this.titleSky.material.uniforms.uHorizon!.value.set(0x94c8db);
       this.titleSky.material.uniforms.uSunDirection!.value.copy(lighting.sunDirection);
-      this.titleSky.material.uniforms.uSunDisc!.value = returning ? 1 : 0;
+      this.titleSky.material.uniforms.uSunDisc!.value = 0;
     }
     this.scene.background = lighting.sky;
     this.hemisphere.color.copy(lighting.hemisphereSky);
@@ -1938,14 +1929,14 @@ export class SailingWorld {
     );
     this.clouds.rotation.y = weather.time * 0.0025;
     this.clouds.children.forEach((cloud, index) => {
-      cloud.position.y = (index % 3 === 0 ? (titleScreen ? 65 : 115) : (titleScreen ? 70 : 38)) + (index % 4) * 8 - (returning ? 20 : 0);
+      cloud.position.y = (index % 3 === 0 ? (titleScreen ? 65 : 115) : (titleScreen ? 70 : 38)) + (index % 4) * 8;
       const material = (cloud as THREE.Sprite).material;
       material.opacity = Math.sqrt(weather.cloud) * 0.95;
       material.color
         .set(0xffffff)
         .lerp(
           lighting.sunColor,
-          returning ? 0.22 : weather.cloud > 0.6 ? 0.12 : 0.06,
+          weather.cloud > 0.6 ? 0.12 : 0.06,
         )
         .multiplyScalar(0.2 + lighting.daylight * 0.8);
     });
@@ -2037,8 +2028,9 @@ export class SailingWorld {
     presentationTime = 0,
   ): void {
     const titleScreen = titleScene !== undefined;
-    const forwardX = Math.sin(heading);
-    const forwardZ = Math.cos(heading);
+    const viewHeading = titleScreen ? heading + Math.PI / 6 : heading;
+    const forwardX = Math.sin(viewHeading);
+    const forwardZ = Math.cos(viewHeading);
     const portraitFraming = THREE.MathUtils.clamp(0.95 / this.camera.aspect, 1, 1.9);
     // Leave room for the full rig and incident text on short landscape screens.
     const landscapeFraming = titleScreen ? 1 : THREE.MathUtils.clamp(this.camera.aspect / 1.8, 1, 1.25);
@@ -2082,7 +2074,7 @@ export class SailingWorld {
     this.desiredCameraPosition.set(
       x -
         forwardX * chaseDistance +
-        Math.cos(heading) * sideReveal,
+        Math.cos(viewHeading) * sideReveal,
       boatHeight +
         THREE.MathUtils.lerp(
           titleScreen
@@ -2095,7 +2087,7 @@ export class SailingWorld {
         (titleScreen ? Math.sin(presentationTime * 0.12) * 0.42 : 0),
       z -
         forwardZ * chaseDistance -
-        Math.sin(heading) * sideReveal,
+        Math.sin(viewHeading) * sideReveal,
     );
     if (incident) {
       let openWaterX = x - incident.result.point.x;
@@ -2137,11 +2129,11 @@ export class SailingWorld {
     const normalLookX =
       x +
       forwardX * (titleScreen ? 0 : this.activeBoat.camera.lookAhead) * boatScale +
-      Math.cos(heading) * titleLookSide;
+      Math.cos(viewHeading) * titleLookSide;
     const normalLookZ =
       z +
       forwardZ * (titleScreen ? 0 : this.activeBoat.camera.lookAhead) * boatScale -
-      Math.sin(heading) * titleLookSide;
+      Math.sin(viewHeading) * titleLookSide;
     this.cameraLookAt.set(
       THREE.MathUtils.lerp(
         normalLookX,

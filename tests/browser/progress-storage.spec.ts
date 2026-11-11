@@ -47,7 +47,7 @@ for (const mode of ["getter", "methods", "quota"] as const) {
     await expect(page.locator("#welcome")).toBeHidden();
     await expectFrames(page);
     if (!denyReads) {
-      await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "close-hauled");
+      await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "intro-buoy-1");
       await page.locator("#conditions-toggle").click();
       await page.locator("#settings-main-menu").click();
       await page.locator("#new-journey").click();
@@ -72,7 +72,7 @@ test("earned-objective save failure keeps subsequent frames and session mastery"
   await page.addInitScript(() => {
     const setItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key === "fair-winds-progress-v1") {
+      if (key === "fair-winds-progress-v2") {
         document.documentElement.dataset.attemptedProgress = value;
         throw new Error("Quota exceeded");
       }
@@ -115,8 +115,11 @@ test("earned-objective save failure keeps subsequent frames and session mastery"
   await page.locator("#conditions-toggle").click();
   await page.locator("#settings-main-menu").click();
   await page.locator("#continue-lesson").click();
+  await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "intro-buoy-1");
+  await page.locator("#map-toggle").click();
+  await page.locator('[data-activity-id="trim-practice"]').click();
   await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "stall");
   await expectFrames(page);
-  expect(await page.evaluate(() => localStorage.getItem("fair-winds-progress-v1"))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("fair-winds-progress-v2"))).toBeNull();
   expect(errors).toEqual([]);
 });

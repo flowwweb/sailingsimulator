@@ -116,7 +116,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await expect(page.locator("#continue-lesson")).toHaveText("Continue");
     await page.locator("#title-free-sail").click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "free-sail");
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v1")!));
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v2")!));
     expect(saved.academyCompleted).toBe(false);
     expect(saved.academyObjective).toBe(3);
     expect(errors).toEqual([]);
@@ -147,7 +147,7 @@ for (const [label, width, height] of [["desktop", 1672, 941], ["phone-landscape"
     await page.locator('[data-lesson="2"]').click();
     await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "tack");
     await expect(page.locator("#lesson-eyebrow")).toHaveText("Lesson 3 of 6 · Objective 1 of 3");
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v1")!));
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v2")!));
     expect(saved.completedLessons).toEqual([0]);
     expect(saved.academyCompleted).toBe(false);
   });
