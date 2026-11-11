@@ -6,6 +6,8 @@ import type { WeatherSnapshot } from "../weather/types";
 export interface LightingState {
   daylight: number;
   sky: THREE.Color;
+  /** Upper colour of the gradient sky dome; its horizon reuses `fog`. */
+  skyZenith: THREE.Color;
   fog: THREE.Color;
   sunColor: THREE.Color;
   sunDirection: THREE.Vector3;
@@ -103,7 +105,9 @@ export class LakeScenery {
   private createDistantMountains(): void {
     // Broad, seed-stable massifs keep the horizon continuous while breaking the
     // repeated radial wave pattern into distinct Mediterranean ridges.
-    const colors = [[0x87a6bc, 0x21384d], [0x6385a1, 0x1c334a], [0x4b6e8d, 0x182e45]] as const;
+    // Farthest ridge palest, nearest deepest: aerial perspective that still reads
+    // as three separate blue layers after distance haze.
+    const colors = [[0x7d9cc0, 0x21384d], [0x5a7dab, 0x1c334a], [0x3f6494, 0x182e45]] as const;
     colors.forEach(([day, night], layer) => {
       const positions: number[] = [];
       const indices: number[] = [];
@@ -329,8 +333,9 @@ export class LakeScenery {
 
   private createShoreRocks(): void {
     const random = createRandom(4_431);
+    // Pale limestone rather than grey granite: the Mediterranean shoreline cue.
     const material = this.dynamicMaterial(
-      0x777b75,
+      0xc2b8a0,
       0x202f36,
       1,
     );
@@ -377,7 +382,7 @@ export class LakeScenery {
 
   private createShorelineDrift(): void {
     const random = createRandom(6_903);
-    const material = this.dynamicMaterial(0x9a9788, 0x26343a, 1);
+    const material = this.dynamicMaterial(0xcbc2ab, 0x26343a, 1);
     const geometry = new THREE.DodecahedronGeometry(1.7, 0);
     const count = 210;
     const stones = new THREE.InstancedMesh(geometry, material, count);
@@ -825,7 +830,13 @@ function heightOnTerrainTriangle(
 }
 
 const NIGHT_SKY = new THREE.Color(0x102844);
-const DAY_SKY = new THREE.Color(0x88b9cc);
+// Horizon haze by day. Slightly lighter and bluer than the former flat sky so the
+// far water and shore dissolve into a clean Mediterranean haze.
+const DAY_SKY = new THREE.Color(0x93c2da);
+// Zenith colours for the gradient dome that sailing now shares with the title.
+const NIGHT_ZENITH = new THREE.Color(0x0a1c36);
+const DAY_ZENITH = new THREE.Color(0x2484c6);
+const DUSK_ZENITH = new THREE.Color(0x54679c);
 const SUNSET_SKY = new THREE.Color(0xf5aa72);
 const OVERCAST_SKY = new THREE.Color(0x788d98);
 const VISIBILITY_FOG = new THREE.Color(0xc8c8ba);
@@ -847,6 +858,7 @@ function createLightingState(): LightingState {
   return {
     daylight: 0,
     sky: new THREE.Color(),
+    skyZenith: new THREE.Color(),
     fog: new THREE.Color(),
     sunColor: new THREE.Color(),
     sunDirection: new THREE.Vector3(),
@@ -911,6 +923,14 @@ function updateLightingState(
   target.fog
     .copy(target.sky)
     .lerp(VISIBILITY_FOG, (1 - visibility) * 0.52);
+  // Azure overhead in clear daylight; heavy cloud and poor visibility flatten the
+  // gradient back toward the haze so showers still read as closed-in weather.
+  target.skyZenith
+    .copy(NIGHT_ZENITH)
+    .lerp(DAY_ZENITH, daylight)
+    .lerp(DUSK_ZENITH, sunsetBlend * 0.5)
+    .lerp(OVERCAST_SKY, overcast * 0.7)
+    .lerp(target.fog, THREE.MathUtils.clamp((1 - visibility) * 0.9, 0, 1));
   target.sunColor
     .copy(WARM_SUN)
     .lerp(SUNSET_SUN, THREE.MathUtils.clamp(golden, 0, 1))

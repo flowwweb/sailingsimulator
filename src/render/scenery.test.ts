@@ -7,6 +7,7 @@ import {
   setMediterraneanGroundColor,
   sampleCoastalTerrainHeight,
   LakeScenery,
+  lightingForTime,
 } from "./scenery";
 
 describe("coastal terrain geometry", () => {
@@ -255,5 +256,25 @@ describe("coastal terrain geometry", () => {
 
     expect(headland).toBeGreaterThan(cove + 20);
     expect(neighboringSlope).toBeGreaterThan(valley + 15);
+  });
+});
+
+describe("weather-aware sky", () => {
+  it("adapts the zenith to daylight, cloud and visibility", () => {
+    const clear = lightingForTime(12, 0, 1);
+    const night = lightingForTime(0, 0, 1);
+    const overcast = lightingForTime(12, 1, 1);
+    const haze = lightingForTime(12, 0, 0);
+    const distance = (a: THREE.Color, b: THREE.Color) => Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
+    const brightness = (color: THREE.Color) => color.r + color.g + color.b;
+    for (const lighting of [clear, night, overcast, haze, lightingForTime(18, .5, .5)]) {
+      expect([lighting.skyZenith.r, lighting.skyZenith.g, lighting.skyZenith.b].every(Number.isFinite)).toBe(true);
+    }
+    expect(clear.skyZenith.b).toBeGreaterThan(clear.skyZenith.g);
+    expect(clear.skyZenith.g).toBeGreaterThan(clear.skyZenith.r);
+    expect(brightness(night.skyZenith)).toBeLessThan(brightness(clear.skyZenith) / 4);
+    expect(distance(overcast.skyZenith, overcast.fog)).toBeLessThan(distance(clear.skyZenith, clear.fog));
+    expect(distance(haze.skyZenith, haze.fog)).toBeLessThan(distance(clear.skyZenith, clear.fog));
+    expect(lightingForTime(24, 0, 1).skyZenith.equals(night.skyZenith)).toBe(true);
   });
 });

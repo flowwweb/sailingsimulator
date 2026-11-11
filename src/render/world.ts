@@ -519,7 +519,9 @@ export class SailingWorld {
       titleScene,
       presentationTime,
     );
-    this.titleSky.visible = titleScreen;
+    // The gradient dome is the sky for sailing as well as the title; its colours
+    // are set per mode in updateAtmosphere.
+    this.titleSky.visible = true;
     this.titleSky.position.copy(this.camera.position);
     const sunHeight = Math.sin(((weather.timeOfDay - 6) / 12) * Math.PI);
     const nightFill = 1 - THREE.MathUtils.smoothstep(sunHeight, -0.08, 0.2);
@@ -1753,39 +1755,34 @@ export class SailingWorld {
     shapeRotation = 0,
     groundHeightAt?: (localX: number, localZ: number) => number,
   ): void {
+    // Umbrella (stone) pines: a tall bare trunk under a broad, flattened crown
+    // with one offset secondary lobe. Two instanced draws per grove replace the
+    // former trunk plus four stacked fir tiers.
     const trunkMaterial = new THREE.MeshStandardMaterial({
-      color: 0x594330,
+      color: 0x6a4b35,
       emissive: 0x17110d,
       emissiveIntensity: 0.18,
       roughness: 1,
       flatShading: true,
     });
-    const trunkGeometry = new THREE.CylinderGeometry(0.22, 0.4, 5.2, 7);
-    const crownGeometries = [
-      new THREE.ConeGeometry(3.8, 5.8, 7, 2),
-      new THREE.ConeGeometry(3.15, 5, 7, 2),
-      new THREE.ConeGeometry(2.55, 4.2, 7, 2),
-      new THREE.ConeGeometry(1.9, 3.3, 7, 2),
-    ];
-    const crownMaterials = crownGeometries.map((_, layer) => {
-      if (layer < 2) return crownMaterial;
-      const material = crownMaterial.clone();
-      if (material instanceof THREE.MeshStandardMaterial) {
-        material.color.offsetHSL(0.005, -0.015, 0.035 + layer * 0.012);
-        material.emissive.copy(material.color).multiplyScalar(0.12);
-      }
-      return material;
-    });
+    const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.42, 8.2, 6);
+    const canopyGeometry = new THREE.IcosahedronGeometry(1, 1);
+    // The grove keeps its own warmer pine green; the shared material still
+    // serves the town planting unchanged.
+    const canopyMaterial = crownMaterial.clone();
+    if (canopyMaterial instanceof THREE.MeshStandardMaterial) {
+      canopyMaterial.color.set(0x55783e);
+    }
     const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, count);
-    const crowns = crownGeometries.map(
-      (geometry, layer) =>
-        new THREE.InstancedMesh(geometry, crownMaterials[layer]!, count),
-    );
+    const canopies = new THREE.InstancedMesh(canopyGeometry, canopyMaterial, count * 2);
+    trunks.name = "Umbrella pine trunks";
+    canopies.name = "Umbrella pine canopies";
     const matrix = new THREE.Matrix4();
     const position = new THREE.Vector3();
     const rotation = new THREE.Quaternion();
     const scale = new THREE.Vector3();
     const euler = new THREE.Euler();
+    const tint = new THREE.Color();
     for (let index = 0; index < count; index += 1) {
       const phase = seed + index * 2.399963;
       const radial = 0.24 + (((index * 29) % count) / Math.max(count - 1, 1)) * 0.72;
@@ -1799,30 +1796,44 @@ export class SailingWorld {
       rotation.setFromEuler(euler);
 
       const widthVariation = 0.88 + (index % 5) * 0.045;
-      position.set(x, treeBase + 2.55 * height, z);
-      scale.set(
-        height * widthVariation,
-        height,
-        height * (1.04 - (index % 3) * 0.035),
-      );
+      const depthVariation = 1.04 - (index % 3) * 0.035;
+      // Trunk foot sits 0.1 x height below the ground sample, as before.
+      position.set(x, treeBase + 4 * height, z);
+      scale.set(height * widthVariation, height, height * depthVariation);
       matrix.compose(position, rotation, scale);
       trunks.setMatrixAt(index, matrix);
 
-      for (let layer = 0; layer < crowns.length; layer += 1) {
-        const layerScale = height * (1 - layer * 0.035);
-        position.set(x, treeBase + (4.2 + layer * 2.05) * height, z);
-        scale.set(
-          layerScale * widthVariation,
-          layerScale,
-          layerScale * (1.04 - (index % 3) * 0.035),
-        );
-        matrix.compose(position, rotation, scale);
-        crowns[layer]!.setMatrixAt(index, matrix);
-      }
+      // Main parasol: roughly three times wider than deep, swallowing the trunk top.
+      position.set(x, treeBase + 9 * height, z);
+      scale.set(
+        4.5 * height * widthVariation,
+        1.6 * height,
+        4.5 * height * depthVariation,
+      );
+      matrix.compose(position, rotation, scale);
+      canopies.setMatrixAt(index * 2, matrix);
+      canopies.setColorAt(index * 2, tint.setScalar(0.8 + (index % 4) * 0.035));
+
+      // A smaller, higher, sunlit lobe breaks the symmetric silhouette.
+      const lobeBearing = phase * 1.7;
+      position.set(
+        x + Math.sin(lobeBearing) * 2 * height,
+        treeBase + (9.75 + (index % 3) * 0.15) * height,
+        z + Math.cos(lobeBearing) * 2 * height,
+      );
+      scale.set(
+        2.9 * height * widthVariation,
+        1.2 * height,
+        2.7 * height * depthVariation,
+      );
+      matrix.compose(position, rotation, scale);
+      canopies.setMatrixAt(index * 2 + 1, matrix);
+      canopies.setColorAt(index * 2 + 1, tint.setScalar(0.92 + (index % 3) * 0.04));
     }
     trunks.instanceMatrix.needsUpdate = true;
-    for (const crown of crowns) crown.instanceMatrix.needsUpdate = true;
-    group.add(trunks, ...crowns);
+    canopies.instanceMatrix.needsUpdate = true;
+    if (canopies.instanceColor) canopies.instanceColor.needsUpdate = true;
+    group.add(trunks, canopies);
   }
 
   private createClouds(): void {
@@ -1882,8 +1893,19 @@ export class SailingWorld {
       lighting.waterShallow.set(0x42a3b2);
       this.titleSky.material.uniforms.uZenith!.value.set(0x1785bb);
       this.titleSky.material.uniforms.uHorizon!.value.set(0x94c8db);
+      this.titleSky.material.uniforms.uSunGlow!.value.set(0xffe5a7);
       this.titleSky.material.uniforms.uSunDirection!.value.copy(lighting.sunDirection);
       this.titleSky.material.uniforms.uSunDisc!.value = 0;
+    } else {
+      // Sailing sky: haze at the horizon (the fog colour, so far water and shore
+      // still meet the sky without a seam) rising to a weather-aware azure zenith.
+      // The warm glow follows the real sun and fades to nothing at night.
+      const sky = this.titleSky.material.uniforms;
+      sky.uZenith!.value.copy(lighting.skyZenith);
+      sky.uHorizon!.value.copy(lighting.fog);
+      sky.uSunGlow!.value.copy(lighting.fog).lerp(lighting.sunColor, 0.55 * lighting.daylight);
+      sky.uSunDirection!.value.copy(lighting.sunDirection);
+      sky.uSunDisc!.value = 0;
     }
     this.scene.background = lighting.sky;
     this.hemisphere.color.copy(lighting.hemisphereSky);
