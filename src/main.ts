@@ -223,7 +223,8 @@ const performanceStats = new URLSearchParams(location.search).get("stats") === "
       output.setAttribute("aria-live", "off");
       document.body.append(output);
       world.renderer.info.autoReset = false;
-      const stats = new PerformanceStats(output);
+      const context = world.renderer.getContext();
+      const stats = new PerformanceStats(output, "createQuery" in context ? context : undefined);
       document.addEventListener("visibilitychange", () => stats.reset());
       return stats;
     })()
@@ -439,8 +440,8 @@ function bindInterface(): void {
   window.addEventListener("blur", interruptLessonAttempt);
   document.addEventListener("visibilitychange", interruptLessonAttempt);
   document.addEventListener("visibilitychange", handleRadioVisibilityChange);
-  canvas.addEventListener("webglcontextlost", () => { webglContextLost = true; });
-  canvas.addEventListener("webglcontextrestored", () => { webglContextLost = false; titleFrameDirty = true; world.resize(); world.resetCamera(); });
+  canvas.addEventListener("webglcontextlost", () => { webglContextLost = true; performanceStats?.reset(); });
+  canvas.addEventListener("webglcontextrestored", () => { webglContextLost = false; performanceStats?.reset(); titleFrameDirty = true; world.resize(); world.resetCamera(); });
   window.addEventListener("resize", () => {
     titleFrameDirty = true;
     world.resize();
@@ -1145,6 +1146,9 @@ function enableDevelopmentPreview(): void {
 }
 
 function loop(now: number): void {
+  const callbackStart = performanceStats ? performance.now() : 0;
+  let renderSample: { cpuMs: number; calls: number; triangles: number; mode: "title" | "sailing" } | undefined;
+  let titleCopyMs = 0;
   const elapsed = Math.max((now - previousFrame) / 1_000, 0);
   const droppedFrame = elapsed > fixedStep * 5;
   const frameDt = Math.min(elapsed, 0.1);
@@ -1441,6 +1445,7 @@ function loop(now: number): void {
     renderWeather = titleWeather;
   }
 
+  const simulationEnd = performanceStats ? performance.now() : 0;
   const renderScene = !webglContextLost && (started || (!document.hidden && (titleFrameDirty || !titleFrameContext)));
   if (renderScene) {
     world.setAnchorRode(anchorage?.anchor ? { x: anchorage.anchor.position.x, z: anchorage.anchor.position.y, depth: anchorDepth(anchorage.anchor.position.x, anchorage.anchor.position.y) } : undefined, state, weather.tideLevel);
@@ -1448,24 +1453,30 @@ function loop(now: number): void {
       world.setWorldObjectVisible(mark.id, !firstBuoy || mark.id === firstBuoy.activeCourse()?.id);
     }
     if (performanceStats) world.renderer.info.reset();
+    if (performanceStats && !document.hidden) performanceStats.beginGpuRender(started ? "sailing" : "title");
     const renderStart = performanceStats ? performance.now() : 0;
-    world.render(
-      renderPrevious,
-      renderCurrent,
-      renderDiagnostics,
-      renderHeadsail,
-      renderWeather,
-      accumulator / fixedStep,
-      !started || simulationPaused ? 0 : frameDt,
-      incident ? { result: incident, elapsed: incidentElapsed } : undefined,
-      started ? undefined : progress.voyages > 0 ? "return" : "arrival",
-      started ? presentationTime : 0,
-    );
+    try {
+      world.render(
+        renderPrevious,
+        renderCurrent,
+        renderDiagnostics,
+        renderHeadsail,
+        renderWeather,
+        accumulator / fixedStep,
+        !started || simulationPaused ? 0 : frameDt,
+        incident ? { result: incident, elapsed: incidentElapsed } : undefined,
+        started ? undefined : progress.voyages > 0 ? "return" : "arrival",
+        started ? presentationTime : 0,
+      );
+    } finally {
+      if (performanceStats && !document.hidden) performanceStats.endGpuRender();
+    }
     if (performanceStats && !document.hidden) {
       const { calls, triangles } = world.renderer.info.render;
-      performanceStats.record(now, { cpuMs: performance.now() - renderStart, calls, triangles });
+      renderSample = { cpuMs: performance.now() - renderStart, calls, triangles, mode: started ? "sailing" : "title" };
     }
     if (!started && titleFrameContext) {
+      const copyStart = performanceStats ? performance.now() : 0;
       try {
         titleFrame.width = canvas.width;
         titleFrame.height = canvas.height;
@@ -1477,10 +1488,9 @@ function loop(now: number): void {
         titleFrameContext = null;
         titleFrame.hidden = true;
       }
+      if (performanceStats) titleCopyMs = performance.now() - copyStart;
     }
     finishBoot();
-  } else if (performanceStats && !document.hidden) {
-    performanceStats.record(now);
   }
   if (started) updateCompass(renderCurrent.heading);
   audio.update(
@@ -1497,6 +1507,12 @@ function loop(now: number): void {
     }
   }
   elements.gameShell.dataset.simulationTime = simulationTime.toFixed(3);
+  if (performanceStats && !document.hidden) {
+    const totalMs = performance.now() - callbackStart;
+    const simulationMs = simulationEnd - callbackStart;
+    performanceStats.record(now, renderSample, { totalMs, simulationMs, titleCopyMs,
+      uiAudioMs: Math.max(0, totalMs - simulationMs - titleCopyMs - (renderSample?.cpuMs ?? 0)) });
+  }
   requestAnimationFrame(loop);
 }
 
@@ -1837,7 +1853,9 @@ function updateHud(): void {
   const feedback = !collisionNotice && !duplicatePickupCue && ((firstBuoy && !firstBuoy.failed && !firstBuoy.completed) || academyActive || dummyActive)
     ? elements.statusMessage.textContent : "";
   if (elements.statusFeedback.textContent !== feedback) elements.statusFeedback.textContent = feedback;
-  elements.statusMessage.hidden = Boolean(dummyRecovery && elements.statusMessage.textContent === elements.lessonInstruction.textContent);
+  elements.statusMessage.hidden = Boolean((dummyRecovery || anchorage) && (
+    elements.statusMessage.textContent === elements.lessonInstruction.textContent
+    || (anchorage && elements.lessonInstruction.textContent?.startsWith(`${elements.statusMessage.textContent} `))));
   if (dummyRecovery && coach === elements.lessonInstruction.textContent) elements.statusCue.textContent = `${flow}. ${elements.motion.textContent}`;
 }
 

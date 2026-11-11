@@ -224,7 +224,7 @@ export class GameInput {
     if (event.target instanceof HTMLElement && event.target.closest('[role="dialog"], summary')) return;
     if (!this.canControl() && !["KeyM", "KeyC"].includes(event.code)) return;
     const control = event.target instanceof HTMLButtonElement ? event.target.dataset.control as ControlName | undefined : undefined;
-    if (control && ["Space", "Enter"].includes(event.code)) {
+    if (control && ["Space", "Enter", "NumpadEnter"].includes(event.code)) {
       if (document.hidden) return;
       event.preventDefault();
       if (!event.repeat) {
@@ -233,7 +233,7 @@ export class GameInput {
       }
       return;
     }
-    if (event.target instanceof HTMLButtonElement && ["Space", "Enter"].includes(event.code)) return;
+    if (event.target instanceof HTMLButtonElement && ["Space", "Enter", "NumpadEnter"].includes(event.code)) return;
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
       event.preventDefault();
     }
@@ -247,7 +247,7 @@ export class GameInput {
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
     const control = event.target instanceof HTMLButtonElement && event.target.dataset.control;
-    if (this.buttonKeys.has(event.code) || (control && ["Space", "Enter"].includes(event.code))) event.preventDefault();
+    if (this.buttonKeys.has(event.code) || (control && ["Space", "Enter", "NumpadEnter"].includes(event.code))) event.preventDefault();
     if (this.buttonKeys.get(event.code) === "anchor-haul") this.nextAnchorHaul = undefined;
     this.buttonKeys.delete(event.code);
     this.keys.delete(event.code);

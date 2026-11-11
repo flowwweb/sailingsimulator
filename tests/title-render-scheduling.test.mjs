@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
+import { stripTypeScriptTypes } from "node:module";
 
 const source = readFileSync(new URL("../src/render/world.ts", import.meta.url), "utf8");
 const start = source.indexOf("    const atmosphereDue =");
@@ -50,4 +51,32 @@ test("low frame rates never defer a due reflection", () => {
 
 test("non-title rendering does not defer coincident passes", () => {
   assert.ok(run(60, false).some(frame => frame.atmosphere && frame.reflection));
+});
+
+test("reflection skips the redundant automatic-mode clear and preserves its manual fallback and pass state", () => {
+  const start = source.indexOf("  private updateReflection(): void {");
+  const end = source.indexOf("\n  }", start) + 4;
+  assert.ok(start >= 0 && end > start);
+  const reflection = new Function(`${stripTypeScriptTypes(source.slice(start, end).replace("  private updateReflection", "function updateReflection"), { mode: "strip" })}\nreturn updateReflection;`)();
+  const chain = () => ({ y: 0, set() { return this; }, copy(value) { this.y = value?.y ?? 0; return this; }, add() { return this; }, multiply() { return this; } });
+  for (const autoClear of [true, false]) {
+    let clears = 0, renders = 0;
+    const originalTarget = {}, originalPlanes = [], targetChanges = [], reflectionPasses = [];
+    const world = { renderCamera: { position: chain(), near: .1, far: 3500, aspect: 2, projectionMatrix: chain(), projectionMatrixInverse: chain(), getWorldDirection() {} },
+      reflectionCamera: { position: chain(), up: chain(), projectionMatrix: chain(), projectionMatrixInverse: chain(), matrixWorldInverse: chain(), lookAt() {}, updateMatrixWorld() {} },
+      reflectionViewDirection: chain(), reflectedCameraPosition: chain(), reflectedCameraTarget: chain(), reflectionMatrix: chain(), reflectionClipPlane: {}, reflectionClippingPlanes: [],
+      water: { visible: true, position: { y: 0 } }, boatRoot: { visible: true }, wakeFoam: { visible: false }, hullContactFoam: { visible: true },
+      windLines: { visible: true }, rain: { visible: false }, wakeLines: [{ visible: true }, { visible: false }], scene: { background: { isColor: true } }, reflectionTarget: {},
+      scenery: { setReflectionPass: value => reflectionPasses.push(value) },
+      renderer: { autoClear, xr: { enabled: true }, clippingPlanes: originalPlanes, getRenderTarget: () => originalTarget,
+        setRenderTarget: target => targetChanges.push(target), clear() { clears++; }, render(scene) { if (this.autoClear || scene.background.isColor) this.clear(); renders++; } } };
+    reflection.call(world);
+    assert.equal(clears, autoClear ? 1 : 2); assert.equal(renders, 1);
+    assert.deepEqual(targetChanges, [world.reflectionTarget, originalTarget]);
+    assert.deepEqual(reflectionPasses, [true, false]);
+    assert.equal(world.renderer.xr.enabled, true); assert.equal(world.renderer.clippingPlanes, originalPlanes);
+    assert.equal(world.water.visible, true); assert.equal(world.wakeFoam.visible, false);
+    assert.equal(world.hullContactFoam.visible, true); assert.equal(world.rain.visible, false);
+    assert.deepEqual(world.wakeLines.map(line => line.visible), [true, false]);
+  }
 });
