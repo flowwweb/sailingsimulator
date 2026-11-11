@@ -13,7 +13,7 @@ test.afterEach(async ({ page }, info) => {
 
 async function readProgress(page: Page) {
   return page.evaluate(() => {
-    const saved = JSON.parse(localStorage.getItem("fair-winds-progress-v1") ?? "{}");
+    const saved = JSON.parse(localStorage.getItem("fair-winds-progress-v2") ?? "{}");
     return {
       version: saved.version,
       activeIntroduction: saved.activeIntroduction,
@@ -81,7 +81,7 @@ test("starting, pausing, retrying and reloading the first journey do not award c
   await page.reload();
   await expect(page.locator("#boot-loader")).toHaveCount(0);
   expect((await readProgress(page)).firstBuoy).toBeUndefined();
-  await expect(page.locator("#continue-lesson")).toHaveText("Continue journey");
+  await expect(page.locator("#continue-lesson")).toHaveText("Continue");
   await page.locator("#continue-lesson").click();
   await expectFreshJourney(page);
   expect((await readProgress(page)).completedLessons).toEqual([]);
@@ -98,11 +98,15 @@ test("completed legacy drills remain available and do not grant first-journey cr
   await expect(page.locator("#boot-loader")).toHaveCount(0);
   await page.locator("#title-logbook").click();
   const rows = page.locator("#title-logbook-lessons li");
-  await expect(rows).toHaveCount(5);
+  await expect(rows).toHaveCount(7);
   await expect(rows.first()).toHaveText("Round the buoys · Not yet completed");
   for (let index = 1; index <= 3; index++) await expect(rows.nth(index)).toContainText(" · Complete");
   await page.locator("#title-logbook-close").click();
   await page.locator("#continue-lesson").click();
+  await expectFreshJourney(page);
+  await page.locator("#conditions-toggle").click();
+  await page.locator("#settings-main-menu").click();
+  await page.locator("#new-journey").click();
   await expect(page.locator("#lesson-chooser")).toBeVisible();
   await expect(page.locator(".lesson-choice")).toHaveCount(6);
   await expect(page.locator('#start-anchorage')).toContainText("Choose · Set · Recover");

@@ -1,7 +1,8 @@
 import type { ActivityScore } from "./activity-session";
 import { FIRST_BUOY, FIRST_COURSE_ID } from "./first-buoy";
 
-export const PROGRESS_STORAGE_KEY = "fair-winds-progress-v1";
+export const PROGRESS_STORAGE_KEY = "fair-winds-progress-v2";
+export const LEGACY_PROGRESS_STORAGE_KEY = "fair-winds-progress-v1";
 
 export interface ActivityRecord {
   completions: number;
@@ -11,6 +12,7 @@ export interface ActivityRecord {
 
 export interface SailingProgress {
   version: 2;
+  resetId?: string;
   completedIntroductions?: Record<string, number>;
   activeIntroduction?: string;
   completedDummyRecovery?: boolean;
@@ -58,6 +60,7 @@ export function parseProgress(raw: string | null): SailingProgress {
       distanceSailed: Math.max(0, value.distanceSailed!),
       activities: sanitizeRecords(value.activities),
     };
+    if (typeof value.resetId === "string" && /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(value.resetId)) restored.resetId = value.resetId;
     if (Number.isInteger(value.academyObjective) && value.academyObjective! >= 0 && value.academyObjective! <= 9) restored.academyObjective = value.academyObjective;
     if (Array.isArray(value.completedLessons)) restored.completedLessons = [...new Set(value.completedLessons.filter((lesson) => Number.isInteger(lesson) && lesson >= 0 && lesson <= 2))];
     if (Number.isInteger(value.academyLesson) && value.academyLesson! >= 0 && value.academyLesson! <= 2) restored.academyLesson = value.academyLesson;
@@ -93,6 +96,32 @@ function deriveMastery(progress: SailingProgress): SailingProgress {
   const earned = progress.completedObjectives ?? [];
   const completedLessons = [0, 1, 2].filter((lesson) => [0, 1, 2].every((target) => earned.includes(lesson * 3 + target)));
   return { ...progress, completedLessons, academyCompleted: completedLessons.length === 3 };
+}
+
+/** Merge earned credit only within the same explicit-reset generation. */
+export function mergeProgress(current: SailingProgress, saved: SailingProgress): SailingProgress {
+  if (current.resetId !== saved.resetId) return saved;
+  const activities = { ...saved.activities, ...current.activities };
+  for (const id of Object.keys(activities)) {
+    const local = Object.hasOwn(current.activities, id) ? current.activities[id] : undefined;
+    const remote = Object.hasOwn(saved.activities, id) ? saved.activities[id] : undefined;
+    if (local && remote) activities[id] = {
+      completions: Math.max(local.completions, remote.completions),
+      bestScore: Math.max(local.bestScore, remote.bestScore),
+      lastCompletedAt: local.lastCompletedAt > remote.lastCompletedAt ? local.lastCompletedAt : remote.lastCompletedAt,
+    };
+  }
+  return deriveMastery({
+    ...current,
+    completedIntroductions: { ...saved.completedIntroductions, ...current.completedIntroductions },
+    completedObjectives: validObjectives([...(saved.completedObjectives ?? []), ...(current.completedObjectives ?? [])]),
+    completedDummyRecovery: current.completedDummyRecovery || saved.completedDummyRecovery,
+    completedCrossing: current.completedCrossing || saved.completedCrossing,
+    completedAnchorage: current.completedAnchorage || saved.completedAnchorage,
+    voyages: Math.max(current.voyages, saved.voyages),
+    distanceSailed: Math.max(current.distanceSailed, saved.distanceSailed),
+    activities,
+  });
 }
 
 /** Call only for the objective whose live academy.update just returned true. */

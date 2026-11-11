@@ -144,11 +144,13 @@ test("canceling logbook reset preserves saved progress", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-app-ready", "true");
     await expect(page.locator("#boot-loader")).toHaveCount(0);
+  const canonicalBefore = await page.evaluate(() => localStorage.getItem("fair-winds-progress-v2"));
   await page.locator("#title-settings").click();
   await page.locator('[data-ui-tab="controls"]').click();
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.locator("#settings-reset-logbook").click();
   expect(await page.evaluate(() => localStorage.getItem("fair-winds-progress-v1"))).toBe(saved);
+  expect(await page.evaluate(() => localStorage.getItem("fair-winds-progress-v2"))).toBe(canonicalBefore);
 });
 
 test("Settings controls update their values and pause/resume sailing", async ({ page }) => {

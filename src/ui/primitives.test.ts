@@ -34,3 +34,24 @@ it("reaches a native summary before wrapping and excludes hidden or untabbable c
   expect(tab()).toHaveBeenCalledOnce(); expect(doc.activeElement).toBe(back);
   expect(tab(true)).toHaveBeenCalledOnce(); expect(doc.activeElement).toBe(summary);
 });
+
+it("keeps credits links, textareas and custom tab stops inside a dialog without including disabled controls", () => {
+  vi.stubGlobal("document", doc);
+  const close = new Control("BUTTON"), credits = new Control("A"), message = new Control("TEXTAREA");
+  const custom = new Control("DIV"), disabled = new Control("INPUT");
+  disabled.disabled = true;
+  const controls = [close, credits, message, custom, disabled];
+  const root = {
+    querySelectorAll: (selector: string) => controls.filter(control => !control.disabled &&
+      (control.tagName === "BUTTON" || selector.includes(control.tagName === "A" ? "a[href]" : control.tagName === "TEXTAREA" ? "textarea" : "[tabindex]"))),
+  } as unknown as HTMLElement;
+  const tab = (shiftKey = false) => {
+    const event = { shiftKey, preventDefault: vi.fn() };
+    trapFocusWithin(root, event as unknown as KeyboardEvent);
+    return event.preventDefault;
+  };
+  close.focus(); expect(tab()).not.toHaveBeenCalled();
+  credits.focus(); expect(tab()).not.toHaveBeenCalled();
+  custom.focus(); expect(tab()).toHaveBeenCalledOnce(); expect(doc.activeElement).toBe(close);
+  expect(tab(true)).toHaveBeenCalledOnce(); expect(doc.activeElement).toBe(custom);
+});

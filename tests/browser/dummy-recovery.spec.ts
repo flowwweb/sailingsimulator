@@ -18,7 +18,7 @@ test("training exercise starts, interrupts and retries without earning completio
   await expect(page.locator("#lesson-skip")).toHaveText("Retry exercise");
   await page.locator("#lesson-skip").click();
   await expect(shell).toHaveAttribute("data-academy-stage", "dummy-depart");
-  const completed = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v1") ?? "{}").completedDummyRecovery);
+  const completed = await page.evaluate(() => JSON.parse(localStorage.getItem("fair-winds-progress-v2") ?? "{}").completedDummyRecovery);
   expect(completed).not.toBe(true);
 });
 

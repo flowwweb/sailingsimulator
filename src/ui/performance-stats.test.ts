@@ -129,6 +129,58 @@ describe("opt-in performance statistics", () => {
     expect(output.textContent).toContain("GPU 5.0 ms (2 completed)");
     expect(output.textContent).not.toContain("GPU 80.0 ms");
   });
+
+  it("excludes paused intervals and the first resumed interval from the live sailing summary", () => {
+    const output = { textContent: "" } as HTMLElement, stats = new PerformanceStats(output);
+    const cpu = { totalMs: 5, simulationMs: 1, titleCopyMs: 0, uiAudioMs: 2 };
+    const sailing = { cpuMs: 2, calls: 10, triangles: 100, mode: "sailing" as const };
+    for (let second = 0; second <= 3; second++) stats.record(second * 1000, sailing, cpu);
+    for (let second = 4; second <= 6; second++) {
+      stats.record(second * 1000, { ...sailing, cpuMs: 90, mode: "paused" }, { ...cpu, totalMs: 100 });
+    }
+    expect(output.textContent).toContain("World renders 1 · CPU avg 90.0 ms");
+    expect(output.textContent).toContain("Live last 30 s · sampled 2.0 s · callbacks/s 1 · renders 2 · callback CPU 5.0 ms · world CPU 2.0 ms");
+    stats.record(7000, { ...sailing, cpuMs: 40 }, { ...cpu, totalMs: 50 });
+    expect(output.textContent).toContain("Live last 30 s · sampled 2.0 s");
+    expect(output.textContent).toContain("Entry sailing frame · callback CPU 50.0 ms · world CPU 40.0 ms");
+    stats.record(8000, sailing, cpu);
+    expect(output.textContent).toContain("Live last 30 s · sampled 3.0 s · callbacks/s 1 · renders 3 · callback CPU 5.0 ms · world CPU 2.0 ms");
+    for (let second = 9; second <= 40; second++) stats.record(second * 1000, { ...sailing, mode: "paused" }, cpu);
+    expect(output.textContent).toContain("waiting for a full sailing interval (entry, paused and cached title excluded)");
+  });
+
+  it("keeps delayed paused and warm-resume GPU queries out of live sailing", () => {
+    const gpu = gpuFixture(), output = { textContent: "" } as HTMLElement, stats = new PerformanceStats(output, gpu.gl);
+    const frame = (second: number, mode: "paused" | "sailing", milliseconds: number, ready = true) => {
+      stats.beginGpuRender(mode); stats.endGpuRender();
+      if (ready) gpu.ready(gpu.created.at(-1)!, milliseconds * 1_000_000);
+      stats.record(second * 1000, { cpuMs: 2, calls: 10, triangles: 100, mode });
+    };
+    frame(0, "sailing", 2); frame(1, "sailing", 2); frame(2, "sailing", 4);
+    frame(3, "paused", 80, false); frame(4, "paused", 90, false); frame(5, "sailing", 100, false);
+    gpu.ready(gpu.created[3]!, 80_000_000); gpu.ready(gpu.created[4]!, 90_000_000); gpu.ready(gpu.created[5]!, 100_000_000);
+    frame(6, "sailing", 6);
+    expect(output.textContent).toContain("Live last 30 s · sampled 2.0 s");
+    expect(output.textContent).toContain("GPU 5.0 ms (2 completed)");
+    expect(gpu.resultReads).toBe(7);
+  });
+
+  it("does not count a pre-pause GPU query that completes after a long pause and resume", () => {
+    const gpu = gpuFixture(), output = { textContent: "" } as HTMLElement, stats = new PerformanceStats(output, gpu.gl);
+    const frame = (second: number, mode: "paused" | "sailing", milliseconds: number, ready = true) => {
+      stats.beginGpuRender(mode); stats.endGpuRender();
+      if (ready) gpu.ready(gpu.created.at(-1)!, milliseconds * 1_000_000);
+      stats.record(second * 1000, { cpuMs: 2, calls: 10, triangles: 100, mode });
+    };
+    frame(0, "sailing", 2); frame(1, "sailing", 2);
+    frame(2, "sailing", 90, false); frame(3, "paused", 80, false);
+    for (let second = 4; second <= 35; second++) stats.record(second * 1000, { cpuMs: 2, calls: 10, triangles: 100, mode: "paused" });
+    frame(36, "sailing", 100, false);
+    gpu.ready(gpu.created[2]!, 90_000_000); gpu.ready(gpu.created[3]!, 80_000_000); gpu.ready(gpu.created[4]!, 100_000_000);
+    frame(37, "sailing", 6);
+    expect(output.textContent).toContain("Live last 30 s · sampled 1.0 s");
+    expect(output.textContent).toContain("GPU 6.0 ms (1 completed)");
+  });
 });
 
 function gpuFixture(supported = true) {

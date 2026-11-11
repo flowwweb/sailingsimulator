@@ -190,7 +190,7 @@ test("leaving or editing the exercise restores preferences while a chosen preset
     weatherSystem: { setConfig() {}, sample() { return {}; } }, audio: { setSeed() {} },
     interruptLessonAttempt() {}, syncWeatherControls() {}, updateWeatherOutputs() {},
     saveStoredValue() {},
-    elements: { status: { textContent: "" } }, crossing: undefined, dummyRecovery: undefined, firstBuoy: undefined,
+    elements: { status: { textContent: "" } }, anchorage: undefined, crossing: undefined, dummyRecovery: undefined, firstBuoy: undefined,
   };
   runInNewContext(`${code}
     weatherBeforeShelter = cloneWeatherConfig(DEFAULT_WEATHER);

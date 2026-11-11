@@ -44,12 +44,16 @@ test("spoken notice keeps its subtitle visible for the audio duration", () => {
   const end = source.indexOf("\n}", begin) + 2;
   assert.ok(begin >= 0 && end > begin);
   const fn = stripTypeScriptTypes(source.slice(begin, end), { mode: "strip" });
-  const subtitle = { hidden: true }, text = { textContent: "" };
-  const context = { radioSubtitleSeconds: 0, required: (selector) => selector === "#radio-subtitle" ? subtitle : text };
+  const subtitle = { hidden: true }, text = { textContent: "" }, channel = { textContent: "" };
+  const context = { harborRadio: { channel: 80 }, radioSubtitleSeconds: 0,
+    required: (selector) => selector === "#radio-subtitle" ? subtitle : selector === "#radio-subtitle-channel" ? channel : text };
   runInNewContext(`${fn}\nshowRadioSubtitle("Safety traffic", 17.1);`, context);
   assert.equal(subtitle.hidden, false);
   assert.equal(text.textContent, "Safety traffic");
+  assert.equal(channel.textContent, "VHF 80");
   assert.equal(context.radioSubtitleSeconds, 17.1);
+  runInNewContext('showRadioSubtitle("Coast radio notice", 0, 16);', context);
+  assert.equal(channel.textContent, "VHF 16", "the channel16 notice does not borrow the marina channel label");
 });
 
 test("radio subtitle uses an accessible icon and avoids simulated VHF prefix", () => {

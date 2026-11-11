@@ -33,10 +33,10 @@ export class PerformanceStats {
   private gpuMs = 0;
   private gpuLiveSamples = 0;
   private gpuLiveMs = 0;
-  private lastRenderMode?: "title" | "sailing";
-  private entryFrame?: { mode: "title" | "sailing"; worldMs: number; callbackMs?: number };
+  private lastRenderMode?: "title" | "paused" | "sailing";
+  private entryFrame?: { mode: "title" | "paused" | "sailing"; worldMs: number; callbackMs?: number };
   private entryBucket = false;
-  private titleBucket = false;
+  private nonSailingBucket = false;
   private readonly liveBuckets: LiveBucket[] = [];
 
   constructor(private readonly output: HTMLElement, private readonly gl?: WebGL2RenderingContext) {
@@ -62,10 +62,10 @@ export class PerformanceStats {
     this.cpuFrames = this.callbackMs = this.simulationMs = this.titleCopyMs = this.uiAudioMs = 0;
     this.gpuSamples = this.gpuMs = 0;
     this.gpuLiveSamples = this.gpuLiveMs = 0;
-    this.entryBucket = this.titleBucket = false;
+    this.entryBucket = this.nonSailingBucket = false;
   }
 
-  beginGpuRender(mode: "title" | "sailing" = "sailing"): void {
+  beginGpuRender(mode: "title" | "paused" | "sailing" = "sailing"): void {
     const gl = this.gl, extension = this.gpuExtension;
     if (!gl || !extension || this.gpuDisjoint || gl.isContextLost() || this.activeGpuQuery || this.pendingGpuQueries.length >= 4) return;
     const query = gl.createQuery();
@@ -117,7 +117,7 @@ export class PerformanceStats {
     }
   }
 
-  record(now: number, render?: { cpuMs: number; calls: number; triangles: number; mode?: "title" | "sailing" },
+  record(now: number, render?: { cpuMs: number; calls: number; triangles: number; mode?: "title" | "paused" | "sailing" },
     cpu?: { totalMs: number; simulationMs: number; titleCopyMs: number; uiAudioMs: number }): void {
     if (!Number.isFinite(now)) return;
     this.pollGpuQueries();
@@ -127,11 +127,12 @@ export class PerformanceStats {
     if (render) {
       const mode = render.mode ?? "sailing";
       if (mode !== this.lastRenderMode) {
+        if (mode !== "sailing") for (const pending of this.pendingGpuQueries) pending.live = false;
         this.entryBucket = true;
         this.entryFrame = { mode, worldMs: render.cpuMs, callbackMs: cpu?.totalMs };
         this.lastRenderMode = mode;
       }
-      this.titleBucket ||= mode === "title";
+      this.nonSailingBucket ||= mode !== "sailing";
       this.renders++;
       this.renderMs += render.cpuMs;
       this.calls += render.calls;
@@ -152,7 +153,7 @@ export class PerformanceStats {
     const count = this.frames.length;
     this.frames.sort((a, b) => a - b);
     const p95 = this.frames[Math.ceil(count * 0.95) - 1]!;
-    if (this.renders && !this.titleBucket && !this.entryBucket && this.elapsed <= 30_000) {
+    if (this.renders && !this.nonSailingBucket && !this.entryBucket && this.elapsed <= 30_000) {
       this.liveBuckets.push({ end: now, elapsedMs: this.elapsed, frames: count, renders: this.renders,
         renderMs: this.renderMs, cpuFrames: this.cpuFrames, callbackMs: this.callbackMs,
         gpuSamples: this.gpuLiveSamples, gpuMs: this.gpuLiveMs });
@@ -176,7 +177,7 @@ export class PerformanceStats {
       : liveGpuSamples ? `GPU ${(liveGpuMs / liveGpuSamples).toFixed(1)} ms (${liveGpuSamples} completed)` : "GPU pending";
     const liveSummary = liveElapsed
       ? `Live last 30 s · sampled ${(liveElapsed / 1000).toFixed(1)} s · callbacks/s ${(liveFrames * 1000 / liveElapsed).toFixed(0)} · renders ${liveRenders} · callback CPU ${liveCpuFrames ? `${(liveCpuMs / liveCpuFrames).toFixed(1)} ms` : "unmeasured"} · world CPU ${(liveRenderMs / liveRenders).toFixed(1)} ms · ${liveGpu}`
-      : "Live last 30 s · waiting for a full sailing interval (entry and cached title excluded)";
+      : "Live last 30 s · waiting for a full sailing interval (entry, paused and cached title excluded)";
     const entrySummary = this.entryFrame
       ? `\nEntry ${this.entryFrame.mode} frame · ${this.entryFrame.callbackMs === undefined ? "" : `callback CPU ${this.entryFrame.callbackMs.toFixed(1)} ms · `}world CPU ${this.entryFrame.worldMs.toFixed(1)} ms · entry interval excluded from live summary` : "";
     this.output.textContent = `Animation callbacks/s ${(count * 1000 / this.elapsed).toFixed(0)} · interval avg ${(this.elapsed / count).toFixed(1)} ms · p95 ${p95.toFixed(1)} ms${cpuSummary}\n${renderSummary}\n${liveSummary}${entrySummary}`;

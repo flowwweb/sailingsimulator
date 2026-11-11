@@ -146,7 +146,7 @@ test("completed sailing skills open the chooser from the title", () => {
   const handler = main.slice(start, end);
   let callback, chooser = 0, sailed = 0;
   const academy = { view: () => ({ stage: "complete", objective: 0 }) };
-  const ctx = { academy, progress: {}, FIRST_BUOY: { id: "intro.buoy-1" },
+  const ctx = { academy, progress: { completedIntroductions: { "intro.three-buoy-course": 1 } }, FIRST_BUOY: { id: "intro.buoy-1" }, FIRST_COURSE_ID: "intro.three-buoy-course",
     elements: { continueLesson: { addEventListener(_event, fn) { callback = fn; } } },
     openLessonChooser() { chooser++; }, beginSailing() { sailed++; } };
   runInNewContext(handler, ctx); callback();

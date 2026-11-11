@@ -107,7 +107,7 @@
         <canvas id="minimap" aria-label="Minimap showing the lake and current boat position"></canvas>
         <span class="north-mark" aria-hidden="true">N</span>
       </aside>
-      <p id="radio-subtitle" class="radio-subtitle" role="status" aria-live="polite" hidden><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-radio" /></svg> <span class="sr-only">Radio: </span><span id="radio-subtitle-text"></span></p>
+      <p id="radio-subtitle" class="radio-subtitle" role="status" aria-live="polite" hidden><svg class="fw-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="/brand/fairwinds-icons.svg#fw-radio" /></svg> <span id="radio-subtitle-channel" class="radio-subtitle-channel">VHF 16</span><span id="radio-subtitle-text"></span></p>
 
       <header class="topbar">
         <div class="top-actions">
@@ -391,8 +391,8 @@
               <input id="trim-guide-enabled" type="checkbox" role="switch" />
             </label>
             <div class="ui-control-row settings-command-row">
-              <span><b>Local logbook</b><small id="settings-logbook-summary">No completed activities yet</small></span>
-              <button id="settings-reset-logbook" class="secondary-button ui-action" type="button">Reset</button>
+              <span><b>Local logbook</b><small id="settings-logbook-summary" aria-live="polite">No completed activities yet</small></span>
+              <button id="settings-reset-logbook" class="secondary-button ui-action" type="button" aria-describedby="settings-logbook-summary">Reset</button>
             </div>
           </div>
           </section>
@@ -530,6 +530,7 @@
     <section id="completion-screen" class="completion-screen" hidden>
       <div class="completion-content" role="dialog" aria-modal="true" aria-labelledby="completion-heading" aria-describedby="completion-reward">
         <svg class="fw-icon completion-emblem" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-boat" /></svg>
+        <img id="completion-rank-badge" class="completion-rank-badge" alt="" />
         <p class="completion-kicker" id="completion-title"></p>
         <h2 id="completion-heading" aria-live="polite"></h2>
         <p id="completion-reward" aria-live="polite"></p>

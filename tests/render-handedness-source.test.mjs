@@ -83,8 +83,12 @@ test("the real ArrowRight input and simulation turn toward screen-right without 
 });
 
 test("the converted title camera retains the boat-left F composition", () => {
+  const main = read("src/main.ts");
+  const heading = Number(main.match(/titleState\.heading = degrees\(([\d.]+)\)/)?.[1]);
+  const wind = Number(main.match(/titleConfig\.wind\.directionFromDegrees = ([\d.]+)/)?.[1]);
+  assert.equal(heading - wind, 65, "the title-only pose retains its original relative wind");
   for (const aspect of [1672 / 941, 844 / 390, 640 / 360]) for (const title of ["arrival", "return"]) {
-    const project = view(130 * Math.PI / 180, aspect, title);
+    const project = view(heading * Math.PI / 180, aspect, title);
     assert.ok(project(0, 0) < -.2);
     assert.ok(project(0, 0) > -.8);
     // Actual campanile foundation (town1100,-500 + local124,46) relative to title boat991,-236.

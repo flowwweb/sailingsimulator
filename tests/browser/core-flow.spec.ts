@@ -173,7 +173,7 @@ test("scored docking debrief is written to the local logbook", async ({
     page.locator('[data-activity-id="juniper-arrival"]'),
   ).toHaveClass(/is-complete/);
   const stored = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("fair-winds-progress-v1") ?? "{}"),
+    JSON.parse(localStorage.getItem("fair-winds-progress-v2") ?? "{}"),
   );
   expect(stored.activities["juniper-arrival"].completions).toBe(1);
 });
