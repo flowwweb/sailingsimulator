@@ -102,13 +102,13 @@ export class ActivitySession {
       completed = distance <= 80 && quality >= 0.55;
       instruction = completed
         ? "Channel held with drawing sail"
-        : `${Math.round(distance)} m · keep attached flow between the marks`;
+        : `${Math.round(distance)} m · keep the sail drawing between the marks`;
     }
     if (this.activity.id === "school-water-tacks") {
       const tacks = Math.max(0, observation.tackCount - (this.startingTacks ?? 0));
       progress = clamp(tacks / 2, 0, 1);
       completed = tacks >= 2 && observation.attached > 0.68;
-      instruction = `${Math.min(tacks, 2)} of 2 clean tacks · finish with attached flow`;
+      instruction = `${Math.min(tacks, 2)} of 2 clean tacks · finish with the sail drawing`;
     }
     if (this.activity.id === "fresh-air-reef") {
       const onStation = distance <= 320;
@@ -130,7 +130,7 @@ export class ActivitySession {
       instruction = !onStation
         ? `${Math.round(distance)} m to Windward Reach · reef before exposed water`
         : observation.reefed
-          ? "Hold attached flow and settle heel below 24°"
+          ? "Keep the sail drawing and settle heel below 24°"
           : "Take one reef before entering the exposed reach";
     }
     if (this.activity.id === "juniper-arrival") {

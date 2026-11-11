@@ -44,7 +44,7 @@ test.each(["flow", "tack", "gybe"])("failed journey keeps both final status mess
   journey.update(1 / 60, { unsafe: true } as never);
   const elements = { status: { textContent: "Touched a marker. Steer clear and continue." }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
   const context = { touchCooldown: 0, academy: { view: () => ({ stage: "free-sail" }) }, activitySession: undefined, lastFirstBuoyHeadline: "", elements, firstBuoy: journey, anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, state: { maneuverCount: change === "flow" ? 0 : 1, lastManeuver: change === "flow" ? "none" : change },
-    lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
+    lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Watch your course and speed", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);
   expect(elements.status.textContent).toBe("Journey failed. Open status to retry.");
@@ -54,17 +54,17 @@ test.each(["flow", "tack", "gybe"])("failed journey keeps both final status mess
 test("active journey shows the sailing objective instead of flow jargon", () => {
   const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
   const context = { touchCooldown: 0, academy: { view: () => ({ stage: "free-sail" }) }, activitySession: undefined, lastFirstBuoyHeadline: "", elements, firstBuoy: new FirstBuoyJourney(), anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
-    lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
+    lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Watch your course and speed", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);
   expect(elements.status.textContent).toBe("Sail to Juniper buoy.");
-  expect(elements.statusMessage.textContent).toBe("Sail looks steady. Watch your course and speed.");
+  expect(elements.statusMessage.textContent).toBe("Sail drawing. Watch your course and speed.");
 });
 
 test.each(["Tack complete. Build speed on the new side and retrim.", "Sound muted.", "Reefed mainsail."])("active journey retains feedback: %s", (message) => {
   const elements = { status: { textContent: message }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
   const context = { touchCooldown: 0, academy: { view: () => ({ stage: "free-sail" }) }, activitySession: undefined, lastFirstBuoyHeadline: "", elements, firstBuoy: new FirstBuoyJourney(), anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
-    lastManeuverCount: 0, lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true,
+    lastManeuverCount: 0, lastFlow: "Attached", flow: "Attached", coach: "Watch your course and speed", started: true,
     dockedAt: undefined, storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus(); updateHudStatus();`, context);
   expect(elements.status.textContent).toBe("Sail to Juniper buoy. Storage unavailable");
@@ -74,7 +74,7 @@ test.each(["Tack complete. Build speed on the new side and retrim.", "Sound mute
 test("completed journey keeps its completion message after flow changes", () => {
   const elements = { status: { textContent: "Ready" }, statusMessage: { textContent: "" }, statusFeedback: { textContent: "" } };
   const context = { touchCooldown: 0, academy: { view: () => ({ stage: "free-sail" }) }, activitySession: undefined, lastFirstBuoyHeadline: "", elements, firstBuoy: { completed: true, failed: false }, anchorage: undefined, dummyRecovery: undefined, weatherShelter: undefined, crossing: undefined, state: { maneuverCount: 0, lastManeuver: "none" },
-    lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Flow attached", started: true,
+    lastManeuverCount: 0, lastFlow: "Luffing", flow: "Attached", coach: "Watch your course and speed", started: true,
     dockedAt: undefined, storageUnavailable: false, STORAGE_WARNING: "Storage unavailable" };
   runInNewContext(`${hudStatus}; updateHudStatus();`, context);
   expect(elements.status.textContent).toBe("Three buoys reached under control. Journey complete.");

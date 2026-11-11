@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#183f4c" />
+    <meta name="theme-color" content="#3489b4" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/brand/fairwinds-app-icon.svg" />
@@ -19,7 +19,7 @@
         height: 100%;
         margin: 0;
         overflow: hidden;
-        background: #183f4c;
+        background: #3489b4;
       }
 
       .game-shell {
@@ -32,23 +32,29 @@
         display: grid;
         inset: 0;
         place-items: center;
-        background: #183f4c;
+        background: linear-gradient(#3489b4 0%, #77aec4 52%, #003c63 100%);
         color: #f7f0df;
         opacity: 1;
         transition: opacity 220ms ease, visibility 220ms ease;
       }
 
       .boot-lockup {
+        position: absolute;
+        inset: 0;
         display: grid;
-        width: min(250px, 64vw);
-        justify-items: center;
-        gap: 24px;
+        place-items: center;
       }
 
       .boot-brand {
+        position: absolute;
+        top: max(3svh, env(safe-area-inset-top));
+        left: max(clamp(24px, 4vw, 68px), env(safe-area-inset-left));
         display: block;
-        width: 100%;
+        width: clamp(136px, 18vw, 300px);
         height: auto;
+        max-height: 22svh;
+        object-fit: contain;
+        object-position: left top;
       }
 
       .boot-spinner {
@@ -76,6 +82,14 @@
         }
       }
 
+      @media (max-height: 600px) and (orientation: landscape) {
+        .boot-brand {
+          top: max(16px, env(safe-area-inset-top));
+          left: max(24px, env(safe-area-inset-left));
+          max-height: 24svh;
+        }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         #boot-loader {
           transition: none;
@@ -92,7 +106,7 @@
       <div class="boot-lockup" aria-hidden="true">
         <img
           class="boot-brand"
-          src="/brand/fairwinds-wordmark.svg"
+          src="/brand/fairwinds-full.svg"
           alt=""
         />
         <span class="boot-spinner"></span>
@@ -534,26 +548,31 @@
         <p class="completion-kicker" id="completion-title"></p>
         <h2 id="completion-heading" aria-live="polite"></h2>
         <p id="completion-reward" aria-live="polite"></p>
-        <p id="completion-level" aria-live="polite"><span id="completion-level-number"></span><span id="completion-rank"></span></p>
+        <p id="completion-level" aria-live="polite"><span id="completion-level-number"></span></p>
         <div class="completion-track" role="progressbar" aria-label="XP progress toward next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="completion-fill"></span><svg class="completion-marker" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand/fairwinds-icons.svg#fw-boat" /></svg></div>
-        <p id="completion-xp"></p>
         <button id="completion-continue" type="button">Continue sailing</button>
       </div>
     </section>
     <div id="fatal-error" class="fatal-error" role="alert" hidden></div>
     <section class="orientation-gate" role="status">
       <div class="orientation-instruction">
-        <svg class="rotation-cue" viewBox="0 0 240 150" fill="none" aria-hidden="true">
+        <svg class="rotation-cue orientation-touch" viewBox="0 0 240 150" fill="none" aria-hidden="true">
           <g stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
             <rect x="12" y="8" width="70" height="134" rx="12"/><path d="M39 18h16"/>
             <rect x="98" y="81" width="128" height="61" rx="12"/><path d="M108 103v17"/>
           </g>
           <path class="rotation-arrow" d="M99 16c36-1 65 16 69 51m-13-12 13 13 12-14" stroke="#ffc32f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <h2>Turn your device</h2>
+        <svg class="rotation-cue orientation-desktop" viewBox="0 0 240 150" fill="none" aria-hidden="true">
+          <g stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="25" y="25" width="190" height="100" rx="8"/><path d="M25 47h190"/>
+          </g>
+          <path d="M64 86h112m-12-12 12 12-12 12M76 74 64 86l12 12" stroke="#ffc32f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h2><span class="orientation-touch">Turn your device</span><span class="orientation-desktop">Widen this window</span></h2>
         <p>Fair Winds is best in landscape</p>
       </div>
-      <p class="orientation-hint">Rotate to landscape to continue</p>
+      <p class="orientation-hint"><span class="orientation-touch">Rotate to landscape to continue</span><span class="orientation-desktop">Make this window wider than it is tall</span></p>
     </section>
     <script type="module" src="/src/main.ts"></script>
   </body>

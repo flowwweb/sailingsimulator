@@ -62,7 +62,9 @@ test("styled loading screen covers the app until its first rendered frame", asyn
   const loader = page.locator("#boot-loader");
   await expect(loader).toBeVisible();
   await expect(page.locator(".boot-spinner")).toBeVisible();
-  await expect(loader).toHaveCSS("background-color", "rgb(24, 63, 76)");
+  await expect(loader).toHaveCSS("background-image", /linear-gradient/);
+  await expect(page.locator(".boot-brand")).toHaveAttribute("src", "/brand/fairwinds-full.svg");
+  const loadingLogo = (await page.locator(".boot-brand").boundingBox())!;
   await expect(page.locator(".game-shell")).toHaveCSS("visibility", "hidden");
   const cdp = await context.newCDPSession(page);
   const capture = await cdp.send("Page.captureScreenshot", {
@@ -81,6 +83,10 @@ test("styled loading screen covers the app until its first rendered frame", asyn
   await expect(page.locator("html")).toHaveAttribute("data-app-ready", "true");
   await expect(loader).toHaveCount(0);
   await expect(page.locator(".game-shell")).toHaveCSS("visibility", "visible");
+  const titleLogo = (await page.locator(".welcome-brand").boundingBox())!;
+  for (const axis of ["x", "y", "width", "height"] as const) {
+    expect(Math.abs(loadingLogo[axis] - titleLogo[axis])).toBeLessThanOrEqual(1);
+  }
 });
 
 test("core sailing composition matches the visual baseline", async ({
