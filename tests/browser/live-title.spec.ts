@@ -54,8 +54,9 @@ test("portrait pauses the active lesson and landscape resumes it", async ({ page
   await expect(page.locator(".game-shell")).toHaveAttribute("data-academy-stage", "trim");
   await page.setViewportSize({ width:390, height:844 });
   await expect(page.locator(".orientation-gate")).toBeVisible();
-  await expect(page.locator(".orientation-gate h2")).toHaveText("Turn your device");
-  await expect(page.locator(".orientation-hint")).toHaveText("Rotate to landscape to continue");
+  const finePointer = await page.evaluate(() => matchMedia("(pointer: fine)").matches);
+  await expect(page.locator(".orientation-gate h2")).toHaveText(finePointer ? "Widen this window" : "Turn your device", { useInnerText: true });
+  await expect(page.locator(".orientation-hint")).toHaveText(finePointer ? "Make this window wider than it is tall" : "Rotate to landscape to continue", { useInnerText: true });
   await expect.poll(() => page.locator(".game-shell").evaluate(element => element.inert)).toBe(true);
   const time = await page.locator(".game-shell").getAttribute("data-simulation-time");
   const saved = await page.evaluate(() => localStorage.getItem("fair-winds-progress-v2"));
@@ -78,7 +79,7 @@ test("rotation notice fits a short portrait viewport and respects reduced motion
   const gate = page.locator(".orientation-gate");
   await expect(gate).toBeVisible();
   await expect(page.locator(".rotation-arrow")).toHaveCSS("animation-name", "none");
-  for (const selector of [".rotation-cue", ".orientation-gate h2", ".orientation-instruction p", ".orientation-hint"]) {
+  for (const selector of [".rotation-cue:visible", ".orientation-gate h2", ".orientation-instruction p", ".orientation-hint"]) {
     const box = (await page.locator(selector).boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(320);

@@ -413,7 +413,7 @@ export const FAIR_WINDS_WORLD: WorldDefinition = {
       x: -760,
       z: -620,
       area: "Windward Reach",
-      objective: "Take one reef, settle the boat, and maintain attached flow in waves.",
+      objective: "Take one reef, settle the boat, and keep the sail drawing in waves.",
       difficulty: "Moderate",
     },
     {

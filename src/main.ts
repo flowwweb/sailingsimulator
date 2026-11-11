@@ -1739,9 +1739,9 @@ function updateHud(): void {
               : flow === "Stalled"
                 ? "Ease a little"
                 : state.reefLevel === 1
-                  ? "Reefed flow attached"
-                  : "Flow attached");
-  const statusSummary = `${flow}. ${coach}${/[.!?]$/.test(coach) ? "" : "."}`;
+                  ? "Reef set · watch your course and speed"
+                  : "Watch your course and speed");
+  const statusSummary = `${flow === "Attached" ? "Sail drawing" : flow}. ${coach}${/[.!?]$/.test(coach) ? "" : "."}`;
   const rudderDegrees = Math.round(radiansToDegrees(state.rudderAngle));
   const boomDegrees = Math.round(Math.abs(radiansToDegrees(state.boomAngle)));
   const boomSide = state.boomAngle < 0 ? "port" : "starboard";
@@ -1757,7 +1757,7 @@ function updateHud(): void {
       ? hasHeadsail ? "Reefed main + jib" : "Reefed mainsail"
       : hasHeadsail ? "Main + jib" : "Mainsail";
   elements.motion.textContent = `Heel ${Math.round(Math.abs(radiansToDegrees(state.heel)))}° · ${Math.abs(rudderDegrees) < 2 ? "Rudder centered" : `Rudder ${Math.abs(rudderDegrees)}°`}`;
-  elements.flow.textContent = flow;
+  elements.flow.textContent = flow === "Attached" ? "Drawing" : flow;
   elements.flow.dataset.state = flow.toLowerCase();
   elements.coach.textContent = coach;
   elements.statusCue.textContent = `${statusSummary} ${elements.motion.textContent}`;
@@ -1806,9 +1806,7 @@ function updateHud(): void {
     const objective = firstBuoy.objective();
     const detail = elements.status.textContent ?? "";
     if (detail && detail !== lastFirstBuoyHeadline && !detail.startsWith("Sail to ") && !detail.startsWith("Round Juniper buoy")) {
-      elements.statusMessage.textContent = detail === "Attached. Flow attached."
-        ? "Sail looks steady. Watch your course and speed."
-        : detail;
+      elements.statusMessage.textContent = detail;
     }
     const headline = storageUnavailable ? `${objective} ${STORAGE_WARNING}` : objective;
     if (elements.status.textContent !== headline) elements.status.textContent = headline;
@@ -1860,7 +1858,7 @@ function updateHud(): void {
   elements.statusMessage.hidden = Boolean((dummyRecovery || anchorage) && (
     elements.statusMessage.textContent === elements.lessonInstruction.textContent
     || (anchorage && elements.lessonInstruction.textContent?.startsWith(`${elements.statusMessage.textContent} `))));
-  if (dummyRecovery && coach === elements.lessonInstruction.textContent) elements.statusCue.textContent = `${flow}. ${elements.motion.textContent}`;
+  if (dummyRecovery && coach === elements.lessonInstruction.textContent) elements.statusCue.textContent = `${flow === "Attached" ? "Sail drawing" : flow}. ${elements.motion.textContent}`;
 }
 
 function syncSailControls(): void {
@@ -2661,16 +2659,15 @@ function isNonStatusSimulationPaused(): boolean {
 }
 
 function renderCompletionProgress(frame: ReturnType<typeof sailingRank>): void {
-  if (completionRevealing) required<HTMLImageElement>("#completion-rank-badge").src = `/brand/ranks/${frame.rank.toLowerCase().replace(/ /g, "-")}.png`;
+  if (completionRevealing) {
+    required<HTMLImageElement>("#completion-rank-badge").src = `/brand/ranks/${frame.rank.toLowerCase().replace(/ /g, "-")}.png`;
+    required("#completion-heading").textContent = frame.rank;
+  }
   const number = required("#completion-level-number");
-  const rank = required("#completion-rank");
   const levelText = `Level ${frame.level}`;
-  const rankText = `${completionRevealing ? " " : " · "}${frame.rank}`;
   const highestRank = frame.level >= 8;
   const displayedXp = highestRank ? 100 : frame.levelXp;
   if (number.textContent !== levelText) number.textContent = levelText;
-  if (rank.textContent !== rankText) rank.textContent = rankText;
-  required("#completion-xp").textContent = highestRank ? `All ranks earned · ${Math.floor(frame.xp)} XP total` : `${Math.round(frame.levelXp)} / 100 XP to next level · ${Math.floor(frame.xp)} XP total`;
   required(".completion-fill").style.width = `${displayedXp}%`;
   required(".completion-marker").style.left = `${displayedXp}%`;
 }
@@ -2704,11 +2701,13 @@ function showCompletion(title: string, before: ReturnType<typeof sailingRank>): 
   required("#completion-screen").dataset.animating = "false";
   required("#completion-title").hidden = false;
   required("#completion-reward").hidden = false;
+  required("#completion-level").hidden = true;
+  required(".completion-track").hidden = false;
   required(".completion-content").setAttribute("aria-describedby", "completion-reward");
   required("#completion-continue").textContent = completionPendingRank ? "See your rank" : completionNextLesson === undefined ? "Continue sailing" : "Next lesson";
   required("#completion-heading").textContent = firstBuoy ? "Journey complete" : "Lesson complete";
   required("#completion-title").textContent = title;
-  required("#completion-reward").textContent = `${earned ? `+${earned} XP earned` : "Previously completed"}${storageUnavailable ? ` ${STORAGE_WARNING}` : ""}`;
+  required("#completion-reward").textContent = `${earned ? `+${earned} XP` : "Previously completed"}${storageUnavailable ? ` ${STORAGE_WARNING}` : ""}`;
   input.releaseAll();
   accumulator = 0;
   elements.gameShell.inert = true;
@@ -2756,8 +2755,9 @@ function advanceCompletion(): void {
   required("#completion-screen").dataset.stage = "level-up";
   required("#completion-title").hidden = true;
   required("#completion-reward").hidden = true;
-  required(".completion-content").setAttribute("aria-describedby", "completion-level");
-  required("#completion-heading").textContent = "Level up!";
+  required("#completion-level").hidden = false;
+  required(".completion-track").hidden = true;
+  required(".completion-content").setAttribute("aria-describedby", "completion-level-number");
   setCompletionSemanticProgress(completionPendingRank);
   renderCompletionProgress(completionPendingRank);
   completionPendingRank = undefined;

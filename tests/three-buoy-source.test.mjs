@@ -245,7 +245,7 @@ test("actual missed-buoy state clears from the HUD feedback after sailing out", 
   const ctx = { touchCooldown: 0, academy: { view: () => ({ stage: "free-sail" }) }, activitySession: undefined,
     firstBuoy: journey, anchorage: undefined, dummyRecovery: undefined, crossing: undefined, weatherShelter: undefined,
     elements, state: { maneuverCount: 0, lastManeuver: "none" }, lastManeuverCount: 0, lastFirstBuoyHeadline: "Sail to Juniper buoy.",
-    lastFlow: "Attached", flow: "Attached", coach: "Flow attached", started: true, dockedAt: undefined,
+    lastFlow: "Attached", flow: "Attached", coach: "Watch your course and speed", started: true, dockedAt: undefined,
     storageUnavailable: true, STORAGE_WARNING: "Storage unavailable" };
   boat.line(first.x, first.z + 14.5, false, { forwardSpeed: 4.1 });
   assert.match(journey.objective(), /Slow down before the buoy/);

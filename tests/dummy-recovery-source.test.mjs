@@ -186,10 +186,10 @@ test("the existing dummy HUD shows assessor guidance, bearing and real hold prog
   const returning = make(); travel(returning, 5, 41);
   context.dummyRecovery = returning; context.state.position.x = 41; context.flow = "Attached";
   elements.motion.textContent = "Heel 8°"; render();
-  assert.equal(elements.statusCue.textContent, "Attached. Heel 8°");
+  assert.equal(elements.statusCue.textContent, "Sail drawing. Heel 8°");
   assert.equal(required("#status-objective-detail").textContent, "Return alongside the dummy.");
   assert.equal(elements.statusMessage.hidden, true);
   const summaryStart = main.indexOf("  const statusSummary =", main.indexOf("function updateHud("));
   const summary = main.slice(summaryStart, main.indexOf("\n", summaryStart));
-  assert.equal(runInNewContext(`${summary}\nstatusSummary;`, { flow: "Attached", coach: "Return alongside the dummy." }), "Attached. Return alongside the dummy.");
+  assert.equal(runInNewContext(`${summary}\nstatusSummary;`, { flow: "Attached", coach: "Return alongside the dummy." }), "Sail drawing. Return alongside the dummy.");
 });

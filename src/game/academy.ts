@@ -319,7 +319,7 @@ const STAGE_COPY: Record<AcademyStage, Pick<AcademyView, "eyebrow" | "title" | "
   },
   recover: {
     eyebrow: "Sail trim practice · Objective 3 of 3",
-    title: "Recover attached flow",
+    title: "Get the sail drawing again",
     instruction: "Ease until both telltales stream and the boat comes alive again.",
   },
   "close-hauled": {
@@ -350,7 +350,7 @@ const STAGE_COPY: Record<AcademyStage, Pick<AcademyView, "eyebrow" | "title" | "
   reef: {
     eyebrow: "Lesson 3 of 6 · Objective 3 of 3",
     title: "Reef and settle",
-    instruction: "Take one reef, keep attached flow, and settle heel below 22°.",
+    instruction: "Take one reef, keep the sail drawing, and settle heel below 22°.",
   },
   complete: {
     eyebrow: "Sailing skills complete",
