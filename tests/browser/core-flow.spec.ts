@@ -64,6 +64,7 @@ test("styled loading screen covers the app until its first rendered frame", asyn
   await expect(page.locator(".boot-spinner")).toBeVisible();
   await expect(loader).toHaveCSS("background-image", /linear-gradient/);
   await expect(page.locator(".boot-brand")).toHaveAttribute("src", "/brand/fairwinds-full.svg");
+  await page.locator(".boot-brand").evaluate((image) => (image as HTMLImageElement).decode());
   const loadingLogo = (await page.locator(".boot-brand").boundingBox())!;
   await expect(page.locator(".game-shell")).toHaveCSS("visibility", "hidden");
   const cdp = await context.newCDPSession(page);
